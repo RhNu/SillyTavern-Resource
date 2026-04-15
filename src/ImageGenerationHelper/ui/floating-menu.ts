@@ -26,8 +26,6 @@ type PositionPercent = {
   yPercent: number;
 };
 
-type LegacyViewportMode = 'desktop' | 'mobile';
-
 function getHostDocument() {
   try {
     return {
@@ -93,10 +91,6 @@ function fromPositionPercent(position: PositionPercent, viewportWidth: number, v
   );
 }
 
-function resolveLegacyViewportMode(win: Window): LegacyViewportMode {
-  return win.innerWidth <= LEGACY_MOBILE_BREAKPOINT ? 'mobile' : 'desktop';
-}
-
 function getDefaultPosition(win: Window): Position {
   const isMobile = win.innerWidth <= LEGACY_MOBILE_BREAKPOINT;
   const top = isMobile ? win.innerHeight - FLOATING_BUTTON_SIZE - 88 : Math.floor(win.innerHeight * 0.45);
@@ -127,12 +121,6 @@ function loadSavedPosition(win: Window): Position {
     if (isValidPositionPercent(floatingMenuConfig.position)) {
       return fromPositionPercent(floatingMenuConfig.position, win.innerWidth, win.innerHeight);
     }
-
-    const legacyMode = resolveLegacyViewportMode(win);
-    const legacySaved = floatingMenuConfig.positions?.[legacyMode];
-    if (legacySaved && typeof legacySaved.x === 'number' && typeof legacySaved.y === 'number') {
-      return clampPosition(legacySaved, win.innerWidth, win.innerHeight);
-    }
   } catch (_error) {
     return getDefaultPosition(win);
   }
@@ -144,7 +132,6 @@ function savePosition(win: Window, position: Position) {
   try {
     getImageGenerationStore().updateConfig(draft => {
       draft.ui.floatingMenu.position = toPositionPercent(position, win.innerWidth, win.innerHeight);
-      delete draft.ui.floatingMenu.positions;
     });
   } catch (_error) {
     return;

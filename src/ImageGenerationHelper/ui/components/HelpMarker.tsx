@@ -1,5 +1,5 @@
-import { createPortal } from 'react-dom';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 
 type Placement = 'top' | 'bottom';
 
@@ -8,6 +8,9 @@ type Props = {
 };
 
 const TOOLTIP_ARROW_LEFT_VAR = '--imggen-tooltip-arrow-left' as const;
+type TooltipStyle = CSSProperties & {
+  [TOOLTIP_ARROW_LEFT_VAR]?: string;
+};
 
 function resolveTeleportTarget(trigger: HTMLElement | null): HTMLElement | null {
   if (!trigger) {
@@ -32,7 +35,7 @@ export default function HelpMarker({ text }: Props) {
   const tooltipRef = useRef<HTMLSpanElement | null>(null);
   const [visible, setVisible] = useState(false);
   const [placement, setPlacement] = useState<Placement>('top');
-  const [tooltipStyle, setTooltipStyle] = useState<CSSProperties>({});
+  const [tooltipStyle, setTooltipStyle] = useState<TooltipStyle>({});
   const [teleportTarget, setTeleportTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {

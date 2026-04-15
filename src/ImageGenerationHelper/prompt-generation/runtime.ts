@@ -123,6 +123,21 @@ function previewText(text: string, limit = 200): string {
   return `${normalized.slice(0, limit)}...`;
 }
 
+function normalizePromptGenerationResponse(response: string | GenerateToolCallResult): string {
+  if (typeof response === 'string') {
+    return response;
+  }
+
+  if (response.tool_calls.length > 0) {
+    logWarn('提示词生成返回了 tool_calls，将仅使用文本内容继续解析', {
+      toolCallCount: response.tool_calls.length,
+      hasContent: response.content.trim().length > 0,
+    });
+  }
+
+  return response.content;
+}
+
 function createLoggedPromptGenerationError(
   message: string,
   options?: {
@@ -757,7 +772,7 @@ async function callPromptGenerator(
       apiurl: activeApiPreset.apiurl,
       key: activeApiPreset.key || undefined,
       model: activeApiPreset.model,
-      source: 'openai' as const,
+      source: 'openai',
       max_tokens: activeApiPreset.max_tokens,
       temperature: activeApiPreset.temperature,
       top_p: activeApiPreset.top_p,
@@ -791,16 +806,18 @@ async function callPromptGenerator(
       );
       throwIfRunCancelled(run);
 
+      const responseText = normalizePromptGenerationResponse(response);
+
       logInfo('提示词生成返回成功', {
         messageId: run.messageId,
         attempt,
         maxAttempts,
-        responseLength: response.length,
-        responsePreview: previewText(response, 400),
+        responseLength: responseText.length,
+        responsePreview: previewText(responseText, 400),
       });
 
       setPromptRunToastMessage(run, `已收到响应，正在解析结果 (${attempt}/${maxAttempts})...`);
-      const parsedResult = await run.guard.run('parse_response', () => parsePromptGenerationResult(response), {
+      const parsedResult = await run.guard.run('parse_response', () => parsePromptGenerationResult(responseText), {
         meta: {
           attempt,
           maxAttempts,
