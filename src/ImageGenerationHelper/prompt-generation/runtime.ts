@@ -20,7 +20,7 @@ import type { TaskCenter, TaskResultToast } from '../core/task-center';
 import { TaskStageGuard, TaskStageTimeoutError, type TaskStagePartial } from '../core/task-stage';
 import { showErrorToast, showInfoToast, showWarningToast } from '../core/toast';
 import { generateImageBlocks, queueAutomaticImageBlocks } from '../image-generation/runtime';
-import { BUILTIN_PROMPT_GENERATION_MESSAGES } from './defaults';
+import { BUILTIN_PROMPT_GENERATION_MESSAGES, MessageEntry } from './defaults';
 import {
   PROMPT_GENERATION_HISTORY_CONTEXT_TOKEN,
   PROMPT_GENERATION_LATEST_STORY_TOKEN,
@@ -556,10 +556,13 @@ function buildPromptGenerationMessages(
   latestParagraphs: string,
   historyContext: string,
   worldbookContext: string,
-): Array<{ role: 'system' | 'assistant' | 'user'; content: string }> {
+): MessageEntry[] {
   const templateText = buildResolvedPromptTemplate();
 
   return BUILTIN_PROMPT_GENERATION_MESSAGES.map(message => {
+    if (typeof message === 'string') {
+      return message;
+    }
     let content = message.content;
     content = replacePromptToken(content, PROMPT_GENERATION_HISTORY_CONTEXT_TOKEN, historyContext);
     content = replacePromptToken(content, PROMPT_GENERATION_WORLDBOOK_CONTEXT_TOKEN, worldbookContext);
@@ -749,12 +752,21 @@ async function callPromptGenerator(
     retryCount: store.config.independentApi.retryCount,
     retryDelaySeconds: store.config.independentApi.retryDelaySeconds,
     orderedPromptCount: prepared.orderedPrompts.length,
-    orderedPromptSummary: prepared.orderedPrompts.map((prompt, index) => ({
-      index,
-      role: prompt.role,
-      length: prompt.content.length,
-      preview: previewText(prompt.content, 120),
-    })),
+    orderedPromptSummary: prepared.orderedPrompts.map((prompt, index) => {
+      if (typeof prompt === 'string')
+        return {
+          index,
+          type: 'builtin',
+          name: prompt,
+        };
+      else
+        return {
+          index,
+          role: prompt.role,
+          length: prompt.content.length,
+          preview: previewText(prompt.content, 120),
+        };
+    }),
     api: {
       apiurl: activeApiPreset.apiurl,
       model: activeApiPreset.model,

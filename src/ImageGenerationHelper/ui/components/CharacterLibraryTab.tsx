@@ -8,12 +8,12 @@ import HelpMarker from './HelpMarker';
 
 type BindingType = 'character' | 'chat' | 'persona';
 
-const BINDING_ITEMS: Array<{
+const BINDING_ITEMS: {
   type: BindingType;
   label: string;
   bindActionLabel: string;
   unbindActionLabel: string;
-}> = [
+}[] = [
   {
     type: 'character',
     label: '角色卡',

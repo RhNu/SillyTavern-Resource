@@ -4,20 +4,11 @@ import { stripXmlComments } from '../core/blocks';
 export const PROMPT_GENERATION_RESPONSE_NAME = 'insert_image_prompts';
 export const PROMPT_GENERATION_RESPONSE_VERSION = 1;
 
-const IMAGE_GEN_REF_PATTERN = /\[\[ImageGenRef\b/i;
-
 export const PromptGenerationInsertionSchema = z
   .object({
     after_paragraph: z.number().int().positive(),
-    reasoning: z.string().trim().min(1, 'reasoning 不能为空').optional(),
-    prompt: z
-      .string()
-      .trim()
-      .min(1, 'prompt 不能为空')
-      .refine(
-        value => !IMAGE_GEN_REF_PATTERN.test(value),
-        'prompt 只能包含提示词正文，不能包含 [[ImageGenRef ...]] 锚点',
-      ),
+    reasoning: z.string().trim().optional(),
+    prompt: z.string().trim().min(1, '生成提示词不能为空'),
   })
   .strict();
 
