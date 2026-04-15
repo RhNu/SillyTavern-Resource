@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { createScriptIdDiv, teleportStyle } from '@util/script';
+import { createScriptIdDiv, ensureExtensionsMenuButton, teleportStyle } from '@util/script';
 import { SCRIPT_DISPLAY_NAME } from '../core/constants';
 import { showErrorToast } from '../core/toast';
 import SettingsPanel from './SettingsPanel';
@@ -17,36 +17,6 @@ let activePopup:
       $host: JQuery<HTMLDivElement>;
     }
   | undefined;
-
-function ensureExtensionsButton(parent$: JQueryStatic, onClick: () => void): boolean {
-  const menu = parent$('#extensionsMenu');
-  if (!menu.length) {
-    return false;
-  }
-
-  let container = parent$(`#${BUTTON_CONTAINER_ID}`);
-  if (!container.length) {
-    container = parent$(
-      `<div id="${BUTTON_CONTAINER_ID}" class="extension_container interactable" tabindex="0">
-        <div id="${BUTTON_ID}" class="list-group-item flex-container flexGap5 interactable" title="${SCRIPT_DISPLAY_NAME}" tabindex="0" role="listitem">
-          <div class="fa-fw fa-solid fa-images extensionsMenuExtensionButton"></div>
-          <span>${SCRIPT_DISPLAY_NAME}</span>
-        </div>
-      </div>`,
-    );
-    menu.append(container);
-  }
-
-  parent$(`#${BUTTON_ID}`)
-    .off('click.imggen-settings')
-    .on('click.imggen-settings', event => {
-      event.preventDefault();
-      event.stopPropagation();
-      onClick();
-    });
-
-  return true;
-}
 
 function cleanupActivePopup(): void {
   activePopup?.cleanup();
@@ -120,7 +90,18 @@ export function initializeSettingsPanelLauncher() {
   const { destroy } = teleportStyle();
 
   const tryInsert = (attempt = 0): void => {
-    if (ensureExtensionsButton($, openImageGenerationSettingsPopup)) {
+    if (
+      ensureExtensionsMenuButton({
+        parent$: $,
+        containerId: BUTTON_CONTAINER_ID,
+        buttonId: BUTTON_ID,
+        title: SCRIPT_DISPLAY_NAME,
+        label: SCRIPT_DISPLAY_NAME,
+        iconClass: 'fa-fw fa-solid fa-images',
+        clickNamespace: '.imggensettings',
+        onClick: openImageGenerationSettingsPopup,
+      })
+    ) {
       return;
     }
 

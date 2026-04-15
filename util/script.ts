@@ -35,6 +35,56 @@ export function createScriptIdDiv(): JQuery<HTMLDivElement> {
   return $('<div>').attr('script_id', getScriptId()) as JQuery<HTMLDivElement>;
 }
 
+export type EnsureExtensionsMenuButtonOptions = {
+  containerId: string;
+  buttonId: string;
+  title: string;
+  label: string;
+  iconClass: string;
+  onClick: () => void | Promise<void>;
+  parent$?: JQueryStatic;
+  clickNamespace?: string;
+};
+
+export function ensureExtensionsMenuButton({
+  containerId,
+  buttonId,
+  title,
+  label,
+  iconClass,
+  onClick,
+  parent$ = $,
+  clickNamespace = `.extensionsMenu${buttonId.replace(/[^a-zA-Z0-9]/g, '')}`,
+}: EnsureExtensionsMenuButtonOptions): boolean {
+  const menu = parent$('#extensionsMenu');
+  if (!menu.length) {
+    return false;
+  }
+
+  let container = parent$(`#${containerId}`);
+  if (!container.length) {
+    container = parent$(
+      `<div id="${containerId}" class="extension_container interactable" tabindex="0">
+        <div id="${buttonId}" class="list-group-item flex-container flexGap5 interactable" title="${title}" tabindex="0" role="listitem">
+          <div class="${iconClass} extensionsMenuExtensionButton"></div>
+          <span>${label}</span>
+        </div>
+      </div>`,
+    );
+    menu.append(container);
+  }
+
+  parent$(`#${buttonId}`)
+    .off(`click${clickNamespace}`)
+    .on(`click${clickNamespace}`, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      void onClick();
+    });
+
+  return true;
+}
+
 export function reloadOnChatChange(): EventOnReturn {
   let chat_id = SillyTavern.getCurrentChatId();
   return eventOn(tavern_events.CHAT_CHANGED, new_chat_id => {
