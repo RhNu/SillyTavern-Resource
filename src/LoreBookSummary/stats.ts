@@ -28,12 +28,7 @@ const normalizeEntryType = (entry: WorldbookEntry): EntryType => {
 const getTokenCount = async (text: string): Promise<number> => {
   if (!text) return 0;
   try {
-    if (typeof SillyTavern.getTokenCountAsync === 'function') {
-      return await SillyTavern.getTokenCountAsync(text);
-    }
-    if (typeof (SillyTavern as unknown as { getTokenCount?: (input: string) => number })?.getTokenCount === 'function') {
-      return (SillyTavern as unknown as { getTokenCount: (input: string) => number }).getTokenCount(text);
-    }
+    return await SillyTavern.getTokenCountAsync(text);
   } catch (error) {
     console.error('[WorldbookTokenStats] getTokenCount error:', error);
   }
@@ -42,25 +37,21 @@ const getTokenCount = async (text: string): Promise<number> => {
 
 const collectWorldbookSources = (): Map<string, WorldbookSource> => {
   const sources = new Map<string, WorldbookSource>();
-  if (typeof getCharWorldbookNames === 'function') {
-    const charWorldbooks = getCharWorldbookNames('current');
-    if (charWorldbooks?.primary) {
-      sources.set(charWorldbooks.primary, 'primary');
-    }
-    for (const name of charWorldbooks?.additional ?? []) {
-      if (!sources.has(name)) sources.set(name, 'additional');
-    }
+  const charWorldbooks = getCharWorldbookNames('current');
+  if (charWorldbooks.primary) {
+    sources.set(charWorldbooks.primary, 'primary');
   }
-  if (typeof getGlobalWorldbookNames === 'function') {
-    for (const name of getGlobalWorldbookNames()) {
-      if (!sources.has(name)) sources.set(name, 'global');
-    }
+  for (const name of charWorldbooks.additional) {
+    if (!sources.has(name)) sources.set(name, 'additional');
   }
-  if (typeof getChatWorldbookName === 'function') {
-    const chatWorldbook = getChatWorldbookName('current');
-    if (chatWorldbook && !sources.has(chatWorldbook)) {
-      sources.set(chatWorldbook, 'chat');
-    }
+
+  for (const name of getGlobalWorldbookNames()) {
+    if (!sources.has(name)) sources.set(name, 'global');
+  }
+
+  const chatWorldbook = getChatWorldbookName('current');
+  if (chatWorldbook && !sources.has(chatWorldbook)) {
+    sources.set(chatWorldbook, 'chat');
   }
   return sources;
 };
@@ -149,12 +140,6 @@ export const collectWorldbookTokenStats = async (options: CollectOptions = {}): 
 
   return stats;
 };
-
-export const isWorldbookApiReady = (): boolean =>
-  typeof getWorldbook === 'function' &&
-  typeof getCharWorldbookNames === 'function' &&
-  typeof getGlobalWorldbookNames === 'function' &&
-  typeof getChatWorldbookName === 'function';
 
 export const updateGlobalStats = (stats: WorldbookTokenStats): void => {
   (

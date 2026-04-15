@@ -1,11 +1,9 @@
 import { POPUP_CONTENT_ID, sourceLabels } from './constants';
-import { collectWorldbookTokenStats, isWorldbookApiReady, updateGlobalStats } from './stats';
+import { collectWorldbookTokenStats, updateGlobalStats } from './stats';
 import type { BookStats, WorldbookTokenStats } from './types';
 
 const toast = (type: 'info' | 'success' | 'warning' | 'error', message: string, title?: string): void => {
-  if (typeof toastr !== 'undefined' && typeof toastr[type] === 'function') {
-    toastr[type](message, title);
-  }
+  toastr[type](message, title);
 };
 
 const escapeHtml = (value: string): string =>
@@ -164,19 +162,6 @@ const runStatsAndRender = async ($content: JQuery<HTMLElement>): Promise<void> =
 };
 
 export const openPanel = async (): Promise<void> => {
-  if (!isWorldbookApiReady()) {
-    const message = '世界书 API 不可用，请确认酒馆助手已加载。';
-    console.warn('[WorldbookTokenStats] Worldbook API not available.');
-    toast('error', message, '世界书统计');
-    return;
-  }
-  if (typeof SillyTavern?.callGenericPopup !== 'function' || typeof SillyTavern?.POPUP_TYPE === 'undefined') {
-    const message = '弹窗接口不可用，请检查酒馆版本或控制台日志。';
-    console.warn('[WorldbookTokenStats] Popup API not available.');
-    toast('error', message, '世界书统计');
-    return;
-  }
-
   const $content = $(`<div id="${POPUP_CONTENT_ID}">${renderLoading()}</div>`);
   void SillyTavern.callGenericPopup($content, SillyTavern.POPUP_TYPE.DISPLAY, '世界书统计', {
     wide: true,
