@@ -141,7 +141,7 @@
 .imggen-float-menu {
   position: fixed;
   z-index: 2147483643;
-  width: min(78vw, 236px);
+  width: min(78vw, 180px);
   padding: 8px;
   border-radius: 12px;
   border: 1px solid var(--imggen-theme-border);
@@ -176,7 +176,7 @@
   width: 100%;
   min-height: 34px;
   border-radius: 9px;
-  border: 1px solid color-mix(in srgb, var(--imggen-theme-accent) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--imggen-theme-accent) 60%, transparent);
   background: color-mix(in srgb, var(--imggen-theme-accent) 14%, transparent);
   color: color-mix(in srgb, var(--imggen-theme-body) 96%, white);
   font-size: 12px;
@@ -254,7 +254,7 @@
   }
 
   .imggen-float-menu {
-    width: min(86vw, 260px);
+    width: min(86vw, 200px);
   }
 
   .imggen-float-action {

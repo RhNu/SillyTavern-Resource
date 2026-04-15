@@ -1,7 +1,7 @@
-import { IMAGE_GEN_ID_PREFIX } from './constants';
 import { PromptGenerationResponseSchema, type PromptGenerationResponse } from '../prompt-generation/protocol';
+import { IMAGE_GEN_ID_PREFIX } from './constants';
 
-export const IMGGEN_MESSAGE_VARIABLE_KEY = 'stcargo_imggen';
+export const IMGGEN_MESSAGE_VARIABLE_KEY = 'imghelper';
 export const IMGGEN_MESSAGE_VARIABLE_VERSION = 2;
 
 export type ImgGenMessageBlockState = {
@@ -29,13 +29,7 @@ function normalizeMediaUrls(value: unknown): string[] {
     return [];
   }
 
-  return [
-    ...new Set(
-      value
-        .map(url => (typeof url === 'string' ? url.trim() : ''))
-        .filter(Boolean),
-    ),
-  ];
+  return [...new Set(value.map(url => (typeof url === 'string' ? url.trim() : '')).filter(Boolean))];
 }
 
 function normalizeBlockId(value: unknown): string {
@@ -183,62 +177,53 @@ export function setImgGenBlocksInMessageVariables(
     .map(block => normalizeImgGenMessageBlockState(block.id, block, block.prompt))
     .filter(block => block.id);
 
-  return updateVariablesWith(
-    variables => {
-      const nextVariables = variables && typeof variables === 'object' ? { ...variables } : {};
-      const currentPayload = readStoredImgGenPayloadFromVariables(nextVariables);
-      const nextPayload: ImgGenMessageVariablePayload = {
-        blocks: buildStoredBlocks(normalizedBlocks),
-        promptGenerationResponse:
-          options && Object.prototype.hasOwnProperty.call(options, 'promptGenerationResponse')
-            ? options.promptGenerationResponse ?? undefined
-            : currentPayload.promptGenerationResponse,
-      };
+  return updateVariablesWith(variables => {
+    const nextVariables = variables && typeof variables === 'object' ? { ...variables } : {};
+    const currentPayload = readStoredImgGenPayloadFromVariables(nextVariables);
+    const nextPayload: ImgGenMessageVariablePayload = {
+      blocks: buildStoredBlocks(normalizedBlocks),
+      promptGenerationResponse:
+        options && Object.prototype.hasOwnProperty.call(options, 'promptGenerationResponse')
+          ? (options.promptGenerationResponse ?? undefined)
+          : currentPayload.promptGenerationResponse,
+    };
 
-      if (normalizedBlocks.length === 0 && !nextPayload.promptGenerationResponse) {
-        delete nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY];
-        return nextVariables;
-      }
-
-      nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY] = buildStoredImgGenPayload(nextPayload);
+    if (normalizedBlocks.length === 0 && !nextPayload.promptGenerationResponse) {
+      delete nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY];
       return nextVariables;
-    },
-    getMessageVariableOption(messageId),
-  );
+    }
+
+    nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY] = buildStoredImgGenPayload(nextPayload);
+    return nextVariables;
+  }, getMessageVariableOption(messageId));
 }
 
 export function setPromptGenerationResponseInMessageVariables(
   messageId: number,
   promptGenerationResponse: PromptGenerationResponse | null,
 ): Record<string, any> {
-  return updateVariablesWith(
-    variables => {
-      const nextVariables = variables && typeof variables === 'object' ? { ...variables } : {};
-      const currentPayload = readStoredImgGenPayloadFromVariables(nextVariables);
-      const nextPayload: ImgGenMessageVariablePayload = {
-        blocks: currentPayload.blocks,
-        promptGenerationResponse: promptGenerationResponse ?? undefined,
-      };
+  return updateVariablesWith(variables => {
+    const nextVariables = variables && typeof variables === 'object' ? { ...variables } : {};
+    const currentPayload = readStoredImgGenPayloadFromVariables(nextVariables);
+    const nextPayload: ImgGenMessageVariablePayload = {
+      blocks: currentPayload.blocks,
+      promptGenerationResponse: promptGenerationResponse ?? undefined,
+    };
 
-      if (Object.keys(nextPayload.blocks).length === 0 && !nextPayload.promptGenerationResponse) {
-        delete nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY];
-        return nextVariables;
-      }
-
-      nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY] = buildStoredImgGenPayload(nextPayload);
+    if (Object.keys(nextPayload.blocks).length === 0 && !nextPayload.promptGenerationResponse) {
+      delete nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY];
       return nextVariables;
-    },
-    getMessageVariableOption(messageId),
-  );
+    }
+
+    nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY] = buildStoredImgGenPayload(nextPayload);
+    return nextVariables;
+  }, getMessageVariableOption(messageId));
 }
 
 export function clearImgGenBlocksFromMessageVariables(messageId: number): Record<string, any> {
-  return updateVariablesWith(
-    variables => {
-      const nextVariables = variables && typeof variables === 'object' ? { ...variables } : {};
-      delete nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY];
-      return nextVariables;
-    },
-    getMessageVariableOption(messageId),
-  );
+  return updateVariablesWith(variables => {
+    const nextVariables = variables && typeof variables === 'object' ? { ...variables } : {};
+    delete nextVariables[IMGGEN_MESSAGE_VARIABLE_KEY];
+    return nextVariables;
+  }, getMessageVariableOption(messageId));
 }

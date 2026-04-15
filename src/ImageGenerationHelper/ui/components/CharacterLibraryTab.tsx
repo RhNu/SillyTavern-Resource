@@ -17,20 +17,20 @@ const BINDING_ITEMS: Array<{
   {
     type: 'character',
     label: '角色卡',
-    bindActionLabel: '绑定当前角色卡',
-    unbindActionLabel: '解绑角色卡',
+    bindActionLabel: '绑定当前',
+    unbindActionLabel: '解绑',
   },
   {
     type: 'chat',
     label: '聊天',
-    bindActionLabel: '绑定当前聊天',
-    unbindActionLabel: '解绑聊天',
+    bindActionLabel: '绑定当前',
+    unbindActionLabel: '解绑',
   },
   {
     type: 'persona',
     label: '用户人设',
-    bindActionLabel: '绑定当前用户人设',
-    unbindActionLabel: '解绑用户人设',
+    bindActionLabel: '绑定当前',
+    unbindActionLabel: '解绑',
   },
 ] as const;
 
@@ -85,7 +85,11 @@ function getCurrentBinding(type: BindingType, currentContext: BindingContext): B
 }
 
 function getBindUnavailableText(type: BindingType): string {
-  return type === 'character' ? '当前没有可绑定的角色卡' : type === 'chat' ? '当前没有可绑定的聊天' : '当前没有可绑定的用户人设';
+  return type === 'character'
+    ? '当前没有可绑定的角色卡'
+    : type === 'chat'
+      ? '当前没有可绑定的聊天'
+      : '当前没有可绑定的用户人设';
 }
 
 function getBindSuccessText(type: BindingType): string {
@@ -103,7 +107,9 @@ export default function CharacterLibraryTab() {
   const getCurrentContext = useImageGenerationStore(state => state.getCurrentContext);
   const getActiveCharacters = useImageGenerationStore(state => state.getActiveCharacters);
   const bindCharacterToCurrentCharacter = useImageGenerationStore(state => state.bindCharacterToCurrentCharacter);
-  const unbindCharacterFromCurrentCharacter = useImageGenerationStore(state => state.unbindCharacterFromCurrentCharacter);
+  const unbindCharacterFromCurrentCharacter = useImageGenerationStore(
+    state => state.unbindCharacterFromCurrentCharacter,
+  );
   const bindCharacterToCurrentChat = useImageGenerationStore(state => state.bindCharacterToCurrentChat);
   const unbindCharacterFromCurrentChat = useImageGenerationStore(state => state.unbindCharacterFromCurrentChat);
   const bindCharacterToCurrentPersona = useImageGenerationStore(state => state.bindCharacterToCurrentPersona);
@@ -148,7 +154,9 @@ export default function CharacterLibraryTab() {
   const toggleCharacterExpanded = (id: string) => {
     setExpandedCharacterIds(current => {
       const nextExpanded = !current[id];
-      return nextExpanded ? { ...current, [id]: true } : Object.fromEntries(Object.entries(current).filter(([key]) => key !== id));
+      return nextExpanded
+        ? { ...current, [id]: true }
+        : Object.fromEntries(Object.entries(current).filter(([key]) => key !== id));
     });
   };
 
@@ -213,11 +221,17 @@ export default function CharacterLibraryTab() {
         </div>
         <div className="imggen-binding-summary">
           <div className="imggen-context-list">
-            <span className={['imggen-context-chip', !currentContext.character ? 'is-disabled' : ''].filter(Boolean).join(' ')}>
+            <span
+              className={['imggen-context-chip', !currentContext.character ? 'is-disabled' : '']
+                .filter(Boolean)
+                .join(' ')}
+            >
               <span className="imggen-context-title">角色卡</span>
               <span>{currentContext.character?.label || '未识别'}</span>
             </span>
-            <span className={['imggen-context-chip', !currentContext.chat ? 'is-disabled' : ''].filter(Boolean).join(' ')}>
+            <span
+              className={['imggen-context-chip', !currentContext.chat ? 'is-disabled' : ''].filter(Boolean).join(' ')}
+            >
               <span className="imggen-context-title">聊天</span>
               <span>{currentContext.chat?.label || '未识别'}</span>
             </span>
@@ -259,7 +273,12 @@ export default function CharacterLibraryTab() {
           const detailsPanelId = `imggen-character-details-${character.id}`;
 
           return (
-            <div key={character.id} className={['imggen-card', 'imggen-character-card', expanded ? 'is-expanded' : ''].filter(Boolean).join(' ')}>
+            <div
+              key={character.id}
+              className={['imggen-card', 'imggen-character-card', expanded ? 'is-expanded' : '']
+                .filter(Boolean)
+                .join(' ')}
+            >
               <div className="imggen-character-header imggen-character-header-compact">
                 <label className="imggen-check imggen-character-toggle">
                   <input
@@ -291,7 +310,11 @@ export default function CharacterLibraryTab() {
                   <span className="imggen-collapse-copy imggen-character-summary">
                     <span className="imggen-character-meta">
                       <span className="imggen-character-name">{characterName}</span>
-                      <span className={['imggen-status', activeCharacterIds.has(character.id) ? '' : 'is-muted'].filter(Boolean).join(' ')}>
+                      <span
+                        className={['imggen-status', activeCharacterIds.has(character.id) ? '' : 'is-muted']
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
                         {activeCharacterIds.has(character.id) ? '当前生效' : '当前未生效'}
                       </span>
                     </span>
@@ -299,7 +322,10 @@ export default function CharacterLibraryTab() {
                       {BINDING_ITEMS.map(item => (
                         <span
                           key={item.type}
-                          className={['imggen-binding-chip', resolveBindingState(item.type, character.bindings[item.type], currentContext)]
+                          className={[
+                            'imggen-binding-chip',
+                            resolveBindingState(item.type, character.bindings[item.type], currentContext),
+                          ]
                             .filter(Boolean)
                             .join(' ')}
                         >
@@ -385,7 +411,8 @@ export default function CharacterLibraryTab() {
                                 <span>{formatBindingLabel(item.type, requiredBinding, currentContext)}</span>
                               </span>
                               <span className="imggen-inline-note">
-                                当前上下文：{currentBinding?.label || (item.type === 'persona' ? '当前不可用' : '未识别')}
+                                当前上下文：
+                                {currentBinding?.label || (item.type === 'persona' ? '当前不可用' : '未识别')}
                               </span>
                             </div>
                             <div className="imggen-binding-row-actions">

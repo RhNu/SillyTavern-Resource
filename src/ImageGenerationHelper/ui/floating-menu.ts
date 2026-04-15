@@ -1,11 +1,14 @@
 import { teleportStyle } from '@util/script';
+import { getImageGenerationStore } from '../core/store';
 import type { TaskCenter, TaskGroup } from '../core/task-center';
 import { getTaskGroupProgress, getTaskStatusLabel, pickFocusGroup } from '../core/task-progress';
 import './floating-menu.css';
 
 const ROOT_ID = 'imggen-floating-menu';
 const MENU_ID = `${ROOT_ID}-menu`;
-const POSITION_VARIABLE_KEY = 'imggen_floating_menu_position';
+const FLOATING_BUTTON_SIZE = 64;
+const VIEWPORT_PADDING = 8;
+const LEGACY_MOBILE_BREAKPOINT = 768;
 
 type FloatingMenuOptions = {
   taskCenter: TaskCenter;
@@ -17,6 +20,13 @@ type Position = {
   x: number;
   y: number;
 };
+
+type PositionPercent = {
+  xPercent: number;
+  yPercent: number;
+};
+
+type LegacyViewportMode = 'desktop' | 'mobile';
 
 function getHostDocument() {
   try {
@@ -32,39 +42,110 @@ function getHostDocument() {
   }
 }
 
-function clampPosition(position: Position, viewportWidth: number, viewportHeight: number): Position {
+function getPositionBounds(viewportWidth: number, viewportHeight: number) {
+  const minX = VIEWPORT_PADDING;
+  const minY = VIEWPORT_PADDING;
+  const maxX = Math.max(minX, viewportWidth - FLOATING_BUTTON_SIZE);
+  const maxY = Math.max(minY, viewportHeight - FLOATING_BUTTON_SIZE);
+
   return {
-    x: Math.max(8, Math.min(position.x, viewportWidth - 64)),
-    y: Math.max(8, Math.min(position.y, viewportHeight - 64)),
+    minX,
+    minY,
+    maxX,
+    maxY,
+    rangeX: Math.max(0, maxX - minX),
+    rangeY: Math.max(0, maxY - minY),
   };
+}
+
+function clampPosition(position: Position, viewportWidth: number, viewportHeight: number): Position {
+  const bounds = getPositionBounds(viewportWidth, viewportHeight);
+  return {
+    x: Math.max(bounds.minX, Math.min(position.x, bounds.maxX)),
+    y: Math.max(bounds.minY, Math.min(position.y, bounds.maxY)),
+  };
+}
+
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(value, 100));
+}
+
+function toPositionPercent(position: Position, viewportWidth: number, viewportHeight: number): PositionPercent {
+  const bounds = getPositionBounds(viewportWidth, viewportHeight);
+  const clamped = clampPosition(position, viewportWidth, viewportHeight);
+
+  return {
+    xPercent: bounds.rangeX <= 0 ? 100 : clampPercent(((clamped.x - bounds.minX) / bounds.rangeX) * 100),
+    yPercent: bounds.rangeY <= 0 ? 100 : clampPercent(((clamped.y - bounds.minY) / bounds.rangeY) * 100),
+  };
+}
+
+function fromPositionPercent(position: PositionPercent, viewportWidth: number, viewportHeight: number): Position {
+  const bounds = getPositionBounds(viewportWidth, viewportHeight);
+
+  return clampPosition(
+    {
+      x: bounds.minX + bounds.rangeX * (clampPercent(position.xPercent) / 100),
+      y: bounds.minY + bounds.rangeY * (clampPercent(position.yPercent) / 100),
+    },
+    viewportWidth,
+    viewportHeight,
+  );
+}
+
+function resolveLegacyViewportMode(win: Window): LegacyViewportMode {
+  return win.innerWidth <= LEGACY_MOBILE_BREAKPOINT ? 'mobile' : 'desktop';
+}
+
+function getDefaultPosition(win: Window): Position {
+  const isMobile = win.innerWidth <= LEGACY_MOBILE_BREAKPOINT;
+  const top = isMobile ? win.innerHeight - FLOATING_BUTTON_SIZE - 88 : Math.floor(win.innerHeight * 0.45);
+
+  return clampPosition(
+    {
+      x: win.innerWidth - 76,
+      y: top,
+    },
+    win.innerWidth,
+    win.innerHeight,
+  );
+}
+
+function isValidPositionPercent(value: unknown): value is PositionPercent {
+  return (
+    Boolean(value) &&
+    typeof value === 'object' &&
+    typeof (value as PositionPercent).xPercent === 'number' &&
+    typeof (value as PositionPercent).yPercent === 'number'
+  );
 }
 
 function loadSavedPosition(win: Window): Position {
-  const defaultPosition = {
-    x: win.innerWidth - 76,
-    y: Math.max(8, Math.floor(win.innerHeight * 0.45)),
-  };
-
   try {
-    const savedRaw = getVariables({ type: 'global' })?.[POSITION_VARIABLE_KEY];
-    const saved = typeof savedRaw === 'string' ? (JSON.parse(savedRaw) as Partial<Position>) : undefined;
-    if (!saved || typeof saved.x !== 'number' || typeof saved.y !== 'number') {
-      return clampPosition(defaultPosition, win.innerWidth, win.innerHeight);
+    const floatingMenuConfig = getImageGenerationStore().config.ui.floatingMenu;
+
+    if (isValidPositionPercent(floatingMenuConfig.position)) {
+      return fromPositionPercent(floatingMenuConfig.position, win.innerWidth, win.innerHeight);
     }
-    return clampPosition(saved as Position, win.innerWidth, win.innerHeight);
+
+    const legacyMode = resolveLegacyViewportMode(win);
+    const legacySaved = floatingMenuConfig.positions?.[legacyMode];
+    if (legacySaved && typeof legacySaved.x === 'number' && typeof legacySaved.y === 'number') {
+      return clampPosition(legacySaved, win.innerWidth, win.innerHeight);
+    }
   } catch (_error) {
-    return clampPosition(defaultPosition, win.innerWidth, win.innerHeight);
+    return getDefaultPosition(win);
   }
+
+  return getDefaultPosition(win);
 }
 
-function savePosition(position: Position) {
+function savePosition(win: Window, position: Position) {
   try {
-    insertOrAssignVariables(
-      {
-        [POSITION_VARIABLE_KEY]: JSON.stringify(position),
-      },
-      { type: 'global' },
-    );
+    getImageGenerationStore().updateConfig(draft => {
+      draft.ui.floatingMenu.position = toPositionPercent(position, win.innerWidth, win.innerHeight);
+      delete draft.ui.floatingMenu.positions;
+    });
   } catch (_error) {
     return;
   }
@@ -318,7 +399,7 @@ export function initializeFloatingMenu(options: FloatingMenuOptions) {
     dragging = false;
     root.classList.remove('is-dragging');
     if (dragMoved) {
-      savePosition(position);
+      savePosition(win, position);
     }
   };
 
@@ -391,7 +472,7 @@ export function initializeFloatingMenu(options: FloatingMenuOptions) {
   };
 
   const onResize = () => {
-    moveTo(position);
+    moveTo(loadSavedPosition(win));
   };
 
   const onManualClick = async (event: MouseEvent) => {

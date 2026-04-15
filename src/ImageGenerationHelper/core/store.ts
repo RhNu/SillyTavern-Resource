@@ -1,3 +1,7 @@
+import { klona } from 'klona';
+import _ from 'lodash';
+import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 import {
   createPromptCharacter,
   getCurrentBindingContext,
@@ -23,9 +27,6 @@ import {
   selectNamedItem,
   type NamedItems,
 } from './named-items';
-import { klona } from 'klona';
-import { create } from 'zustand';
-import { subscribeWithSelector } from 'zustand/middleware';
 
 export const NOVELAI_MODEL_OPTIONS = [
   { value: 'nai-diffusion-4-5-full', text: 'NAI Diffusion Anime V4.5 (Full)' },
@@ -84,6 +85,11 @@ export type ApiConfig = {
   presence_penalty: number;
 };
 
+export type FloatingMenuPositionPercent = {
+  xPercent: number;
+  yPercent: number;
+};
+
 export type ScriptConfig = {
   enabled: boolean;
   image: NovelAIImageConfig;
@@ -114,6 +120,11 @@ export type ScriptConfig = {
     filterTags: string;
     extractTags: string;
     presets: NamedItems<ApiConfig>;
+  };
+  ui: {
+    floatingMenu: {
+      position?: FloatingMenuPositionPercent;
+    };
   };
 };
 
@@ -240,6 +251,13 @@ const PromptCharacterSchema = z
   })
   .prefault({});
 
+const FloatingMenuPositionPercentSchema = z
+  .object({
+    xPercent: z.number().min(0).max(100).default(100),
+    yPercent: z.number().min(0).max(100).default(50),
+  })
+  .prefault({});
+
 const ScriptConfigSchema = z
   .object({
     enabled: z.boolean().default(true),
@@ -294,6 +312,15 @@ const ScriptConfigSchema = z
           .object({
             selected: z.string().default(DEFAULT_API_PRESET_NAME),
             items: z.record(z.string(), ApiConfigSchema).default({}),
+          })
+          .prefault({}),
+      })
+      .prefault({}),
+    ui: z
+      .object({
+        floatingMenu: z
+          .object({
+            position: FloatingMenuPositionPercentSchema,
           })
           .prefault({}),
       })
@@ -477,7 +504,7 @@ export const useImageGenerationStore = create<ImageGenerationStoreState>()(
         draft.prompt.templates = saveNamedItem(
           draft.prompt.templates,
           name,
-          content ?? (getSelectedNamedItem(draft.prompt.templates) ?? ''),
+          content ?? getSelectedNamedItem(draft.prompt.templates) ?? '',
         );
       });
     },
@@ -564,7 +591,8 @@ export const useImageGenerationStore = create<ImageGenerationStoreState>()(
 
     getCurrentContext: () => getCurrentBindingContext(),
 
-    getActiveCharacters: (context = getCurrentBindingContext()) => resolvePromptCharacters(get().config.prompt.characters, context),
+    getActiveCharacters: (context = getCurrentBindingContext()) =>
+      resolvePromptCharacters(get().config.prompt.characters, context),
 
     setCharacterBinding: (id, type, binding) => {
       const entry = get().config.prompt.characters.find(character => character.id === id);
