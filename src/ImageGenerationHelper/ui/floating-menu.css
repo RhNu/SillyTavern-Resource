@@ -1,0 +1,264 @@
+.imggen-float-root {
+  --imggen-progress: 0;
+  --imggen-theme-body: var(--SmartThemeBodyColor, #d8d8d8);
+  --imggen-theme-border: color-mix(in srgb, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12)) 66%, transparent);
+  --imggen-theme-accent: var(--SmartThemeQuoteColor, #6b7cff);
+  --imggen-theme-surface: color-mix(
+    in srgb,
+    var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.05)) 58%,
+    rgba(12, 18, 28, 0.9)
+  );
+  position: fixed;
+  z-index: 2147483644;
+  width: 56px;
+  height: 56px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.imggen-float-root.is-dragging {
+  transition: none;
+}
+
+.imggen-float-trigger {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  padding: 4px;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--imggen-theme-body) 95%, white);
+}
+
+.imggen-float-trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--imggen-theme-accent) 70%, white);
+  outline-offset: 2px;
+}
+
+.imggen-float-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: conic-gradient(
+    from -90deg,
+    color-mix(in srgb, var(--imggen-theme-accent) 90%, white) calc(var(--imggen-progress) * 1%),
+    color-mix(in srgb, var(--imggen-theme-accent) 24%, transparent) 0
+  );
+  box-shadow: 0 2px 18px rgba(0, 0, 0, 0.32);
+  transition: background 0.2s ease;
+}
+
+.imggen-float-ring::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 14px;
+  border: 1px solid var(--imggen-theme-border);
+  background: var(--imggen-theme-surface);
+}
+
+.imggen-float-root.is-indeterminate .imggen-float-ring {
+  animation: imggen-float-ring-spin 1.1s linear infinite;
+}
+
+@keyframes imggen-float-ring-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.imggen-float-core {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.imggen-float-icon {
+  transition: font-size 0.15s ease;
+}
+
+.imggen-float-percent {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.imggen-float-root.is-idle .imggen-float-icon {
+  font-size: 18px;
+}
+
+.imggen-float-root.is-idle .imggen-float-percent {
+  display: none;
+}
+
+.imggen-float-root:not(.is-idle) .imggen-float-icon {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.imggen-float-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--imggen-theme-accent) 72%, white);
+  color: color-mix(in srgb, var(--imggen-theme-body) 30%, black);
+  font-size: 10px;
+  font-weight: 800;
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.imggen-float-badge.has-count {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.imggen-float-menu {
+  position: fixed;
+  z-index: 2147483643;
+  width: min(78vw, 236px);
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--imggen-theme-border);
+  background: var(--imggen-theme-surface);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  transform: scale(0.96);
+  transform-origin: 50% 50%;
+  pointer-events: none;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.imggen-float-menu.is-open {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.imggen-float-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.imggen-float-action {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--imggen-theme-accent) 34%, transparent);
+  background: color-mix(in srgb, var(--imggen-theme-accent) 14%, transparent);
+  color: color-mix(in srgb, var(--imggen-theme-body) 96%, white);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.imggen-float-action:hover {
+  border-color: color-mix(in srgb, var(--imggen-theme-accent) 56%, transparent);
+  background: color-mix(in srgb, var(--imggen-theme-accent) 21%, transparent);
+}
+
+.imggen-float-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.imggen-float-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--imggen-theme-border) 80%, transparent);
+  background: color-mix(in srgb, var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.05)) 32%, transparent);
+}
+
+.imggen-float-meta__status {
+  flex: 0 0 auto;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--imggen-theme-body) 95%, white);
+  background: color-mix(in srgb, var(--imggen-theme-accent) 22%, transparent);
+}
+
+.imggen-float-meta__status.is-cancelling {
+  background: color-mix(in srgb, #fcb54f 34%, transparent);
+  color: #fff1d7;
+}
+
+.imggen-float-meta__status.is-failed {
+  background: color-mix(in srgb, #e56b6b 34%, transparent);
+  color: #ffe9e9;
+}
+
+.imggen-float-meta__text {
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--imggen-theme-body) 84%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .imggen-float-root {
+    width: 58px;
+    height: 58px;
+  }
+
+  .imggen-float-trigger {
+    width: 58px;
+    height: 58px;
+  }
+
+  .imggen-float-menu {
+    width: min(86vw, 260px);
+  }
+
+  .imggen-float-action {
+    min-height: 42px;
+    font-size: 13px;
+  }
+}

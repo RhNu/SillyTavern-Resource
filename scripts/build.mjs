@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { minify as terserMinify } from 'terser';
 import { build } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
@@ -163,6 +164,25 @@ const resolveAlias = [
   },
 ];
 
+const terserOptions = {
+  compress: {
+    ecma: 2020,
+    module: true,
+    toplevel: true,
+    passes: 3,
+  },
+  mangle: {
+    module: true,
+    toplevel: true,
+  },
+  format: {
+    ecma: 2020,
+    comments: false,
+    beautify: false,
+    preserve_annotations: false,
+  },
+};
+
 /** @typedef {'script' | 'frontend'} ProjectKind */
 
 /**
@@ -318,17 +338,7 @@ async function buildScriptProject(project) {
       emptyOutDir: false,
       sourcemap: mode === 'development',
       minify: isProduction ? 'terser' : false,
-      terserOptions: {
-        compress: {
-          module: true,
-          passes: 2,
-        },
-        mangle: true,
-        format: {
-          comments: false,
-          beautify: false,
-        },
-      },
+      terserOptions,
       cssCodeSplit: false,
       lib: {
         entry: project.entryFile,
@@ -414,6 +424,29 @@ function normalizeScriptProjectRuntime(project) {
 /**
  * @param {Project} project
  */
+async function finalMinifyScriptProject(project) {
+  if (!isProduction) {
+    return;
+  }
+
+  const entryFile = path.join(project.outputDir, 'index.js');
+  if (!fs.existsSync(entryFile)) {
+    throw new Error(`[build] Missing script entry output for final minify: '${project.relativeDir || '.'}'.`);
+  }
+
+  const source = fs.readFileSync(entryFile, 'utf8');
+  const result = await terserMinify(source, terserOptions);
+  if (!result.code) {
+    throw new Error(`[build] Final Terser pass produced empty output: '${project.relativeDir || '.'}'.`);
+  }
+
+  const stripped = result.code.replaceAll(/\/\*[@#]__PURE__\*\/\s*/g, '');
+  fs.writeFileSync(entryFile, stripped, 'utf8');
+}
+
+/**
+ * @param {Project} project
+ */
 async function buildFrontendProject(project) {
   await build({
     configFile: false,
@@ -434,17 +467,7 @@ async function buildFrontendProject(project) {
       emptyOutDir: false,
       sourcemap: false,
       minify: isProduction ? 'terser' : false,
-      terserOptions: {
-        compress: {
-          module: true,
-          passes: 2,
-        },
-        mangle: true,
-        format: {
-          comments: false,
-          beautify: false,
-        },
-      },
+      terserOptions,
       cssCodeSplit: false,
       assetsInlineLimit: Number.MAX_SAFE_INTEGER,
       rollupOptions: {
@@ -508,6 +531,7 @@ async function main() {
       await buildScriptProject(project);
       normalizeScriptProjectRuntime(project);
       inlineScriptProjectCss(project);
+      await finalMinifyScriptProject(project);
     }
 
     removeEmptyDirectories(project.outputDir);
