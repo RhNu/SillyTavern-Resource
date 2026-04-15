@@ -1,0 +1,30 @@
+.StreamingMessage__segments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.StreamingMessage__segment {
+  position: relative;
+}
+
+.StreamingMessage__segment.is-hidden {
+  cursor: pointer;
+}
+
+.StreamingMessage__segmentContent.is-blurred {
+  filter: blur(6px);
+}
+
+.StreamingMessage__segmentHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--SmartThemeBodyColor);
+  font-size: 0.9em;
+  user-select: none;
+  pointer-events: none;
+}

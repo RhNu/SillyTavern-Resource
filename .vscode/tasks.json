@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "构建源代码",
+      "type": "shell",
+      "command": "pnpm",
+      "args": [
+        "build:dev"
+      ],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true,
+        "revealProblems": "never"
+      }
+    },
+    {
+      "label": "开始任务",
+      "dependsOn": [
+        "构建源代码",
+      ]
+    },
+    {
+      "label": "结束任务",
+      "command": "echo ${input:terminate}",
+      "type": "shell"
+    },
+  ],
+  "inputs": [
+    {
+      "id": "terminate",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "terminateAll"
+    }
+  ]
+}
