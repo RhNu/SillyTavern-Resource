@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { ExtensionSettingDrawer } from '@util/components/extension-setting-drawer';
+import { useState } from 'react';
 import type { NotifierRuntime } from './runtime';
 import { useNotifierStore } from './store';
 
@@ -161,7 +161,7 @@ export default function SettingsPanel({ runtime }: Props) {
           <div className="notifier-panel-head">
             <div>
               <div className="notifier-panel-title">快捷入口</div>
-              <p className="notifier-copy">把后台常驻的启停按钮同步到二维码区域，方便在常用位置直接切换。</p>
+              <p className="notifier-copy">把后台常驻的启停按钮同步到QR区域，方便在常用位置直接切换。</p>
             </div>
           </div>
 
@@ -171,7 +171,7 @@ export default function SettingsPanel({ runtime }: Props) {
               type="checkbox"
               onChange={event => setShowQrButton(event.currentTarget.checked)}
             />
-            <span>在二维码区域显示启停按钮</span>
+            <span>在QR区域显示启停按钮</span>
           </label>
 
           <p className="notifier-hint">按钮状态会跟随真实运行状态切换，不需要手动维护。</p>
