@@ -1,35 +1,29 @@
-import {
-  QR_BUTTON_START,
-  QR_BUTTON_STOP,
-  SCRIPT_DISPLAY_NAME,
-  SILENT_AUDIO_URL,
-  SILENT_VIDEO_URL,
-} from './constants';
-import type { KeepAliveMode } from './store';
+import { QR_BUTTON_START, QR_BUTTON_STOP, SCRIPT_DISPLAY_NAME, SILENT_AUDIO_URL } from './constants';
 
 type KeepAliveControllerOptions = {
-  getMode: () => KeepAliveMode;
   onActiveChange: (active: boolean) => void;
-  onStopRequest: () => void;
+  onStartingChange: (starting: boolean) => void;
 };
 
-type DisposableUnit = {
-  start: () => void;
-  resume: () => void;
-  stop: () => void;
+type StartOptions = {
+  userInitiated?: boolean;
 };
 
-type ToggleOption = {
-  hidden?: boolean;
-  minimized?: boolean;
-};
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
 
 function getHostDocument() {
   return window.parent.document;
 }
 
-function getHostJQuery(): JQueryStatic {
-  return ((window.parent as Window & typeof globalThis & { jQuery?: JQueryStatic }).jQuery ?? $) as JQueryStatic;
+function getInteractionDocuments() {
+  const documents = [document];
+  const hostDocument = getHostDocument();
+  if (hostDocument !== document) {
+    documents.push(hostDocument);
+  }
+  return documents;
 }
 
 function createInteractionGate(onUnlocked: () => void) {
@@ -52,9 +46,10 @@ function createInteractionGate(onUnlocked: () => void) {
     }
 
     armed = true;
-    const hostDocument = getHostDocument();
-    hostDocument.addEventListener('click', handleUnlock, { once: true, capture: true });
-    hostDocument.addEventListener('touchstart', handleUnlock, { once: true, capture: true });
+    for (const targetDocument of getInteractionDocuments()) {
+      targetDocument.addEventListener('click', handleUnlock, { once: true, capture: true });
+      targetDocument.addEventListener('touchstart', handleUnlock, { once: true, capture: true });
+    }
   };
 
   const disarm = () => {
@@ -63,14 +58,23 @@ function createInteractionGate(onUnlocked: () => void) {
     }
 
     armed = false;
-    const hostDocument = getHostDocument();
-    hostDocument.removeEventListener('click', handleUnlock, true);
-    hostDocument.removeEventListener('touchstart', handleUnlock, true);
+    for (const targetDocument of getInteractionDocuments()) {
+      targetDocument.removeEventListener('click', handleUnlock, true);
+      targetDocument.removeEventListener('touchstart', handleUnlock, true);
+    }
   };
 
   return {
     arm,
     disarm,
+    unlock() {
+      if (unlocked) {
+        return;
+      }
+
+      unlocked = true;
+      disarm();
+    },
     isUnlocked() {
       return unlocked;
     },
@@ -132,6 +136,7 @@ function createHeartbeatWorker(onPulse: () => void) {
           }
         };
       `;
+
       workerUrl = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
       worker = new Worker(workerUrl);
       worker.onmessage = () => onPulse();
@@ -187,21 +192,85 @@ function createBroadcastPulse(onPulse: () => void) {
   };
 }
 
-function createAudioPresence(): DisposableUnit {
+function createAudioPresence() {
   let context: AudioContext | null = null;
   let constantSource: ConstantSourceNode | null = null;
   let gainNode: GainNode | null = null;
   let audioElement: HTMLAudioElement | null = null;
+  let shouldKeepPlaying = false;
+  let playRequestId = 0;
+  let retryTimer: number | null = null;
 
-  const keepPlaying = () => {
+  const clearRetryTimer = () => {
+    if (retryTimer !== null) {
+      window.clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  };
+
+  const ensureNodes = () => {
+    if (!context) {
+      try {
+        context = new AudioContext();
+        constantSource = context.createConstantSource();
+        gainNode = context.createGain();
+        constantSource.offset.value = 1;
+        gainNode.gain.value = 0.0001;
+        constantSource.connect(gainNode);
+        gainNode.connect(context.destination);
+        constantSource.start();
+      } catch (error) {
+        console.warn(`[${SCRIPT_DISPLAY_NAME}] 常驻音频上下文启动失败`, error);
+      }
+    }
+
     if (!audioElement) {
+      audioElement = new Audio(SILENT_AUDIO_URL);
+      audioElement.loop = true;
+      audioElement.preload = 'auto';
+      audioElement.volume = 0.001;
+      audioElement.addEventListener('pause', handlePlaybackInterrupted);
+      audioElement.addEventListener('ended', handlePlaybackInterrupted);
+    }
+  };
+
+  const playAudio = async (): Promise<boolean> => {
+    if (!audioElement || !shouldKeepPlaying) {
+      return false;
+    }
+
+    const requestId = ++playRequestId;
+
+    try {
+      await audioElement.play();
+      return requestId === playRequestId && shouldKeepPlaying && !audioElement.paused;
+    } catch (error) {
+      if (requestId !== playRequestId || !shouldKeepPlaying) {
+        return false;
+      }
+
+      if (isAbortError(error)) {
+        return new Promise(resolve => {
+          clearRetryTimer();
+          retryTimer = window.setTimeout(() => {
+            retryTimer = null;
+            void playAudio().then(resolve);
+          }, 0);
+        });
+      }
+
+      console.warn(`[${SCRIPT_DISPLAY_NAME}] 静音音频恢复失败`, error);
+      return false;
+    }
+  };
+
+  function handlePlaybackInterrupted() {
+    if (!shouldKeepPlaying) {
       return;
     }
 
-    void audioElement.play().catch(error => {
-      console.warn(`[${SCRIPT_DISPLAY_NAME}] 静音音频恢复失败`, error);
-    });
-  };
+    void playAudio();
+  }
 
   const syncMediaSession = () => {
     if (!('mediaSession' in navigator)) {
@@ -212,8 +281,8 @@ function createAudioPresence(): DisposableUnit {
       title: '后台常驻运行中',
       artist: SCRIPT_DISPLAY_NAME,
     });
-    navigator.mediaSession.setActionHandler('pause', keepPlaying);
-    navigator.mediaSession.setActionHandler('play', keepPlaying);
+    navigator.mediaSession.setActionHandler('pause', handlePlaybackInterrupted);
+    navigator.mediaSession.setActionHandler('play', handlePlaybackInterrupted);
   };
 
   const clearMediaSession = () => {
@@ -227,51 +296,38 @@ function createAudioPresence(): DisposableUnit {
   };
 
   return {
-    start() {
-      if (!context) {
-        try {
-          context = new AudioContext();
-          constantSource = context.createConstantSource();
-          gainNode = context.createGain();
-          constantSource.offset.value = 1;
-          gainNode.gain.value = 0.0001;
-          constantSource.connect(gainNode);
-          gainNode.connect(context.destination);
-          constantSource.start();
-        } catch (error) {
-          console.warn(`[${SCRIPT_DISPLAY_NAME}] 常驻音频上下文启动失败`, error);
-        }
-      }
-
-      if (!audioElement) {
-        audioElement = new Audio(SILENT_AUDIO_URL);
-        audioElement.loop = true;
-        audioElement.preload = 'auto';
-        audioElement.volume = 0.001;
-        audioElement.addEventListener('pause', keepPlaying);
-        audioElement.addEventListener('ended', keepPlaying);
-      }
-
+    async start() {
+      shouldKeepPlaying = true;
+      ensureNodes();
       syncMediaSession();
-      keepPlaying();
+      return playAudio();
     },
 
-    resume() {
+    async resume() {
+      shouldKeepPlaying = true;
+
       if (context?.state === 'suspended') {
         void context.resume().catch(error => {
           console.warn(`[${SCRIPT_DISPLAY_NAME}] 恢复音频上下文失败`, error);
         });
       }
 
-      if (audioElement?.paused) {
-        keepPlaying();
+      if (!audioElement || audioElement.paused) {
+        ensureNodes();
+        return playAudio();
       }
+
+      return true;
     },
 
     stop() {
+      shouldKeepPlaying = false;
+      playRequestId += 1;
+      clearRetryTimer();
+
       if (audioElement) {
-        audioElement.removeEventListener('pause', keepPlaying);
-        audioElement.removeEventListener('ended', keepPlaying);
+        audioElement.removeEventListener('pause', handlePlaybackInterrupted);
+        audioElement.removeEventListener('ended', handlePlaybackInterrupted);
         audioElement.pause();
         audioElement.src = '';
         audioElement.load();
@@ -283,6 +339,7 @@ function createAudioPresence(): DisposableUnit {
       } catch {
         // noop
       }
+
       constantSource?.disconnect();
       gainNode?.disconnect();
       constantSource = null;
@@ -294,189 +351,7 @@ function createAudioPresence(): DisposableUnit {
   };
 }
 
-function createPipPresence(onStopRequest: () => void): DisposableUnit {
-  let shell: HTMLDivElement | null = null;
-  let chip: HTMLButtonElement | null = null;
-  let video: HTMLVideoElement | null = null;
-
-  const setVisibleState = ({ hidden = false, minimized = false }: ToggleOption) => {
-    if (shell) {
-      shell.hidden = hidden || minimized;
-    }
-    if (chip) {
-      chip.hidden = hidden || !minimized;
-    }
-  };
-
-  const togglePictureInPicture = async () => {
-    const hostDocument = getHostDocument() as Document & {
-      pictureInPictureElement?: Element | null;
-      exitPictureInPicture?: () => Promise<void>;
-    };
-    if (!video) {
-      return;
-    }
-
-    try {
-      if (hostDocument.pictureInPictureElement === video) {
-        await hostDocument.exitPictureInPicture?.();
-        return;
-      }
-
-      video.muted = false;
-      video.volume = 0.001;
-      if (video.paused) {
-        await video.play();
-      }
-      if (typeof video.requestPictureInPicture === 'function') {
-        await video.requestPictureInPicture();
-      }
-    } catch (error) {
-      console.warn(`[${SCRIPT_DISPLAY_NAME}] PiP 切换失败`, error);
-    }
-  };
-
-  const ensureUi = () => {
-    if (shell && chip && video) {
-      return;
-    }
-
-    const hostDocument = getHostDocument();
-    getHostJQuery()('#notifier-pip-shell, #notifier-pip-chip').remove();
-
-    shell = hostDocument.createElement('div');
-    shell.id = 'notifier-pip-shell';
-    shell.className = 'notifier-pip-shell';
-
-    const header = hostDocument.createElement('div');
-    header.className = 'notifier-pip-header';
-    header.innerHTML = `
-      <div class="notifier-pip-title">
-        <span class="fa-solid fa-wave-square"></span>
-        <span>后台常驻</span>
-      </div>
-      <div class="notifier-pip-actions">
-        <button type="button" class="menu_button notifier-pip-action" data-action="pip">PiP</button>
-        <button type="button" class="menu_button notifier-pip-action" data-action="minimize">收起</button>
-        <button type="button" class="menu_button notifier-pip-action is-danger" data-action="stop">停止</button>
-      </div>
-    `;
-
-    const body = hostDocument.createElement('div');
-    body.className = 'notifier-pip-body';
-    body.innerHTML = '<p>视频常驻不会抢占音乐播放，适合移动端待机。</p>';
-
-    video = hostDocument.createElement('video');
-    video.className = 'notifier-pip-video';
-    video.loop = true;
-    video.autoplay = true;
-    video.playsInline = true;
-    video.preload = 'auto';
-    video.src = SILENT_VIDEO_URL;
-
-    body.appendChild(video);
-    shell.append(header, body);
-
-    chip = hostDocument.createElement('button');
-    chip.id = 'notifier-pip-chip';
-    chip.type = 'button';
-    chip.hidden = true;
-    chip.className = 'notifier-pip-chip';
-    chip.innerHTML = '<span class="fa-solid fa-wave-square"></span><span>常驻中</span>';
-
-    header.querySelector<HTMLElement>('[data-action="pip"]')?.addEventListener('click', () => {
-      void togglePictureInPicture();
-    });
-    header.querySelector<HTMLElement>('[data-action="minimize"]')?.addEventListener('click', () => {
-      setVisibleState({ minimized: true });
-    });
-    header.querySelector<HTMLElement>('[data-action="stop"]')?.addEventListener('click', () => {
-      onStopRequest();
-    });
-    chip.addEventListener('click', () => {
-      setVisibleState({ minimized: false });
-    });
-
-    hostDocument.body.append(shell, chip);
-
-    try {
-      const host$ = getHostJQuery();
-      (host$(shell) as JQuery<HTMLElement> & {
-        draggable?: (options: Record<string, unknown>) => void;
-        resizable?: (options: Record<string, unknown>) => void;
-      }).draggable?.({
-        handle: '.notifier-pip-header',
-        containment: 'window',
-      });
-      (host$(shell) as JQuery<HTMLElement> & {
-        resizable?: (options: Record<string, unknown>) => void;
-      }).resizable?.({
-        handles: 'se',
-        minWidth: 220,
-        minHeight: 180,
-      });
-    } catch (error) {
-      console.warn(`[${SCRIPT_DISPLAY_NAME}] PiP 悬浮窗拖拽初始化失败`, error);
-    }
-  };
-
-  const ensurePlayback = () => {
-    if (!video) {
-      return;
-    }
-
-    if (!video.src) {
-      video.src = SILENT_VIDEO_URL;
-    }
-    video.muted = false;
-    video.volume = 0.001;
-    void video.play().catch(error => {
-      console.warn(`[${SCRIPT_DISPLAY_NAME}] PiP 视频恢复失败`, error);
-    });
-  };
-
-  return {
-    start() {
-      ensureUi();
-      setVisibleState({ minimized: false });
-      ensurePlayback();
-    },
-
-    resume() {
-      if (!video) {
-        this.start();
-        return;
-      }
-      if (video.paused) {
-        ensurePlayback();
-      }
-    },
-
-    stop() {
-      const hostDocument = getHostDocument() as Document & {
-        pictureInPictureElement?: Element | null;
-        exitPictureInPicture?: () => Promise<void>;
-      };
-
-      if (video) {
-        if (hostDocument.pictureInPictureElement === video) {
-          void hostDocument.exitPictureInPicture?.().catch(() => undefined);
-        }
-        video.pause();
-        video.removeAttribute('src');
-        video.load();
-      }
-
-      shell?.remove();
-      chip?.remove();
-      shell = null;
-      chip = null;
-      video = null;
-    },
-  };
-}
-
-export function syncQrButtons(showQrButton: boolean, active: boolean) {
+export function syncQrButtons(showQrButton: boolean, enabled: boolean) {
   void updateScriptButtonsWith(buttons => {
     const nextButtons = buttons.filter(button => button.name !== QR_BUTTON_START && button.name !== QR_BUTTON_STOP);
     if (!showQrButton) {
@@ -485,8 +360,8 @@ export function syncQrButtons(showQrButton: boolean, active: boolean) {
 
     return [
       ...nextButtons,
-      { name: QR_BUTTON_START, visible: !active },
-      { name: QR_BUTTON_STOP, visible: active },
+      { name: QR_BUTTON_START, visible: !enabled },
+      { name: QR_BUTTON_STOP, visible: enabled },
     ];
   });
 }
@@ -505,60 +380,127 @@ export function bindQrButtonEvents(onStart: () => void, onStop: () => void) {
 
 export function createKeepAliveController(options: KeepAliveControllerOptions) {
   const audioPresence = createAudioPresence();
-  const pipPresence = createPipPresence(options.onStopRequest);
   const interactionGate = createInteractionGate(() => {
-    if (active) {
-      startTransport();
+    if (!enabled) {
+      return;
     }
+
+    void startTransport();
   });
   const webLock = createWebLockLease();
   const heartbeatWorker = createHeartbeatWorker(() => {
-    resumeTransport();
+    void resumeTransport();
   });
   const broadcastPulse = createBroadcastPulse(() => {
     heartbeatWorker.start();
-    resumeTransport();
+    void resumeTransport();
   });
 
-  let active = false;
+  let enabled = false;
+  let transportActive = false;
+  let transportStarting = false;
+  let transportAttemptId = 0;
+  let startPromise: Promise<boolean> | null = null;
+
+  const setTransportActive = (active: boolean) => {
+    if (transportActive === active) {
+      return;
+    }
+
+    transportActive = active;
+    options.onActiveChange(active);
+  };
+
+  const setTransportStarting = (starting: boolean) => {
+    if (transportStarting === starting) {
+      return;
+    }
+
+    transportStarting = starting;
+    options.onStartingChange(starting);
+  };
 
   const stopTransport = () => {
+    transportAttemptId += 1;
+    startPromise = null;
+    setTransportStarting(false);
     audioPresence.stop();
-    pipPresence.stop();
+    setTransportActive(false);
   };
 
-  const startTransport = () => {
-    stopTransport();
-    if (options.getMode() === 'pip') {
-      pipPresence.start();
-      return;
+  const runTransportAttempt = (runner: () => Promise<boolean>) => {
+    if (startPromise) {
+      return startPromise;
     }
 
-    audioPresence.start();
+    const promise = runner().finally(() => {
+      if (startPromise === promise) {
+        startPromise = null;
+      }
+    });
+    startPromise = promise;
+    return promise;
   };
 
-  const resumeTransport = () => {
-    if (!active || !interactionGate.isUnlocked()) {
-      return;
-    }
+  const startTransport = () =>
+    runTransportAttempt(async () => {
+      if (!enabled) {
+        return false;
+      }
 
-    if (options.getMode() === 'pip') {
-      pipPresence.resume();
-      return;
-    }
+      const attemptId = ++transportAttemptId;
+      setTransportStarting(true);
 
-    audioPresence.resume();
-  };
+      try {
+        const started = await audioPresence.start();
+        if (!enabled || attemptId !== transportAttemptId) {
+          return false;
+        }
+
+        setTransportActive(started);
+        return started;
+      } finally {
+        if (attemptId === transportAttemptId) {
+          setTransportStarting(false);
+        }
+      }
+    });
+
+  const resumeTransport = () =>
+    runTransportAttempt(async () => {
+      if (!enabled || !interactionGate.isUnlocked()) {
+        return false;
+      }
+
+      const attemptId = ++transportAttemptId;
+      setTransportStarting(true);
+
+      try {
+        const started = await audioPresence.resume();
+        if (!enabled || attemptId !== transportAttemptId) {
+          return false;
+        }
+
+        setTransportActive(started);
+        return started;
+      } finally {
+        if (attemptId === transportAttemptId) {
+          setTransportStarting(false);
+        }
+      }
+    });
 
   const handleResume = () => {
-    if (!active) {
+    if (!enabled) {
       return;
     }
 
     webLock.acquire();
     heartbeatWorker.start();
     broadcastPulse.start();
-    resumeTransport();
+    if (interactionGate.isUnlocked()) {
+      void resumeTransport();
+    }
   };
 
   const handleVisibilityChange = () => {
@@ -568,39 +510,48 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
   };
 
   return {
-    isActive() {
-      return active;
+    isEnabled() {
+      return enabled;
     },
 
-    start() {
-      if (active) {
-        return;
-      }
+    isActive() {
+      return transportActive;
+    },
 
-      active = true;
-      options.onActiveChange(true);
+    async start(startOptions: StartOptions = {}) {
+      const wasEnabled = enabled;
+      enabled = true;
+
       webLock.acquire();
       heartbeatWorker.start();
       broadcastPulse.start();
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      document.addEventListener('resume', handleResume as EventListener);
-
-      if (interactionGate.isUnlocked()) {
-        startTransport();
-      } else {
-        interactionGate.arm();
+      if (!wasEnabled) {
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        document.addEventListener('resume', handleResume as EventListener);
       }
 
-      console.info(`[${SCRIPT_DISPLAY_NAME}] 后台常驻已开启（${options.getMode()}）`);
+      if (startOptions.userInitiated) {
+        interactionGate.unlock();
+      }
+
+      if (!wasEnabled) {
+        console.info(`[${SCRIPT_DISPLAY_NAME}] 后台常驻已开启`);
+      }
+
+      if (interactionGate.isUnlocked()) {
+        return startTransport();
+      }
+
+      interactionGate.arm();
+      return false;
     },
 
     stop() {
-      if (!active) {
+      if (!enabled && !transportActive && !transportStarting) {
         return;
       }
 
-      active = false;
-      options.onActiveChange(false);
+      enabled = false;
       interactionGate.disarm();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('resume', handleResume as EventListener);
@@ -611,22 +562,9 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
       console.info(`[${SCRIPT_DISPLAY_NAME}] 后台常驻已停止`);
     },
 
-    restartMode() {
-      if (!active) {
-        return;
-      }
-
-      if (interactionGate.isUnlocked()) {
-        startTransport();
-      } else {
-        interactionGate.arm();
-      }
-    },
-
     destroy() {
       this.stop();
       syncQrButtons(false, false);
-      stopTransport();
     },
   };
 }

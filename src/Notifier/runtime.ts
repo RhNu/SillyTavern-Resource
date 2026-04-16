@@ -31,39 +31,29 @@ function sendGenerationFinishedNotification() {
 export function createNotifierRuntime() {
   const setKeepAliveEnabled = useNotifierStore.getState().setKeepAliveEnabled;
   const keepAlive = createKeepAliveController({
-    getMode: () => useNotifierStore.getState().settings.keepAliveMode,
     onActiveChange: active => {
       useNotifierStore.getState().setRuntimeActive(active);
     },
-    onStopRequest: () => {
-      setKeepAliveEnabled(false);
+    onStartingChange: starting => {
+      useNotifierStore.getState().setRuntimeStarting(starting);
     },
   });
 
   useNotifierStore.getState().setNotificationPermission(getNotificationPermissionState());
 
   const keepAliveStop = useNotifierStore.subscribe(
-    state => ({
-      enabled: state.settings.keepAliveEnabled,
-      mode: state.settings.keepAliveMode,
-    }),
-    (current, previous) => {
-      if (!current.enabled) {
+    state => state.settings.keepAliveEnabled,
+    (enabled, previousEnabled) => {
+      if (!enabled) {
         keepAlive.stop();
         return;
       }
 
-      if (!previous?.enabled) {
-        keepAlive.start();
-        return;
-      }
-
-      if (previous.mode !== current.mode) {
-        keepAlive.restartMode();
+      if (!previousEnabled) {
+        void keepAlive.start();
       }
     },
     {
-      equalityFn: _.isEqual,
       fireImmediately: true,
     },
   );
@@ -71,10 +61,10 @@ export function createNotifierRuntime() {
   const qrSyncStop = useNotifierStore.subscribe(
     state => ({
       showQrButton: state.settings.showQrButton,
-      runtimeActive: state.runtimeActive,
+      keepAliveEnabled: state.settings.keepAliveEnabled,
     }),
     current => {
-      syncQrButtons(current.showQrButton, current.runtimeActive);
+      syncQrButtons(current.showQrButton, current.keepAliveEnabled);
     },
     {
       equalityFn: _.isEqual,
@@ -83,8 +73,12 @@ export function createNotifierRuntime() {
   );
 
   const qrButtons = bindQrButtonEvents(
-    () => useNotifierStore.getState().setKeepAliveEnabled(true),
-    () => useNotifierStore.getState().setKeepAliveEnabled(false),
+    () => {
+      void runtime.startKeepAlive();
+    },
+    () => {
+      runtime.stopKeepAlive();
+    },
   );
 
   const generationListener = eventOn(tavern_events.GENERATION_ENDED, sendGenerationFinishedNotification);
@@ -95,7 +89,17 @@ export function createNotifierRuntime() {
   window.addEventListener('focus', refreshPermission);
   document.addEventListener('visibilitychange', refreshPermission);
 
-  return {
+  const runtime = {
+    async startKeepAlive() {
+      setKeepAliveEnabled(true);
+      await keepAlive.start({ userInitiated: true });
+    },
+
+    stopKeepAlive() {
+      keepAlive.stop();
+      setKeepAliveEnabled(false);
+    },
+
     async requestPermission() {
       const permission = await requestNotificationPermission();
       useNotifierStore.getState().setNotificationPermission(permission);
@@ -130,4 +134,6 @@ export function createNotifierRuntime() {
       document.removeEventListener('visibilitychange', refreshPermission);
     },
   };
+
+  return runtime;
 }

@@ -5,13 +5,11 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { readVariablesRecord, updateVariablesPath } from '@util/variables';
 import { STORE_KEY } from './constants';
 
-export type KeepAliveMode = 'audio' | 'pip';
 export type NotificationPermissionState = NotificationPermission | 'unsupported';
 
 export const NotifierSettingsSchema = z
   .object({
     keepAliveEnabled: z.boolean().default(false),
-    keepAliveMode: z.enum(['audio', 'pip']).default('audio'),
     notificationsEnabled: z.boolean().default(false),
     showQrButton: z.boolean().default(false),
   })
@@ -22,13 +20,14 @@ export type NotifierSettings = z.infer<typeof NotifierSettingsSchema>;
 type NotifierState = {
   settings: NotifierSettings;
   runtimeActive: boolean;
+  runtimeStarting: boolean;
   notificationPermission: NotificationPermissionState;
   updateSettings: (recipe: (draft: NotifierSettings) => void) => void;
   setKeepAliveEnabled: (enabled: boolean) => void;
-  setKeepAliveMode: (mode: KeepAliveMode) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
   setShowQrButton: (enabled: boolean) => void;
   setRuntimeActive: (active: boolean) => void;
+  setRuntimeStarting: (starting: boolean) => void;
   setNotificationPermission: (permission: NotificationPermissionState) => void;
 };
 
@@ -67,6 +66,7 @@ export const useNotifierStore = create<NotifierState>()(
   subscribeWithSelector((set, get) => ({
     settings: loadStoredSettings(),
     runtimeActive: false,
+    runtimeStarting: false,
     notificationPermission: 'default',
 
     updateSettings: recipe => {
@@ -79,12 +79,6 @@ export const useNotifierStore = create<NotifierState>()(
     setKeepAliveEnabled: enabled => {
       get().updateSettings(draft => {
         draft.keepAliveEnabled = enabled;
-      });
-    },
-
-    setKeepAliveMode: mode => {
-      get().updateSettings(draft => {
-        draft.keepAliveMode = mode;
       });
     },
 
@@ -103,6 +97,12 @@ export const useNotifierStore = create<NotifierState>()(
     setRuntimeActive: active => {
       if (get().runtimeActive !== active) {
         set({ runtimeActive: active });
+      }
+    },
+
+    setRuntimeStarting: starting => {
+      if (get().runtimeStarting !== starting) {
+        set({ runtimeStarting: starting });
       }
     },
 

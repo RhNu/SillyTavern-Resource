@@ -55,8 +55,7 @@
 }
 
 .notifier-copy,
-.notifier-hint,
-.notifier-mode-copy {
+.notifier-hint {
   margin: 6px 0 0;
   color: var(--notifier-text-muted);
   line-height: 1.5;
@@ -98,6 +97,12 @@
   color: var(--notifier-text);
 }
 
+.notifier-state.is-pending {
+  background: color-mix(in srgb, var(--notifier-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--notifier-accent) 22%, var(--notifier-border));
+  color: var(--notifier-text);
+}
+
 .notifier-badge.is-negative {
   background: color-mix(in srgb, var(--notifier-danger) 14%, transparent);
   border-color: color-mix(in srgb, var(--notifier-danger) 30%, transparent);
@@ -110,45 +115,6 @@
   border-radius: 50%;
   background: currentColor;
   box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 16%, transparent);
-}
-
-.notifier-mode-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.notifier-mode-card {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--notifier-border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--notifier-surface) 84%, transparent);
-  cursor: pointer;
-  transition:
-    border-color 0.16s ease,
-    background 0.16s ease,
-    box-shadow 0.16s ease;
-}
-
-.notifier-mode-card:hover {
-  border-color: color-mix(in srgb, var(--notifier-accent) 26%, var(--notifier-border));
-}
-
-.notifier-mode-card.is-selected {
-  border-color: color-mix(in srgb, var(--notifier-accent) 40%, var(--notifier-border));
-  background: color-mix(in srgb, var(--notifier-accent) 10%, var(--notifier-surface));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--notifier-accent) 16%, transparent);
-}
-
-.notifier-mode-card input {
-  display: none;
-}
-
-.notifier-mode-name {
-  color: var(--notifier-text);
-  font-weight: 700;
 }
 
 .notifier-switch {
@@ -175,111 +141,9 @@
   gap: 10px;
 }
 
-.notifier-pip-shell {
-  position: fixed;
-  top: 72px;
-  right: 24px;
-  z-index: 2147483647;
-  width: min(320px, calc(100vw - 32px));
-  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08)) 50%, transparent);
-  border-radius: 14px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.04)) 82%, rgba(0, 0, 0, 0.28));
-  color: var(--SmartThemeBodyColor, inherit);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(14px);
-}
-
-.notifier-pip-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  cursor: move;
-}
-
-.notifier-pip-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-}
-
-.notifier-pip-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.notifier-pip-action {
-  min-width: auto;
-  padding-inline: 10px;
-  border-radius: 999px;
-}
-
-.notifier-pip-action.is-danger {
-  background: color-mix(in srgb, var(--notifier-danger) 18%, transparent);
-  border-color: color-mix(in srgb, var(--notifier-danger) 32%, transparent);
-  color: var(--SmartThemeBodyColor, inherit);
-}
-
-.notifier-pip-body {
-  display: grid;
-  gap: 10px;
-  padding: 0 14px 14px;
-}
-
-.notifier-pip-body p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--notifier-text-muted);
-}
-
-.notifier-pip-video {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08)) 34%, transparent);
-  background: color-mix(in srgb, var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.03)) 20%, transparent);
-}
-
-.notifier-pip-chip {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 2147483647;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08)) 36%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--notifier-accent) 16%, var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.03)));
-  color: var(--SmartThemeBodyColor, inherit);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
-}
-
 @media (max-width: 900px) {
   .notifier-panel-head {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .notifier-mode-list {
-    gap: 8px;
-  }
-
-  .notifier-pip-shell {
-    top: auto;
-    right: 16px;
-    bottom: 84px;
-    width: min(300px, calc(100vw - 24px));
-  }
-
-  .notifier-pip-chip {
-    right: 16px;
-    bottom: 16px;
   }
 }

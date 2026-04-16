@@ -7,16 +7,6 @@ type Props = {
   runtime: NotifierRuntime;
 };
 
-function getModeTitle(mode: 'audio' | 'pip') {
-  return mode === 'audio' ? '音频常驻' : 'PiP 常驻';
-}
-
-function getModeDescription(mode: 'audio' | 'pip') {
-  return mode === 'audio'
-    ? '借助静音音频维持活动，保活力度更强，但会占用系统媒体控制。'
-    : '使用静音视频与画中画通道，通常不打断音乐播放，更适合移动端。';
-}
-
 function getPermissionLabel(permission: string) {
   if (permission === 'granted') {
     return '已授权';
@@ -33,12 +23,14 @@ function getPermissionLabel(permission: string) {
 export default function SettingsPanel({ runtime }: Props) {
   const settings = useNotifierStore(state => state.settings);
   const runtimeActive = useNotifierStore(state => state.runtimeActive);
+  const runtimeStarting = useNotifierStore(state => state.runtimeStarting);
   const notificationPermission = useNotifierStore(state => state.notificationPermission);
-  const setKeepAliveEnabled = useNotifierStore(state => state.setKeepAliveEnabled);
-  const setKeepAliveMode = useNotifierStore(state => state.setKeepAliveMode);
   const setNotificationsEnabled = useNotifierStore(state => state.setNotificationsEnabled);
   const setShowQrButton = useNotifierStore(state => state.setShowQrButton);
   const [requestingPermission, setRequestingPermission] = useState(false);
+
+  const keepAlivePending = runtimeStarting && !runtimeActive;
+  const keepAliveEnabled = settings.keepAliveEnabled;
 
   const handlePermissionRequest = async () => {
     setRequestingPermission(true);
@@ -58,13 +50,17 @@ export default function SettingsPanel({ runtime }: Props) {
               <div className="notifier-panel-title">后台常驻</div>
               <p className="notifier-copy">
                 {runtimeActive
-                  ? `当前正在运行，使用的是${getModeTitle(settings.keepAliveMode)}。`
+                  ? '当前正在播放静音音频，后台常驻已经生效。'
+                  : keepAlivePending
+                    ? '正在等待浏览器确认音频播放，启动完成前开始按钮不会重复触发。'
+                    : keepAliveEnabled
+                      ? '后台常驻已开启，若浏览器拦截了播放，会在下一次用户交互后继续尝试。'
                   : '当前未运行，启动后会尽量维持脚本活跃。'}
               </p>
             </div>
-            <span className={`notifier-state ${runtimeActive ? 'is-active' : ''}`}>
+            <span className={`notifier-state ${runtimeActive ? 'is-active' : keepAlivePending ? 'is-pending' : ''}`}>
               <span className="notifier-state-dot"></span>
-              <span>{runtimeActive ? '运行中' : '已停止'}</span>
+              <span>{runtimeActive ? '运行中' : keepAlivePending ? '启动中' : '已停止'}</span>
             </span>
           </div>
 
@@ -72,38 +68,17 @@ export default function SettingsPanel({ runtime }: Props) {
             <button
               className="menu_button notifier-primary-action"
               type="button"
-              onClick={() => setKeepAliveEnabled(!settings.keepAliveEnabled)}
+              onClick={() => {
+                if (keepAliveEnabled) {
+                  runtime.stopKeepAlive();
+                  return;
+                }
+
+                void runtime.startKeepAlive();
+              }}
             >
-              {runtimeActive ? '停止后台常驻' : '启动后台常驻'}
+              {keepAliveEnabled ? '停止后台常驻' : '启动后台常驻'}
             </button>
-          </div>
-        </section>
-
-        <section className="notifier-panel">
-          <div className="notifier-panel-head">
-            <div>
-              <div className="notifier-panel-title">常驻模式</div>
-              <p className="notifier-copy">按使用场景选择模式。音频模式更强，PiP 模式更不打断系统媒体播放。</p>
-            </div>
-          </div>
-
-          <div className="notifier-mode-list">
-            {(['audio', 'pip'] as const).map(mode => {
-              const checked = settings.keepAliveMode === mode;
-              return (
-                <label key={mode} className={`notifier-mode-card ${checked ? 'is-selected' : ''}`}>
-                  <input
-                    checked={checked}
-                    name="notifier-keepalive-mode"
-                    type="radio"
-                    value={mode}
-                    onChange={() => setKeepAliveMode(mode)}
-                  />
-                  <span className="notifier-mode-name">{getModeTitle(mode)}</span>
-                  <span className="notifier-mode-copy">{getModeDescription(mode)}</span>
-                </label>
-              );
-            })}
           </div>
         </section>
 
