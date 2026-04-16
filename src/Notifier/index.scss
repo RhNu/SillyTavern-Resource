@@ -1,0 +1,291 @@
+.notifier-settings {
+  display: grid;
+  gap: 14px;
+  padding: 10px 0 4px;
+}
+
+.notifier-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor) 72%, transparent);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, #4ecdc4 16%, transparent), transparent 40%),
+    linear-gradient(140deg, color-mix(in srgb, var(--SmartThemeBodyColor) 96%, #0d3b3e 4%), var(--SmartThemeBodyColor));
+}
+
+.notifier-eyebrow {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #4ecdc4;
+}
+
+.notifier-title {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.notifier-copy,
+.notifier-card-copy,
+.notifier-hint {
+  margin: 6px 0 0;
+  color: var(--SmartThemeEmColor);
+  line-height: 1.5;
+}
+
+.notifier-toggle {
+  white-space: nowrap;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1f9d8c, #2576a8);
+  color: #fff;
+}
+
+.notifier-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.notifier-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor) 70%, transparent);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--SmartThemeBodyColor) 95%, #fff 5%), var(--SmartThemeBodyColor));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.notifier-card-primary {
+  background:
+    radial-gradient(circle at top right, rgba(78, 205, 196, 0.14), transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--SmartThemeBodyColor) 95%, #fff 5%), var(--SmartThemeBodyColor));
+}
+
+.notifier-card-wide {
+  grid-column: 1 / -1;
+}
+
+.notifier-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notifier-card-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.notifier-state,
+.notifier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--SmartThemeBorderColor) 24%, transparent);
+}
+
+.notifier-state.is-active,
+.notifier-badge.is-positive {
+  background: rgba(76, 175, 80, 0.16);
+  color: #5ed26a;
+}
+
+.notifier-badge.is-negative {
+  background: rgba(220, 53, 69, 0.14);
+  color: #ff8b98;
+}
+
+.notifier-state-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.notifier-mode-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.notifier-mode-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor) 60%, transparent);
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.notifier-mode-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, #4ecdc4 42%, var(--SmartThemeBorderColor));
+}
+
+.notifier-mode-card.is-selected {
+  border-color: #4ecdc4;
+  box-shadow: 0 0 0 1px rgba(78, 205, 196, 0.3);
+}
+
+.notifier-mode-card input {
+  display: none;
+}
+
+.notifier-mode-name {
+  font-weight: 700;
+}
+
+.notifier-mode-copy {
+  color: var(--SmartThemeEmColor);
+  line-height: 1.45;
+}
+
+.notifier-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.notifier-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.notifier-secondary {
+  border-radius: 999px;
+}
+
+.notifier-pip-shell {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 2147483647;
+  width: min(320px, calc(100vw - 32px));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(78, 205, 196, 0.18), transparent 36%),
+    linear-gradient(180deg, rgba(12, 18, 26, 0.96), rgba(18, 28, 36, 0.94));
+  color: #edf7fb;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px);
+}
+
+.notifier-pip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: move;
+}
+
+.notifier-pip-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.notifier-pip-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.notifier-pip-action {
+  min-width: auto;
+  padding-inline: 10px;
+  border-radius: 999px;
+}
+
+.notifier-pip-action.is-danger {
+  background: linear-gradient(135deg, rgba(181, 58, 73, 0.95), rgba(142, 31, 63, 0.92));
+}
+
+.notifier-pip-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.notifier-pip-body p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(237, 247, 251, 0.76);
+}
+
+.notifier-pip-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.notifier-pip-chip {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483647;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1f9d8c, #2576a8);
+  color: #fff;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.32);
+}
+
+@media (max-width: 900px) {
+  .notifier-overview,
+  .notifier-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .notifier-grid,
+  .notifier-mode-list {
+    grid-template-columns: 1fr;
+  }
+
+  .notifier-toggle {
+    width: 100%;
+  }
+
+  .notifier-pip-shell {
+    top: auto;
+    right: 16px;
+    bottom: 84px;
+    width: min(300px, calc(100vw - 24px));
+  }
+
+  .notifier-pip-chip {
+    right: 16px;
+    bottom: 16px;
+  }
+}
