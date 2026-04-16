@@ -46,6 +46,14 @@ export type EnsureExtensionsMenuButtonOptions = {
   clickNamespace?: string;
 };
 
+export type EnsureExtensionsMenuButtonWithRetryOptions = EnsureExtensionsMenuButtonOptions & {
+  maxRetries?: number;
+  retryDelayMs?: number;
+  retryEvents?: EventType[];
+  onReady?: () => void;
+  onGiveUp?: () => void;
+};
+
 export function ensureExtensionsMenuButton({
   containerId,
   buttonId,
@@ -83,6 +91,70 @@ export function ensureExtensionsMenuButton({
     });
 
   return true;
+}
+
+export function ensureExtensionsMenuButtonWithRetry({
+  maxRetries = 5,
+  retryDelayMs = 900,
+  retryEvents = [tavern_events.EXTENSIONS_FIRST_LOAD, tavern_events.SETTINGS_UPDATED],
+  onReady,
+  onGiveUp,
+  ...buttonOptions
+}: EnsureExtensionsMenuButtonWithRetryOptions) {
+  let destroyed = false;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  const stopList: Array<() => void> = [];
+
+  const clearRetryTimer = () => {
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = undefined;
+    }
+  };
+
+  const tryInsert = (attempt = 0): void => {
+    if (destroyed) {
+      return;
+    }
+
+    clearRetryTimer();
+    if (ensureExtensionsMenuButton(buttonOptions)) {
+      onReady?.();
+      return;
+    }
+
+    if (attempt < maxRetries) {
+      retryTimer = setTimeout(() => tryInsert(attempt + 1), retryDelayMs);
+      return;
+    }
+
+    onGiveUp?.();
+  };
+
+  if (typeof eventMakeLast === 'function' && typeof tavern_events !== 'undefined') {
+    retryEvents.forEach(event => {
+      stopList.push(
+        eventMakeLast(event, () => {
+          tryInsert(0);
+        }).stop,
+      );
+    });
+  }
+
+  tryInsert();
+
+  return {
+    retry: () => {
+      tryInsert(0);
+    },
+    destroy: () => {
+      destroyed = true;
+      clearRetryTimer();
+      stopList.forEach(stop => stop());
+      const parent$ = buttonOptions.parent$ ?? $;
+      parent$(`#${buttonOptions.containerId}`).remove();
+    },
+  };
 }
 
 export function reloadOnChatChange(): EventOnReturn {

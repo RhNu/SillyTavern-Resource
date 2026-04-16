@@ -2,6 +2,7 @@ import { klona } from 'klona';
 import _ from 'lodash';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { readVariablesRecord, updateVariablesPath } from '@util/variables';
 import { STORE_KEY } from './constants';
 
 export type KeepAliveMode = 'audio' | 'pip';
@@ -49,11 +50,11 @@ function normalizeStoredSettings(raw: unknown): NotifierSettings {
 }
 
 function loadStoredSettings(): NotifierSettings {
-  return normalizeStoredSettings(getVariables(variableOption));
+  return normalizeStoredSettings(readVariablesRecord(variableOption));
 }
 
 function persistSettings(settings: NotifierSettings) {
-  updateVariablesWith(variables => _.set(variables, STORE_KEY, klona(settings)), variableOption);
+  updateVariablesPath(variableOption, STORE_KEY, settings);
 }
 
 function produceSettings(current: NotifierSettings, recipe: (draft: NotifierSettings) => void): NotifierSettings {

@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { createScriptIdDiv, ensureExtensionsMenuButton, teleportStyle } from '@util/script';
+import { createScriptIdDiv, ensureExtensionsMenuButtonWithRetry, teleportStyle } from '@util/script';
 import { SCRIPT_DISPLAY_NAME, SETTINGS_PANEL_IDS } from '@/ImageGenerationHelperV2/app/ids';
 import { showErrorToast } from '@/ImageGenerationHelperV2/shared/toast';
 import SettingsPanel from '@/ImageGenerationHelperV2/features/settings-panel/view/SettingsPanel';
@@ -88,40 +88,22 @@ export function openImageGenerationSettingsPopup(): void {
 
 export function initializeSettingsPanelLauncher() {
   const { destroy } = teleportStyle();
-
-  const tryInsert = (attempt = 0): void => {
-    if (
-      ensureExtensionsMenuButton({
-        parent$: $,
-        containerId: BUTTON_CONTAINER_ID,
-        buttonId: BUTTON_ID,
-        title: SCRIPT_DISPLAY_NAME,
-        label: SCRIPT_DISPLAY_NAME,
-        iconClass: 'fa-fw fa-solid fa-images',
-        clickNamespace: '.imggensettings',
-        onClick: openImageGenerationSettingsPopup,
-      })
-    ) {
-      return;
-    }
-
-    if (attempt < 5) {
-      setTimeout(() => tryInsert(attempt + 1), 900);
-    }
-  };
-
-  tryInsert();
-
-  if (typeof eventMakeLast === 'function' && typeof tavern_events !== 'undefined') {
-    eventMakeLast(tavern_events.EXTENSIONS_FIRST_LOAD, () => tryInsert(0));
-    eventMakeLast(tavern_events.SETTINGS_UPDATED, () => tryInsert(0));
-  }
+  const menuButton = ensureExtensionsMenuButtonWithRetry({
+    parent$: $,
+    containerId: BUTTON_CONTAINER_ID,
+    buttonId: BUTTON_ID,
+    title: SCRIPT_DISPLAY_NAME,
+    label: SCRIPT_DISPLAY_NAME,
+    iconClass: 'fa-fw fa-solid fa-images',
+    clickNamespace: '.imggensettings',
+    onClick: openImageGenerationSettingsPopup,
+  });
 
   return {
     open: openImageGenerationSettingsPopup,
     destroy: () => {
       cleanupActivePopup();
-      $(`#${BUTTON_CONTAINER_ID}`).remove();
+      menuButton.destroy();
       destroy();
     },
   };
