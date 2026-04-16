@@ -18,6 +18,7 @@
 ## 3. 任务专题
 
 - 前端界面: [rules/前端界面.md](rules/前端界面.md)
+- 前端设计中的酒馆原生 CSS 变量: [rules/前端设计中的酒馆原生CSS变量.md](rules/前端设计中的酒馆原生CSS变量.md)
 - 脚本开发: [rules/脚本.md](rules/脚本.md)
 - MVU 变量框架: [rules/mvu变量框架.md](rules/mvu变量框架.md)
 - MVU 角色卡: [rules/mvu角色卡.md](rules/mvu角色卡.md)

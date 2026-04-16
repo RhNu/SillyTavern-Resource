@@ -83,6 +83,24 @@ import 'https://testingcf.jsdelivr.net/gh/StageDog/tavern_resource/dist/酒馆�
 **`bundle.yaml`**
 
 - 自动打包 `src` 文件夹中的代码到 `dist` 文件夹中, 并自动递增版本号从而让 jsdelivr 更快更新缓存.
+- 如果配置了 Cloudflare R2 所需的仓库 Secrets 和变量, 还会将整个 `dist/` 目录同步到你指定的 R2 路径前缀下.
+
+启用 Cloudflare R2 同步时, 需要在仓库 `Settings -> Secrets and variables -> Actions` 中添加以下 Secrets:
+
+- `CLOUDFLARE_R2_ENDPOINT`: R2 的 S3 API 端点, 例如 `https://<accountid>.r2.cloudflarestorage.com`
+- `CLOUDFLARE_R2_BUCKET`: 目标存储桶名称
+- `CLOUDFLARE_R2_ACCESS_KEY_ID`: R2 API Token 对应的 Access Key ID
+- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`: R2 API Token 对应的 Secret Access Key
+
+并添加以下仓库 Variable:
+
+- `CLOUDFLARE_R2_PREFIX`: R2 内的目标前缀, 例如 `sillytavern-resource/prod`
+
+配置完成后, CI 会执行等价于以下命令的同步:
+
+```bash
+aws s3 sync dist s3://你的存储桶/你指定的前缀/ --delete --endpoint-url https://你的-account-id.r2.cloudflarestorage.com
+```
 
 **`bump_deps.yaml`**
 

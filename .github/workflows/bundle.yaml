@@ -19,6 +19,14 @@ concurrency:
 jobs:
   bundle:
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
+      R2_ENDPOINT: ${{ secrets.CLOUDFLARE_R2_ENDPOINT }}
+      R2_PREFIX: ${{ vars.CLOUDFLARE_R2_PREFIX }}
+      R2_UPLOAD_ENABLED: ${{ secrets.CLOUDFLARE_R2_ENDPOINT != '' && secrets.CLOUDFLARE_R2_BUCKET != '' && secrets.CLOUDFLARE_R2_ACCESS_KEY_ID != '' && secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY != '' && vars.CLOUDFLARE_R2_PREFIX != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: JesseTG/rm@v1.0.3
@@ -41,6 +49,18 @@ jobs:
         with:
           default_author: github_actions
           message: "[bot] bundle"
+
+      - name: Upload dist to Cloudflare R2
+        if: ${{ env.R2_UPLOAD_ENABLED == 'true' }}
+        shell: bash
+        run: |
+          prefix="${R2_PREFIX#/}"
+          prefix="${prefix%/}"
+          aws s3 sync dist "s3://${R2_BUCKET}/${prefix}/" --delete --endpoint-url "${R2_ENDPOINT}"
+
+      - name: Skip Cloudflare R2 upload
+        if: ${{ env.R2_UPLOAD_ENABLED != 'true' }}
+        run: echo "Cloudflare R2 upload skipped because required secrets or CLOUDFLARE_R2_PREFIX are not configured."
 
       # 自动打版本 tag, 从而让 jsdelivr 基于版本号在 12h 内更新缓存而不是用非版本号的 7d 缓存
       - id: autotag

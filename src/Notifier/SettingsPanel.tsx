@@ -52,127 +52,129 @@ export default function SettingsPanel({ runtime }: Props) {
   return (
     <ExtensionSettingDrawer title="消息提醒与后台常驻">
       <div className="notifier-settings">
-        <section className="notifier-overview">
-          <div>
-            <div className="notifier-eyebrow">Notifier</div>
-            <h3 className="notifier-title">把提醒、后台常驻和快捷入口收拢到一个面板里</h3>
-            <p className="notifier-copy">适合长时间等待回复或图片生成，不必反复回到页面确认进度。</p>
+        <section className="notifier-panel notifier-panel-summary">
+          <div className="notifier-panel-head">
+            <div>
+              <div className="notifier-panel-title">后台常驻</div>
+              <p className="notifier-copy">
+                {runtimeActive
+                  ? `当前正在运行，使用的是${getModeTitle(settings.keepAliveMode)}。`
+                  : '当前未运行，启动后会尽量维持脚本活跃。'}
+              </p>
+            </div>
+            <span className={`notifier-state ${runtimeActive ? 'is-active' : ''}`}>
+              <span className="notifier-state-dot"></span>
+              <span>{runtimeActive ? '运行中' : '已停止'}</span>
+            </span>
           </div>
-          <button
-            className="menu_button notifier-toggle"
-            type="button"
-            onClick={() => setKeepAliveEnabled(!settings.keepAliveEnabled)}
-          >
-            {runtimeActive ? '停止后台常驻' : '启动后台常驻'}
-          </button>
+
+          <div className="notifier-actions">
+            <button
+              className="menu_button notifier-primary-action"
+              type="button"
+              onClick={() => setKeepAliveEnabled(!settings.keepAliveEnabled)}
+            >
+              {runtimeActive ? '停止后台常驻' : '启动后台常驻'}
+            </button>
+          </div>
         </section>
 
-        <section className="notifier-grid">
-          <article className="notifier-card notifier-card-primary">
-            <div className="notifier-card-head">
-              <div>
-                <div className="notifier-card-title">后台常驻状态</div>
-                <p className="notifier-card-copy">
-                  {runtimeActive
-                    ? `当前正在运行，使用的是${getModeTitle(settings.keepAliveMode)}。`
-                    : '当前未运行，启动后会在后台尽量维持脚本活跃。'}
-                </p>
-              </div>
-              <span className={`notifier-state ${runtimeActive ? 'is-active' : ''}`}>
-                <span className="notifier-state-dot"></span>
-                <span>{runtimeActive ? '运行中' : '已停止'}</span>
-              </span>
+        <section className="notifier-panel">
+          <div className="notifier-panel-head">
+            <div>
+              <div className="notifier-panel-title">常驻模式</div>
+              <p className="notifier-copy">按使用场景选择模式。音频模式更强，PiP 模式更不打断系统媒体播放。</p>
             </div>
+          </div>
 
-            <div className="notifier-mode-list">
-              {(['audio', 'pip'] as const).map(mode => {
-                const checked = settings.keepAliveMode === mode;
-                return (
-                  <label key={mode} className={`notifier-mode-card ${checked ? 'is-selected' : ''}`}>
-                    <input
-                      checked={checked}
-                      name="notifier-keepalive-mode"
-                      type="radio"
-                      value={mode}
-                      onChange={() => setKeepAliveMode(mode)}
-                    />
-                    <span className="notifier-mode-name">{getModeTitle(mode)}</span>
-                    <span className="notifier-mode-copy">{getModeDescription(mode)}</span>
-                  </label>
-                );
-              })}
+          <div className="notifier-mode-list">
+            {(['audio', 'pip'] as const).map(mode => {
+              const checked = settings.keepAliveMode === mode;
+              return (
+                <label key={mode} className={`notifier-mode-card ${checked ? 'is-selected' : ''}`}>
+                  <input
+                    checked={checked}
+                    name="notifier-keepalive-mode"
+                    type="radio"
+                    value={mode}
+                    onChange={() => setKeepAliveMode(mode)}
+                  />
+                  <span className="notifier-mode-name">{getModeTitle(mode)}</span>
+                  <span className="notifier-mode-copy">{getModeDescription(mode)}</span>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="notifier-panel">
+          <div className="notifier-panel-head">
+            <div>
+              <div className="notifier-panel-title">生成结束通知</div>
+              <p className="notifier-copy">生成完成后弹出系统通知，适合切出页面后继续做别的事。</p>
             </div>
-          </article>
+            <span
+              className={[
+                'notifier-badge',
+                notificationPermission === 'granted' ? 'is-positive' : '',
+                notificationPermission === 'denied' ? 'is-negative' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {getPermissionLabel(notificationPermission)}
+            </span>
+          </div>
 
-          <article className="notifier-card">
-            <div className="notifier-card-head">
-              <div>
-                <div className="notifier-card-title">生成结束通知</div>
-                <p className="notifier-card-copy">脚本会在生成完成时弹出系统通知，适合切出页面后继续处理别的事情。</p>
-              </div>
-              <span
-                className={[
-                  'notifier-badge',
-                  notificationPermission === 'granted' ? 'is-positive' : '',
-                  notificationPermission === 'denied' ? 'is-negative' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {getPermissionLabel(notificationPermission)}
-              </span>
+          <label className="notifier-switch">
+            <input
+              checked={settings.notificationsEnabled}
+              type="checkbox"
+              onChange={event => setNotificationsEnabled(event.currentTarget.checked)}
+            />
+            <span>收到生成结束通知</span>
+          </label>
+
+          <div className="notifier-actions">
+            <button
+              className="menu_button notifier-secondary"
+              disabled={!settings.notificationsEnabled || notificationPermission === 'denied' || requestingPermission}
+              type="button"
+              onClick={() => {
+                void handlePermissionRequest();
+              }}
+            >
+              {requestingPermission
+                ? '请求中...'
+                : notificationPermission === 'granted'
+                  ? '通知已可用'
+                  : notificationPermission === 'unsupported'
+                    ? '当前环境不支持'
+                    : '申请通知权限'}
+            </button>
+          </div>
+
+          <p className="notifier-hint">iOS 设备通常需要添加到主屏幕后以 PWA 形式打开，锁屏通知才更稳定。</p>
+        </section>
+
+        <section className="notifier-panel">
+          <div className="notifier-panel-head">
+            <div>
+              <div className="notifier-panel-title">快捷入口</div>
+              <p className="notifier-copy">把后台常驻的启停按钮同步到二维码区域，方便在常用位置直接切换。</p>
             </div>
+          </div>
 
-            <label className="notifier-switch">
-              <input
-                checked={settings.notificationsEnabled}
-                type="checkbox"
-                onChange={event => setNotificationsEnabled(event.currentTarget.checked)}
-              />
-              <span>收到生成结束通知</span>
-            </label>
+          <label className="notifier-switch">
+            <input
+              checked={settings.showQrButton}
+              type="checkbox"
+              onChange={event => setShowQrButton(event.currentTarget.checked)}
+            />
+            <span>在二维码区域显示启停按钮</span>
+          </label>
 
-            <div className="notifier-actions">
-              <button
-                className="menu_button notifier-secondary"
-                disabled={!settings.notificationsEnabled || notificationPermission === 'denied' || requestingPermission}
-                type="button"
-                onClick={() => {
-                  void handlePermissionRequest();
-                }}
-              >
-                {requestingPermission
-                  ? '请求中...'
-                  : notificationPermission === 'granted'
-                    ? '通知已可用'
-                    : notificationPermission === 'unsupported'
-                      ? '当前环境不支持'
-                      : '申请通知权限'}
-              </button>
-            </div>
-
-            <p className="notifier-hint">iOS 设备通常需要添加到主屏幕后以 PWA 形式打开，锁屏通知才更稳定。</p>
-          </article>
-
-          <article className="notifier-card notifier-card-wide">
-            <div className="notifier-card-head">
-              <div>
-                <div className="notifier-card-title">快捷入口</div>
-                <p className="notifier-card-copy">把后台常驻的启停按钮同步到二维码区域，方便在常用位置直接切换。</p>
-              </div>
-            </div>
-
-            <label className="notifier-switch">
-              <input
-                checked={settings.showQrButton}
-                type="checkbox"
-                onChange={event => setShowQrButton(event.currentTarget.checked)}
-              />
-              <span>在二维码区域显示启停按钮</span>
-            </label>
-
-            <p className="notifier-hint">按钮状态会跟随真实运行状态切换，不需要手动维护。</p>
-          </article>
+          <p className="notifier-hint">按钮状态会跟随真实运行状态切换，不需要手动维护。</p>
         </section>
       </div>
     </ExtensionSettingDrawer>
