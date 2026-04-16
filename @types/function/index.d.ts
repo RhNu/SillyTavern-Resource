@@ -9,7 +9,7 @@ interface Window {
     readonly pauseAudio: typeof pauseAudio;
     readonly getAudioList: typeof getAudioList;
     readonly replaceAudioList: typeof replaceAudioList;
-    readonly appendAudioList: typeof appendAudioList;
+    readonly insertAudioList: typeof insertAudioList;
     readonly getAudioSettings: typeof getAudioSettings;
     readonly setAudioSettings: typeof setAudioSettings;
 
