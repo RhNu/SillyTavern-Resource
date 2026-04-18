@@ -5,13 +5,48 @@ import { createSyncIndicatorView } from './view';
 
 let activeDestroy: (() => void) | null = null;
 
+type ParentWindow = Window & typeof globalThis;
+
+function getUnloadPromptWindow(): ParentWindow {
+  try {
+    if (window.parent && window.parent !== window) {
+      return window.parent as ParentWindow;
+    }
+  } catch (error) {
+    console.warn('[SyncIndicator] Falling back to iframe window for exit guard.', error);
+  }
+
+  return window;
+}
+
 function init(): void {
   activeDestroy?.();
   console.info('[SyncIndicator] Initializing.');
 
+  const promptWindow = getUnloadPromptWindow();
+  let unloadGuardAttached = false;
   const { destroy: destroyTeleportedStyle } = teleportStyle();
+  const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+    event.preventDefault();
+  };
+  const syncUnloadGuard = (active: boolean): void => {
+    if (active === unloadGuardAttached) {
+      return;
+    }
+
+    unloadGuardAttached = active;
+    if (active) {
+      console.info('[SyncIndicator] Enabling unload guard while sync is active.');
+      promptWindow.addEventListener('beforeunload', handleBeforeUnload);
+      return;
+    }
+
+    console.info('[SyncIndicator] Disabling unload guard after sync completed.');
+    promptWindow.removeEventListener('beforeunload', handleBeforeUnload);
+  };
   const view = createSyncIndicatorView();
   const tracker = attachSyncTracker(snapshot => {
+    syncUnloadGuard(snapshot.pendingCount > 0);
     view.render(snapshot);
   });
   const settingsUpdatedListener = eventOn(tavern_events.SETTINGS_UPDATED, () => {
@@ -20,6 +55,7 @@ function init(): void {
 
   const destroy = () => {
     $(window).off('pagehide.sync-indicator');
+    syncUnloadGuard(false);
     settingsUpdatedListener.stop();
     tracker.destroy();
     view.destroy();
