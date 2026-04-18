@@ -1,4 +1,4 @@
-import { ExtensionSettingDrawer } from '@util/components/extension-setting-drawer';
+import { ExtensionSettingDrawer } from '@util/components/ExtensionSettingDrawer';
 import { HelpMarker } from '@util/components/HelpMarker';
 import { useState } from 'react';
 import type { NotifierRuntime } from './runtime';

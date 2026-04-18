@@ -1,4 +1,4 @@
-export type ExtensionSettingDrawerProps = {
+type ExtensionSettingDrawerProps = {
   children: React.ReactNode;
   title: string;
 };
