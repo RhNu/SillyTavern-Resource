@@ -3,57 +3,25 @@
   isolation: isolate;
 }
 
-#user-settings-button .drawer-toggle.sync-indicator-host::before,
-#user-settings-button .drawer-toggle.sync-indicator-host::after {
-  content: '';
-  position: absolute;
-  inset: -0.3rem;
-  border-radius: 999px;
-  pointer-events: none;
-  opacity: 0;
-  transition:
-    opacity 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
+#user-settings-button .drawer-toggle.sync-indicator-host .drawer-icon {
+  transition: filter 0.3s ease;
 }
 
-#user-settings-button .drawer-toggle.sync-indicator-host.is-idle::before {
-  opacity: 1;
-  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08)) 65%, transparent);
-  box-shadow:
-    0 0 0.35rem color-mix(in srgb, var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.04)) 42%, transparent),
-    inset 0 0 0.18rem color-mix(in srgb, var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.04)) 24%, transparent);
+#user-settings-button .drawer-toggle.sync-indicator-host.is-idle .drawer-icon {
+  filter: none;
 }
 
-#user-settings-button .drawer-toggle.sync-indicator-host.is-syncing::before {
-  opacity: 1;
-  border: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #7aa2f7) 44%, transparent);
-  box-shadow:
-    0 0 0.45rem color-mix(in srgb, var(--SmartThemeQuoteColor, #7aa2f7) 34%, transparent),
-    0 0 0.9rem color-mix(in srgb, var(--SmartThemeQuoteColor, #7aa2f7) 16%, transparent),
-    inset 0 0 0.22rem color-mix(in srgb, var(--SmartThemeQuoteColor, #7aa2f7) 18%, transparent);
+#user-settings-button .drawer-toggle.sync-indicator-host.is-syncing .drawer-icon {
+  animation: sync-indicator-icon-glow 1.5s ease-in-out infinite alternate;
 }
 
-#user-settings-button .drawer-toggle.sync-indicator-host.is-syncing::after {
-  border: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #7aa2f7) 34%, transparent);
-  box-shadow: 0 0 0.6rem color-mix(in srgb, var(--SmartThemeQuoteColor, #7aa2f7) 20%, transparent);
-  animation: sync-indicator-halo 1.3s ease-out infinite;
-}
-
-@keyframes sync-indicator-halo {
+@keyframes sync-indicator-icon-glow {
   0% {
-    opacity: 0.68;
-    transform: scale(0.92);
-  }
-
-  70% {
-    opacity: 0;
-    transform: scale(1.24);
+    filter: drop-shadow(0 0 0.2rem rgba(0, 229, 255, 0.6)) drop-shadow(0 0 0.4rem rgba(0, 229, 255, 0.4));
   }
 
   100% {
-    opacity: 0;
-    transform: scale(1.24);
+    filter: drop-shadow(0 0 0.35rem rgba(0, 229, 255, 1)) drop-shadow(0 0 0.8rem rgba(0, 229, 255, 0.85))
+      drop-shadow(0 0 1.2rem rgba(0, 229, 255, 0.5));
   }
 }
