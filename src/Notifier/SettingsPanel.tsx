@@ -155,8 +155,6 @@ export default function SettingsPanel({ runtime }: Props) {
                     : '申请通知权限'}
             </button>
           </div>
-
-          <p className="notifier-hint">iOS 设备通常需要添加到主屏幕后以 PWA 形式打开，锁屏通知才更稳定。</p>
         </section>
 
         <section className="notifier-panel">
@@ -185,8 +183,6 @@ export default function SettingsPanel({ runtime }: Props) {
             />
             <span>在QR区域显示启停按钮</span>
           </label>
-
-          <p className="notifier-hint">按钮状态会跟随真实运行状态切换。</p>
         </section>
       </div>
     </ExtensionSettingDrawer>

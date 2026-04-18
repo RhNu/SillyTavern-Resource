@@ -9,8 +9,9 @@ function openHelpPopup(title: string, text: string) {
     const $content = $('<div>')
       .css({
         whiteSpace: 'pre-wrap',
-        lineHeight: '1.6',
+        lineHeight: '1.4',
         fontSize: '0.95rem',
+        padding: '0.5rem',
       })
       .text(text);
 
