@@ -54,6 +54,13 @@
   color: var(--notifier-text);
 }
 
+.notifier-panel-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .notifier-copy,
 .notifier-hint {
   margin: 6px 0 0;
@@ -139,6 +146,26 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.th-help-marker.notifier-help-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--notifier-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.th-help-marker.notifier-help-marker:hover,
+.th-help-marker.notifier-help-marker:focus-visible {
+  color: var(--notifier-accent);
 }
 
 @media (max-width: 900px) {

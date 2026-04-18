@@ -41,22 +41,32 @@ export function createNotifierRuntime() {
 
   useNotifierStore.getState().setNotificationPermission(getNotificationPermissionState());
 
-  const keepAliveStop = useNotifierStore.subscribe(
-    state => state.settings.keepAliveEnabled,
-    (enabled, previousEnabled) => {
-      if (!enabled) {
-        keepAlive.stop();
-        return;
-      }
+  const syncKeepAliveEnabled = (enabled: boolean) => {
+    if (useNotifierStore.getState().settings.keepAliveEnabled !== enabled) {
+      setKeepAliveEnabled(enabled);
+    }
+  };
 
-      if (!previousEnabled) {
-        void keepAlive.start();
-      }
-    },
-    {
-      fireImmediately: true,
-    },
-  );
+  const finalizeKeepAliveAttempt = (active: boolean) => {
+    if (active) {
+      syncKeepAliveEnabled(true);
+      return true;
+    }
+
+    keepAlive.stop();
+    syncKeepAliveEnabled(false);
+    return false;
+  };
+
+  const restoreKeepAlive = async () => {
+    if (!useNotifierStore.getState().settings.keepAliveEnabled) {
+      keepAlive.probePlayback();
+      return false;
+    }
+
+    const started = await keepAlive.start();
+    return finalizeKeepAliveAttempt(keepAlive.probePlayback() || started);
+  };
 
   const qrSyncStop = useNotifierStore.subscribe(
     state => ({
@@ -91,13 +101,14 @@ export function createNotifierRuntime() {
 
   const runtime = {
     async startKeepAlive() {
-      setKeepAliveEnabled(true);
-      await keepAlive.start({ userInitiated: true });
+      syncKeepAliveEnabled(true);
+      const started = await keepAlive.start({ userInitiated: true });
+      return finalizeKeepAliveAttempt(keepAlive.probePlayback() || started);
     },
 
     stopKeepAlive() {
       keepAlive.stop();
-      setKeepAliveEnabled(false);
+      syncKeepAliveEnabled(false);
     },
 
     async requestPermission() {
@@ -126,7 +137,6 @@ export function createNotifierRuntime() {
 
     destroy() {
       keepAlive.destroy();
-      keepAliveStop();
       qrSyncStop();
       qrButtons.destroy();
       generationListener.stop();
@@ -134,6 +144,8 @@ export function createNotifierRuntime() {
       document.removeEventListener('visibilitychange', refreshPermission);
     },
   };
+
+  void restoreKeepAlive();
 
   return runtime;
 }

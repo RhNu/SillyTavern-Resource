@@ -192,7 +192,7 @@ function createBroadcastPulse(onPulse: () => void) {
   };
 }
 
-function createAudioPresence() {
+function createAudioPresence(onPlaybackStateChange: (active: boolean) => void) {
   let context: AudioContext | null = null;
   let constantSource: ConstantSourceNode | null = null;
   let gainNode: GainNode | null = null;
@@ -206,6 +206,12 @@ function createAudioPresence() {
       window.clearTimeout(retryTimer);
       retryTimer = null;
     }
+  };
+
+  const isPlaying = () => Boolean(audioElement && !audioElement.paused && !audioElement.ended);
+
+  const syncPlaybackState = () => {
+    onPlaybackStateChange(isPlaying());
   };
 
   const ensureNodes = () => {
@@ -231,6 +237,7 @@ function createAudioPresence() {
       audioElement.volume = 0.001;
       audioElement.addEventListener('pause', handlePlaybackInterrupted);
       audioElement.addEventListener('ended', handlePlaybackInterrupted);
+      audioElement.addEventListener('play', syncPlaybackState);
     }
   };
 
@@ -243,7 +250,9 @@ function createAudioPresence() {
 
     try {
       await audioElement.play();
-      return requestId === playRequestId && shouldKeepPlaying && !audioElement.paused;
+      const playing = requestId === playRequestId && shouldKeepPlaying && isPlaying();
+      onPlaybackStateChange(playing);
+      return playing;
     } catch (error) {
       if (requestId !== playRequestId || !shouldKeepPlaying) {
         return false;
@@ -260,11 +269,13 @@ function createAudioPresence() {
       }
 
       console.warn(`[${SCRIPT_DISPLAY_NAME}] 静音音频恢复失败`, error);
+      onPlaybackStateChange(false);
       return false;
     }
   };
 
   function handlePlaybackInterrupted() {
+    onPlaybackStateChange(false);
     if (!shouldKeepPlaying) {
       return;
     }
@@ -317,8 +328,11 @@ function createAudioPresence() {
         return playAudio();
       }
 
+      syncPlaybackState();
       return true;
     },
+
+    isPlaying,
 
     stop() {
       shouldKeepPlaying = false;
@@ -328,6 +342,7 @@ function createAudioPresence() {
       if (audioElement) {
         audioElement.removeEventListener('pause', handlePlaybackInterrupted);
         audioElement.removeEventListener('ended', handlePlaybackInterrupted);
+        audioElement.removeEventListener('play', syncPlaybackState);
         audioElement.pause();
         audioElement.src = '';
         audioElement.load();
@@ -347,6 +362,7 @@ function createAudioPresence() {
       void context?.close().catch(() => undefined);
       context = null;
       clearMediaSession();
+      onPlaybackStateChange(false);
     },
   };
 }
@@ -379,23 +395,6 @@ export function bindQrButtonEvents(onStart: () => void, onStop: () => void) {
 }
 
 export function createKeepAliveController(options: KeepAliveControllerOptions) {
-  const audioPresence = createAudioPresence();
-  const interactionGate = createInteractionGate(() => {
-    if (!enabled) {
-      return;
-    }
-
-    void startTransport();
-  });
-  const webLock = createWebLockLease();
-  const heartbeatWorker = createHeartbeatWorker(() => {
-    void resumeTransport();
-  });
-  const broadcastPulse = createBroadcastPulse(() => {
-    heartbeatWorker.start();
-    void resumeTransport();
-  });
-
   let enabled = false;
   let transportActive = false;
   let transportStarting = false;
@@ -419,6 +418,25 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
     transportStarting = starting;
     options.onStartingChange(starting);
   };
+
+  const audioPresence = createAudioPresence(active => {
+    setTransportActive(enabled && active);
+  });
+  const interactionGate = createInteractionGate(() => {
+    if (!enabled) {
+      return;
+    }
+
+    void startTransport();
+  });
+  const webLock = createWebLockLease();
+  const heartbeatWorker = createHeartbeatWorker(() => {
+    void resumeTransport();
+  });
+  const broadcastPulse = createBroadcastPulse(() => {
+    heartbeatWorker.start();
+    void resumeTransport();
+  });
 
   const stopTransport = () => {
     transportAttemptId += 1;
@@ -457,6 +475,9 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
           return false;
         }
 
+        if (started) {
+          interactionGate.unlock();
+        }
         setTransportActive(started);
         return started;
       } finally {
@@ -481,6 +502,9 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
           return false;
         }
 
+        if (started) {
+          interactionGate.unlock();
+        }
         setTransportActive(started);
         return started;
       } finally {
@@ -518,6 +542,12 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
       return transportActive;
     },
 
+    probePlayback() {
+      const active = enabled && audioPresence.isPlaying();
+      setTransportActive(active);
+      return active;
+    },
+
     async start(startOptions: StartOptions = {}) {
       const wasEnabled = enabled;
       enabled = true;
@@ -538,12 +568,11 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
         console.info(`[${SCRIPT_DISPLAY_NAME}] 后台常驻已开启`);
       }
 
-      if (interactionGate.isUnlocked()) {
+      if (startOptions.userInitiated) {
         return startTransport();
       }
 
-      interactionGate.arm();
-      return false;
+      return startTransport();
     },
 
     stop() {
