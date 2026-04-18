@@ -1,4 +1,4 @@
-import { QR_BUTTON_START, QR_BUTTON_STOP, SCRIPT_DISPLAY_NAME, SILENT_AUDIO_URL } from './constants';
+import { SCRIPT_BUTTON_START, SCRIPT_BUTTON_STOP, SCRIPT_DISPLAY_NAME, SILENT_AUDIO_URL } from './constants';
 
 type KeepAliveControllerOptions = {
   onActiveChange: (active: boolean) => void;
@@ -367,24 +367,26 @@ function createAudioPresence(onPlaybackStateChange: (active: boolean) => void) {
   };
 }
 
-export function syncQrButtons(showQrButton: boolean, enabled: boolean) {
+export function syncScriptButtons(showScriptButton: boolean, enabled: boolean) {
   void updateScriptButtonsWith(buttons => {
-    const nextButtons = buttons.filter(button => button.name !== QR_BUTTON_START && button.name !== QR_BUTTON_STOP);
-    if (!showQrButton) {
+    const nextButtons = buttons.filter(
+      button => button.name !== SCRIPT_BUTTON_START && button.name !== SCRIPT_BUTTON_STOP,
+    );
+    if (!showScriptButton) {
       return nextButtons;
     }
 
     return [
       ...nextButtons,
-      { name: QR_BUTTON_START, visible: !enabled },
-      { name: QR_BUTTON_STOP, visible: enabled },
+      { name: SCRIPT_BUTTON_START, visible: !enabled },
+      { name: SCRIPT_BUTTON_STOP, visible: enabled },
     ];
   });
 }
 
-export function bindQrButtonEvents(onStart: () => void, onStop: () => void) {
-  const startListener = eventOn(getButtonEvent(QR_BUTTON_START), onStart);
-  const stopListener = eventOn(getButtonEvent(QR_BUTTON_STOP), onStop);
+export function bindScriptButtonEvents(onStart: () => void, onStop: () => void) {
+  const startListener = eventOn(getButtonEvent(SCRIPT_BUTTON_START), onStart);
+  const stopListener = eventOn(getButtonEvent(SCRIPT_BUTTON_STOP), onStop);
 
   return {
     destroy() {
@@ -593,7 +595,7 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
 
     destroy() {
       this.stop();
-      syncQrButtons(false, false);
+      syncScriptButtons(false, false);
     },
   };
 }

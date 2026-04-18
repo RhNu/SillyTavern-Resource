@@ -1,10 +1,6 @@
 import _ from 'lodash';
-import { bindQrButtonEvents, createKeepAliveController, syncQrButtons } from './keepalive';
-import {
-  getNotificationPermissionState,
-  requestNotificationPermission,
-  sendSystemNotification,
-} from './notification';
+import { bindScriptButtonEvents, createKeepAliveController, syncScriptButtons } from './keepalive';
+import { getNotificationPermissionState, requestNotificationPermission, sendSystemNotification } from './notification';
 import { useNotifierStore } from './store';
 
 export type NotifierRuntime = ReturnType<typeof createNotifierRuntime>;
@@ -68,13 +64,13 @@ export function createNotifierRuntime() {
     return finalizeKeepAliveAttempt(keepAlive.probePlayback() || started);
   };
 
-  const qrSyncStop = useNotifierStore.subscribe(
+  const scriptButtonSyncStop = useNotifierStore.subscribe(
     state => ({
-      showQrButton: state.settings.showQrButton,
+      showScriptButton: state.settings.showScriptButton,
       keepAliveEnabled: state.settings.keepAliveEnabled,
     }),
     current => {
-      syncQrButtons(current.showQrButton, current.keepAliveEnabled);
+      syncScriptButtons(current.showScriptButton, current.keepAliveEnabled);
     },
     {
       equalityFn: _.isEqual,
@@ -82,7 +78,7 @@ export function createNotifierRuntime() {
     },
   );
 
-  const qrButtons = bindQrButtonEvents(
+  const scriptButtons = bindScriptButtonEvents(
     () => {
       void runtime.startKeepAlive();
     },
@@ -137,8 +133,8 @@ export function createNotifierRuntime() {
 
     destroy() {
       keepAlive.destroy();
-      qrSyncStop();
-      qrButtons.destroy();
+      scriptButtonSyncStop();
+      scriptButtons.destroy();
       generationListener.stop();
       window.removeEventListener('focus', refreshPermission);
       document.removeEventListener('visibilitychange', refreshPermission);

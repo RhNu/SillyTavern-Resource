@@ -39,7 +39,7 @@ export default function SettingsPanel({ runtime }: Props) {
   const runtimeStarting = useNotifierStore(state => state.runtimeStarting);
   const notificationPermission = useNotifierStore(state => state.notificationPermission);
   const setNotificationsEnabled = useNotifierStore(state => state.setNotificationsEnabled);
-  const setShowQrButton = useNotifierStore(state => state.setShowQrButton);
+  const setShowScriptButton = useNotifierStore(state => state.setShowScriptButton);
   const [requestingPermission, setRequestingPermission] = useState(false);
 
   const keepAlivePending = runtimeStarting && !runtimeActive;
@@ -166,22 +166,22 @@ export default function SettingsPanel({ runtime }: Props) {
                   className="notifier-help-marker"
                   title="快捷入口说明"
                   text={[
-                    '开启后，会把后台常驻的启停按钮同步到 QR 区域。',
+                    '开启后，会把后台常驻的启停按钮同步到脚本按钮区域。',
                     '按钮状态会跟随真实运行状态自动切换，不需要额外手动维护。',
                   ].join('\n\n')}
                 />
               </div>
-              <p className="notifier-copy">把启停按钮同步到 QR 区域。</p>
+              <p className="notifier-copy">把启停按钮同步到脚本按钮区域。</p>
             </div>
           </div>
 
           <label className="notifier-switch">
             <input
-              checked={settings.showQrButton}
+              checked={settings.showScriptButton}
               type="checkbox"
-              onChange={event => setShowQrButton(event.currentTarget.checked)}
+              onChange={event => setShowScriptButton(event.currentTarget.checked)}
             />
-            <span>在QR区域显示启停按钮</span>
+            <span>在脚本按钮区域显示启停按钮</span>
           </label>
         </section>
       </div>

@@ -1,8 +1,8 @@
+import { readVariablesRecord, updateVariablesPath } from '@util/variables';
 import { klona } from 'klona';
 import _ from 'lodash';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { readVariablesRecord, updateVariablesPath } from '@util/variables';
 import { STORE_KEY } from './constants';
 
 export type NotificationPermissionState = NotificationPermission | 'unsupported';
@@ -11,7 +11,7 @@ export const NotifierSettingsSchema = z
   .object({
     keepAliveEnabled: z.boolean().default(false),
     notificationsEnabled: z.boolean().default(false),
-    showQrButton: z.boolean().default(false),
+    showScriptButton: z.boolean().default(false),
   })
   .prefault({});
 
@@ -25,7 +25,7 @@ type NotifierState = {
   updateSettings: (recipe: (draft: NotifierSettings) => void) => void;
   setKeepAliveEnabled: (enabled: boolean) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
-  setShowQrButton: (enabled: boolean) => void;
+  setShowScriptButton: (enabled: boolean) => void;
   setRuntimeActive: (active: boolean) => void;
   setRuntimeStarting: (starting: boolean) => void;
   setNotificationPermission: (permission: NotificationPermissionState) => void;
@@ -88,9 +88,9 @@ export const useNotifierStore = create<NotifierState>()(
       });
     },
 
-    setShowQrButton: enabled => {
+    setShowScriptButton: enabled => {
       get().updateSettings(draft => {
-        draft.showQrButton = enabled;
+        draft.showScriptButton = enabled;
       });
     },
 
