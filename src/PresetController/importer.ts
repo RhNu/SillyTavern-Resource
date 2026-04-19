@@ -1,5 +1,6 @@
 import { parse as parseYaml } from 'yaml';
-import { type ControllerConfig, type ImportFormat, normalizeConfig } from './schema';
+import { type ControllerConfig, normalizeConfig, sanitizeImportedConfigRoot } from './schema';
+import { type ImportFormat } from './state';
 
 function resolveImportFormat(raw: string, formatHint: ImportFormat, sourceName?: string): 'json' | 'yaml' {
   if (formatHint === 'json' || formatHint === 'yaml') {
@@ -27,8 +28,8 @@ export function parseImportedConfig(raw: string, formatHint: ImportFormat, sourc
 
   const format = resolveImportFormat(content, formatHint, sourceName);
   if (format === 'json') {
-    return normalizeConfig(JSON.parse(content));
+    return normalizeConfig(sanitizeImportedConfigRoot(JSON.parse(content)));
   }
 
-  return normalizeConfig(parseYaml(content));
+  return normalizeConfig(sanitizeImportedConfigRoot(parseYaml(content)));
 }

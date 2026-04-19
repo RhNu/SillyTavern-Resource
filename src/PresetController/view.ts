@@ -1,21 +1,18 @@
+import { openHelpPopup } from '@util/components/HelpMarker';
 import { SCRIPT_DISPLAY_NAME } from './constants';
-import { type ControlLocation, type ControllerConfig, type ControllerState, type UiState } from './schema';
+import { type ControlLocation, type ControllerConfig, type ControllerOperation } from './schema';
+import { type ControllerState, type UiState } from './state';
 
 type ViewRefs = {
+  launcher: HTMLElement;
   header: HTMLElement;
   titleNode: HTMLElement;
-  subtitleNode: HTMLElement;
+  titleHelpHost: HTMLElement;
   collapseButton: HTMLButtonElement;
   statusTagNode: HTMLElement;
   statusTextNode: HTMLElement;
   groupsNode: HTMLElement;
-  autoApplyInput: HTMLInputElement;
   applyButton: HTMLButtonElement;
-  importTextArea: HTMLTextAreaElement;
-  importFormatSelect: HTMLSelectElement;
-  importTextButton: HTMLButtonElement;
-  importFileButton: HTMLButtonElement;
-  importFileInput: HTMLInputElement;
 };
 
 function queryRequired<T extends Element>(root: ParentNode, selector: string): T {
@@ -25,6 +22,58 @@ function queryRequired<T extends Element>(root: ParentNode, selector: string): T
   }
 
   return element;
+}
+
+function createHelpMarker(doc: Document, title: string, text: string) {
+  const button = doc.createElement('button');
+  button.type = 'button';
+  button.className = 'th-help-marker preset-controller-help-marker';
+  button.setAttribute('aria-label', title);
+  button.title = title;
+  button.innerHTML = '<i class="fa-solid fa-circle-question"></i>';
+  button.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    openHelpPopup(title, text);
+  });
+  return button;
+}
+
+function replaceHelpMarker(host: HTMLElement, doc: Document, title: string, text?: string) {
+  host.innerHTML = '';
+  if (!text?.trim()) {
+    return;
+  }
+
+  host.append(createHelpMarker(doc, title, text));
+}
+
+function formatOperation(operation: ControllerOperation) {
+  if (operation.type === 'set-prompt-enabled') {
+    return `将「${operation.target}」设为${operation.enabled ? '启用' : '禁用'}`;
+  }
+
+  return operation.type;
+}
+
+function formatOperationsSummary(title: string, operations: ControllerOperation[], description?: string) {
+  const lines: string[] = [];
+  if (description) {
+    lines.push(description);
+  }
+
+  lines.push(title);
+
+  if (operations.length === 0) {
+    lines.push('未配置操作');
+    return lines.join('\n');
+  }
+
+  operations.forEach(operation => {
+    lines.push(`- ${formatOperation(operation)}`);
+  });
+
+  return lines.join('\n');
 }
 
 export class PresetControllerView {
@@ -39,63 +88,59 @@ export class PresetControllerView {
 
     root.innerHTML = `
       <section class="preset-controller-card" aria-label="${SCRIPT_DISPLAY_NAME}">
-        <header class="preset-controller-header" data-pc="drag-handle">
-          <div class="preset-controller-title-wrap">
-            <h2 class="preset-controller-title"></h2>
-            <div class="preset-controller-subtitle"></div>
-          </div>
-          <div class="preset-controller-header-actions">
-            <button type="button" class="preset-controller-header-btn" data-pc="collapse" aria-label="折叠">▾</button>
-          </div>
-        </header>
-        <div class="preset-controller-body">
-          <div class="preset-controller-status">
-            <span class="preset-controller-status-tag is-idle" data-pc="status-tag">IDLE</span>
-            <span class="preset-controller-status-text" data-pc="status-text"></span>
-          </div>
-          <div data-pc="groups"></div>
-          <div class="preset-controller-toolbar">
-            <label class="preset-controller-toggle-inline">
-              <input type="checkbox" data-pc="auto-apply" />
-              自动应用
-            </label>
-            <button type="button" class="preset-controller-action-btn" data-pc="apply">应用到 in_use</button>
-          </div>
-          <details class="preset-controller-import" open>
-            <summary class="preset-controller-import-summary">导入规则集</summary>
-            <div class="preset-controller-import-body">
-              <textarea class="preset-controller-import-textarea" data-pc="import-text" placeholder="粘贴 JSON 或 YAML"></textarea>
-              <div class="preset-controller-import-row">
-                <select class="preset-controller-import-select" data-pc="import-format">
-                  <option value="auto">自动识别</option>
-                  <option value="json">JSON</option>
-                  <option value="yaml">YAML</option>
-                </select>
-                <button type="button" class="preset-controller-action-btn" data-pc="import-text-btn">导入文本</button>
-                <button type="button" class="preset-controller-action-btn" data-pc="import-file-btn">导入文件</button>
-                <input type="file" accept=".json,.yaml,.yml,.txt" style="display:none" data-pc="import-file" />
-              </div>
+        <div
+          class="preset-controller-launcher preset-controller-drag-handle"
+          data-pc="launcher"
+          role="button"
+          tabindex="0"
+          aria-label="展开 ${SCRIPT_DISPLAY_NAME}"
+          title="${SCRIPT_DISPLAY_NAME}"
+        >
+          <i class="fa-solid fa-sliders"></i>
+        </div>
+        <div class="preset-controller-panel">
+          <header class="preset-controller-header preset-controller-drag-handle" data-pc="drag-handle">
+            <div class="preset-controller-title-row">
+              <h2 class="preset-controller-title"></h2>
+              <span class="preset-controller-title-help" data-pc="title-help"></span>
             </div>
-          </details>
+            <div class="preset-controller-header-actions">
+              <button
+                type="button"
+                class="preset-controller-header-btn"
+                data-pc="collapse"
+                data-pc-no-drag="true"
+                aria-label="收起"
+                title="收起"
+              >
+                <i class="fa-solid fa-minus"></i>
+              </button>
+            </div>
+          </header>
+          <div class="preset-controller-body">
+            <div class="preset-controller-status">
+              <span class="preset-controller-status-tag is-idle" data-pc="status-tag">IDLE</span>
+              <span class="preset-controller-status-text" data-pc="status-text"></span>
+            </div>
+            <div data-pc="groups"></div>
+            <div class="preset-controller-toolbar">
+              <button type="button" class="preset-controller-action-btn" data-pc="apply">应用到 in_use</button>
+            </div>
+          </div>
         </div>
       </section>
     `;
 
     this.refs = {
+      launcher: queryRequired(root, '[data-pc="launcher"]'),
       header: queryRequired(root, '[data-pc="drag-handle"]'),
       titleNode: queryRequired(root, '.preset-controller-title'),
-      subtitleNode: queryRequired(root, '.preset-controller-subtitle'),
+      titleHelpHost: queryRequired(root, '[data-pc="title-help"]'),
       collapseButton: queryRequired(root, '[data-pc="collapse"]'),
       statusTagNode: queryRequired(root, '[data-pc="status-tag"]'),
       statusTextNode: queryRequired(root, '[data-pc="status-text"]'),
       groupsNode: queryRequired(root, '[data-pc="groups"]'),
-      autoApplyInput: queryRequired(root, '[data-pc="auto-apply"]'),
       applyButton: queryRequired(root, '[data-pc="apply"]'),
-      importTextArea: queryRequired(root, '[data-pc="import-text"]'),
-      importFormatSelect: queryRequired(root, '[data-pc="import-format"]'),
-      importTextButton: queryRequired(root, '[data-pc="import-text-btn"]'),
-      importFileButton: queryRequired(root, '[data-pc="import-file-btn"]'),
-      importFileInput: queryRequired(root, '[data-pc="import-file"]'),
     };
   }
 
@@ -103,26 +148,31 @@ export class PresetControllerView {
     this.renderHeader(state.config);
     this.renderCollapsed(state.ui.collapsed);
     this.renderStatus(state);
-    this.refs.autoApplyInput.checked = state.ui.autoApply;
-    this.refs.importFormatSelect.value = state.ui.importFormat;
   }
 
   renderHeader(config: ControllerConfig) {
     this.refs.titleNode.textContent = config.title || SCRIPT_DISPLAY_NAME;
-    this.refs.subtitleNode.textContent = config.description || '将规则映射到 in_use 预设提示词开关';
+    replaceHelpMarker(
+      this.refs.titleHelpHost,
+      this.doc,
+      `${config.title || SCRIPT_DISPLAY_NAME} 说明`,
+      config.description || '将操作标签映射到 in_use 预设提示词开关',
+    );
   }
 
   renderStatus(state: ControllerState) {
     this.refs.statusTagNode.className = `preset-controller-status-tag is-${state.statusLevel}`;
     this.refs.statusTagNode.textContent = state.statusLevel.toUpperCase();
     this.refs.statusTextNode.textContent = state.statusText;
-    this.refs.applyButton.disabled = state.applying || (!state.dirty && state.ui.autoApply);
+    this.refs.applyButton.disabled = state.applying;
   }
 
   renderCollapsed(collapsed: boolean) {
     this.root.classList.toggle('is-collapsed', collapsed);
-    this.refs.collapseButton.textContent = collapsed ? '▸' : '▾';
-    this.refs.collapseButton.setAttribute('aria-label', collapsed ? '展开' : '折叠');
+    this.refs.launcher.setAttribute(
+      'aria-label',
+      collapsed ? `展开 ${SCRIPT_DISPLAY_NAME}` : `${SCRIPT_DISPLAY_NAME} 已展开`,
+    );
   }
 
   renderGroups(config: ControllerConfig, ui: UiState) {
@@ -132,7 +182,7 @@ export class PresetControllerView {
     if (config.groups.length === 0) {
       const empty = this.doc.createElement('div');
       empty.className = 'preset-controller-empty';
-      empty.textContent = '还没有规则，请通过“导入规则集”加载 JSON/YAML 配置。';
+      empty.textContent = '还没有规则，请到扩展设置中导入配置。';
       this.refs.groupsNode.append(empty);
       return;
     }
@@ -151,82 +201,81 @@ export class PresetControllerView {
       const groupMeta = this.doc.createElement('div');
       groupMeta.className = 'preset-controller-group-meta';
 
+      const groupTitleRow = this.doc.createElement('div');
+      groupTitleRow.className = 'preset-controller-label-row';
+
       const groupTitle = this.doc.createElement('div');
       groupTitle.className = 'preset-controller-group-title';
       groupTitle.textContent = group.title;
-      groupMeta.append(groupTitle);
+      groupTitleRow.append(groupTitle);
 
       if (group.description) {
-        const groupDescription = this.doc.createElement('div');
-        groupDescription.className = 'preset-controller-group-description';
-        groupDescription.textContent = group.description;
-        groupMeta.append(groupDescription);
+        groupTitleRow.append(createHelpMarker(this.doc, `${group.title} 说明`, group.description));
       }
+
+      groupMeta.append(groupTitleRow);
 
       const groupToggle = this.doc.createElement('button');
       groupToggle.type = 'button';
       groupToggle.className = 'preset-controller-group-toggle';
       groupToggle.dataset.groupId = group.id;
       groupToggle.dataset.pcAction = 'toggle-group';
-      groupToggle.textContent = ui.groupCollapsed[group.id] ? '▸' : '▾';
+      groupToggle.textContent = ui.groupCollapsed[group.id] ? '展开' : '收起';
 
       groupHeader.append(groupMeta, groupToggle);
 
       const groupBody = this.doc.createElement('div');
       groupBody.className = 'preset-controller-group-body';
 
-      group.items.forEach((item, itemIndex) => {
-        const itemElement = this.doc.createElement('article');
-        itemElement.className = 'preset-controller-item';
+      group.controls.forEach((control, controlIndex) => {
+        this.controlLocationMap.set(control.id, {
+          groupIndex,
+          controlIndex,
+        });
 
-        const itemLabel = this.doc.createElement('div');
-        itemLabel.className = 'preset-controller-item-label';
-        itemLabel.textContent = item.label;
-        itemElement.append(itemLabel);
+        const controlElement = this.doc.createElement('article');
+        controlElement.className = 'preset-controller-item';
 
-        if (item.description) {
-          const itemDescription = this.doc.createElement('div');
-          itemDescription.className = 'preset-controller-item-description';
-          itemDescription.textContent = item.description;
-          itemElement.append(itemDescription);
+        const controlTitle = control.label ?? control.id;
+        const controlTitleRow = this.doc.createElement('div');
+        controlTitleRow.className = 'preset-controller-label-row';
+
+        const controlLabel = this.doc.createElement('div');
+        controlLabel.className = 'preset-controller-item-label';
+        controlLabel.textContent = controlTitle;
+        controlTitleRow.append(controlLabel);
+
+        if (control.description) {
+          controlTitleRow.append(createHelpMarker(this.doc, `${controlTitle} 说明`, control.description));
         }
+
+        controlElement.append(controlTitleRow);
 
         const controlStack = this.doc.createElement('div');
         controlStack.className = 'preset-controller-control-stack';
 
-        item.controls.forEach((control, controlIndex) => {
-          this.controlLocationMap.set(control.id, {
-            groupIndex,
-            itemIndex,
-            controlIndex,
-          });
+        if (control.type === 'toggle') {
+          const toggleLabel = this.doc.createElement('label');
+          toggleLabel.className = 'preset-controller-toggle';
 
-          if (control.type === 'switch') {
-            const switchLabel = this.doc.createElement('label');
-            switchLabel.className = 'preset-controller-switch';
+          const toggleInput = this.doc.createElement('input');
+          toggleInput.type = 'checkbox';
+          toggleInput.checked = control.value;
+          toggleInput.dataset.controlId = control.id;
+          toggleInput.dataset.controlType = 'toggle';
 
-            const switchInput = this.doc.createElement('input');
-            switchInput.type = 'checkbox';
-            switchInput.checked = control.value;
-            switchInput.dataset.controlId = control.id;
-            switchInput.dataset.controlType = 'switch';
+          const toggleText = this.doc.createElement('span');
+          toggleText.textContent = control.value ? '当前为开启' : '当前为关闭';
+          toggleText.title = [
+            formatOperationsSummary('开启时执行：', control.operations.on),
+            formatOperationsSummary('关闭时执行：', control.operations.off),
+          ].join('\n\n');
 
-            const switchText = this.doc.createElement('span');
-            switchText.textContent = control.label ?? control.id;
-            switchText.title = `绑定: ${control.targets.join('、')}`;
-
-            switchLabel.append(switchInput, switchText);
-            controlStack.append(switchLabel);
-            return;
-          }
-
+          toggleLabel.append(toggleInput, toggleText);
+          controlStack.append(toggleLabel);
+        } else {
           const radioGroup = this.doc.createElement('fieldset');
           radioGroup.className = 'preset-controller-radio-group';
-
-          const radioLabel = this.doc.createElement('div');
-          radioLabel.className = 'preset-controller-radio-label';
-          radioLabel.textContent = control.label ?? control.id;
-          radioGroup.append(radioLabel);
 
           control.options.forEach(option => {
             const optionLabel = this.doc.createElement('label');
@@ -242,18 +291,25 @@ export class PresetControllerView {
 
             const optionText = this.doc.createElement('span');
             optionText.textContent = option.label;
-            optionText.title = `绑定: ${option.targets.join('、')}`;
+            optionText.title = formatOperationsSummary('选中时执行：', option.operations, option.description);
 
             optionLabel.append(optionInput, optionText);
             radioGroup.append(optionLabel);
           });
 
           controlStack.append(radioGroup);
-        });
+        }
 
-        itemElement.append(controlStack);
-        groupBody.append(itemElement);
+        controlElement.append(controlStack);
+        groupBody.append(controlElement);
       });
+
+      if (group.controls.length === 0) {
+        const empty = this.doc.createElement('div');
+        empty.className = 'preset-controller-empty';
+        empty.textContent = '该分组暂无操作标签。';
+        groupBody.append(empty);
+      }
 
       groupElement.append(groupHeader, groupBody);
       this.refs.groupsNode.append(groupElement);
@@ -262,14 +318,6 @@ export class PresetControllerView {
 
   getControlLocation(controlId: string): ControlLocation | undefined {
     return this.controlLocationMap.get(controlId);
-  }
-
-  getImportText() {
-    return this.refs.importTextArea.value;
-  }
-
-  clearFileInput() {
-    this.refs.importFileInput.value = '';
   }
 
   setPosition(left: number, top: number) {

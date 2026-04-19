@@ -4,7 +4,7 @@ type HelpMarkerProps = {
   className?: string;
 };
 
-function openHelpPopup(title: string, text: string) {
+export function openHelpPopup(title: string, text: string) {
   if (typeof SillyTavern?.callGenericPopup === 'function' && typeof SillyTavern?.POPUP_TYPE !== 'undefined') {
     const $content = $('<div>')
       .css({

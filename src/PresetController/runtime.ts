@@ -1,13 +1,17 @@
+import { mountExtensionSetting } from '@util/ui';
 import { DEFAULT_PANEL_HEIGHT, DEFAULT_PANEL_WIDTH, ROOT_ELEMENT_ID, SCRIPT_DISPLAY_NAME, VIEWPORT_PADDING } from './constants';
 import { parseImportedConfig } from './importer';
 import { PresetControllerModel } from './model';
 import { applyConfigToInUsePreset } from './preset-sync';
-import { formatError, ImportFormatSchema } from './schema';
+import SettingsPanel from './SettingsPanel';
+import { formatError, stringifyControllerConfigJsonSchema } from './schema';
+import { ImportFormatSchema, type ControllerState, type ImportFormat } from './state';
 import { installStyle, removePreviousMount } from './style';
 import { PresetControllerView } from './view';
 import { mountDraggableFloatingSurface, type FloatingPercentPosition, toFloatingPercentPosition } from '@util/floating';
 import { getHostDomContext } from '@util/host';
 import { createScriptIdDiv } from '@util/script';
+import { createElement } from 'react';
 
 function notify(level: 'success' | 'info' | 'warning' | 'error', message: string) {
   if (typeof toastr !== 'undefined') {
@@ -43,6 +47,30 @@ function notify(level: 'success' | 'info' | 'warning' | 'error', message: string
   console.info(`[${SCRIPT_DISPLAY_NAME}] ${message}`);
 }
 
+function downloadTextFile(doc: Document, win: Window, filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = win.URL.createObjectURL(blob);
+  const link = doc.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  (doc.body ?? doc.documentElement).append(link);
+  link.click();
+  link.remove();
+  win.setTimeout(() => {
+    win.URL.revokeObjectURL(url);
+  }, 0);
+}
+
+export type PresetControllerRuntimeApi = {
+  getState: () => ControllerState;
+  subscribe: (listener: () => void) => () => void;
+  setAutoApply: (autoApply: boolean) => void;
+  setImportFormat: (format: ImportFormat) => void;
+  importConfig: (raw: string, sourceName?: string) => Promise<void>;
+  exportJsonSchema: () => void;
+};
+
 export function createPresetControllerRuntime() {
   const { doc, win } = getHostDomContext();
   removePreviousMount(doc);
@@ -58,6 +86,15 @@ export function createPresetControllerRuntime() {
   }
 
   const view = new PresetControllerView(doc, root);
+  root.classList.toggle('is-collapsed', model.getState().ui.collapsed);
+
+  let autoApplyTimer: ReturnType<typeof setTimeout> | undefined;
+  let destroyed = false;
+
+  const renderShell = () => view.renderShell(model.getState());
+  const renderGroups = () => view.renderGroups(model.getState().config, model.getState().ui);
+  const renderStatus = () => view.renderStatus(model.getState());
+
   const floating = mountDraggableFloatingSurface({
     doc,
     win,
@@ -65,8 +102,8 @@ export function createPresetControllerRuntime() {
     padding: VIEWPORT_PADDING,
     fallbackWidth: DEFAULT_PANEL_WIDTH,
     fallbackHeight: DEFAULT_PANEL_HEIGHT,
-    dragHandle: '[data-pc="drag-handle"]',
-    ignoreDragWithin: 'button,input,select,textarea,label,summary',
+    dragHandle: '.preset-controller-drag-handle',
+    ignoreDragWithin: 'button,input,select,textarea,label,summary,[data-pc-no-drag="true"]',
     loadPosition: () => model.getState().ui.position,
     getDefaultPosition: () => ({
       x: win.innerWidth - DEFAULT_PANEL_WIDTH - 18,
@@ -76,13 +113,6 @@ export function createPresetControllerRuntime() {
       model.setPosition(position);
     },
   });
-
-  let autoApplyTimer: ReturnType<typeof setTimeout> | undefined;
-  let destroyed = false;
-
-  const renderShell = () => view.renderShell(model.getState());
-  const renderGroups = () => view.renderGroups(model.getState().config, model.getState().ui);
-  const renderStatus = () => view.renderStatus(model.getState());
 
   const applyNow = async (reason: string) => {
     if (model.getState().applying) {
@@ -103,7 +133,7 @@ export function createPresetControllerRuntime() {
         notify('warning', `${message}。可在控制台查看未命中名称。`);
         console.warn('[PresetController] Missing targets:', result.missingTargets);
       } else {
-        const message = `已应用 ${result.touchedPromptCount} 项提示词开关`;
+        const message = `已应用 ${result.touchedPromptCount} 项提示词操作`;
         model.setStatus('success', message);
         notify('success', message);
       }
@@ -150,10 +180,58 @@ export function createPresetControllerRuntime() {
     }
   };
 
+  const runtimeApi: PresetControllerRuntimeApi = {
+    getState: () => model.getState(),
+    subscribe: listener => model.subscribe(listener),
+    setAutoApply: autoApply => {
+      model.setAutoApply(autoApply);
+      renderStatus();
+      if (autoApply && model.getState().dirty) {
+        scheduleAutoApply();
+      }
+    },
+    setImportFormat: format => {
+      model.setImportFormat(ImportFormatSchema.parse(format));
+    },
+    importConfig,
+    exportJsonSchema: () => {
+      downloadTextFile(
+        doc,
+        win,
+        'preset-controller.schema.json',
+        stringifyControllerConfigJsonSchema(),
+        'application/schema+json;charset=utf-8',
+      );
+      notify('success', '已导出 preset-controller.schema.json');
+    },
+  };
+
+  const settingsPanel = mountExtensionSetting(createElement(SettingsPanel, { runtime: runtimeApi }));
+
+  const onLauncherActivate = () => {
+    if (floating.consumeClickSuppression() || !model.getState().ui.collapsed) {
+      return;
+    }
+
+    model.setCollapsed(false);
+    view.renderCollapsed(false);
+    floating.recalculatePosition(true);
+  };
+
+  const onLauncherKeydown = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    onLauncherActivate();
+  };
+
   const onCollapseClick = (event: MouseEvent) => {
     event.preventDefault();
-    model.setCollapsed(!model.getState().ui.collapsed);
-    view.renderCollapsed(model.getState().ui.collapsed);
+    model.setCollapsed(true);
+    view.renderCollapsed(true);
+    floating.recalculatePosition(true);
   };
 
   const onGroupsClick = (event: MouseEvent) => {
@@ -181,7 +259,7 @@ export function createPresetControllerRuntime() {
       return;
     }
 
-    const changed = model.updateControl(location, controlType === 'switch' ? target.checked : target.value);
+    const changed = model.updateControl(location, controlType === 'toggle' ? target.checked : target.value);
     if (!changed) {
       return;
     }
@@ -194,42 +272,6 @@ export function createPresetControllerRuntime() {
   const onApplyClick = (event: MouseEvent) => {
     event.preventDefault();
     void applyNow('手动同步');
-  };
-
-  const onAutoApplyChange = () => {
-    model.setAutoApply(view.refs.autoApplyInput.checked);
-    renderStatus();
-    if (model.getState().ui.autoApply && model.getState().dirty) {
-      scheduleAutoApply();
-    }
-  };
-
-  const onImportFormatChange = () => {
-    model.setImportFormat(ImportFormatSchema.parse(view.refs.importFormatSelect.value));
-  };
-
-  const onImportTextClick = (event: MouseEvent) => {
-    event.preventDefault();
-    void importConfig(view.getImportText());
-  };
-
-  const onImportFileClick = (event: MouseEvent) => {
-    event.preventDefault();
-    view.refs.importFileInput.click();
-  };
-
-  const onImportFileChange = () => {
-    const file = view.refs.importFileInput.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    void file
-      .text()
-      .then(content => importConfig(content, file.name))
-      .finally(() => {
-        view.clearFileInput();
-      });
   };
 
   renderShell();
@@ -250,15 +292,12 @@ export function createPresetControllerRuntime() {
     }
   });
 
+  view.refs.launcher.addEventListener('click', onLauncherActivate);
+  view.refs.launcher.addEventListener('keydown', onLauncherKeydown);
   view.refs.collapseButton.addEventListener('click', onCollapseClick);
   view.refs.groupsNode.addEventListener('click', onGroupsClick);
   view.refs.groupsNode.addEventListener('change', onGroupsChange);
   view.refs.applyButton.addEventListener('click', onApplyClick);
-  view.refs.autoApplyInput.addEventListener('change', onAutoApplyChange);
-  view.refs.importFormatSelect.addEventListener('change', onImportFormatChange);
-  view.refs.importTextButton.addEventListener('click', onImportTextClick);
-  view.refs.importFileButton.addEventListener('click', onImportFileClick);
-  view.refs.importFileInput.addEventListener('change', onImportFileChange);
 
   if (model.getState().ui.autoApply && model.getState().config.groups.length > 0) {
     void applyNow('初始化同步');
@@ -277,16 +316,14 @@ export function createPresetControllerRuntime() {
       autoApplyTimer = undefined;
     }
 
+    view.refs.launcher.removeEventListener('click', onLauncherActivate);
+    view.refs.launcher.removeEventListener('keydown', onLauncherKeydown);
     view.refs.collapseButton.removeEventListener('click', onCollapseClick);
     view.refs.groupsNode.removeEventListener('click', onGroupsClick);
     view.refs.groupsNode.removeEventListener('change', onGroupsChange);
     view.refs.applyButton.removeEventListener('click', onApplyClick);
-    view.refs.autoApplyInput.removeEventListener('change', onAutoApplyChange);
-    view.refs.importFormatSelect.removeEventListener('change', onImportFormatChange);
-    view.refs.importTextButton.removeEventListener('click', onImportTextClick);
-    view.refs.importFileButton.removeEventListener('click', onImportFileClick);
-    view.refs.importFileInput.removeEventListener('change', onImportFileChange);
 
+    settingsPanel.destroy();
     floating.destroy();
     view.destroy();
     styleElement.remove();

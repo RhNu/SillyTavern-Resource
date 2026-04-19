@@ -6,6 +6,8 @@ export const STYLE_MARKER_VALUE = SCRIPT_ID;
 export const VIEWPORT_PADDING = 8;
 export const DEFAULT_PANEL_WIDTH = 360;
 export const DEFAULT_PANEL_HEIGHT = 440;
+export const CONFIG_VARIABLE_PATH = 'config';
+export const UI_VARIABLE_PATH = 'ui';
 
 export const variableOption = {
   type: 'script',

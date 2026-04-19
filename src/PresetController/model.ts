@@ -1,65 +1,22 @@
-import { readVariablesRecord } from '@util/variables';
-import { variableOption } from './constants';
+import { readVariablesPath, updateVariablesPath } from '@util/variables';
+import { CONFIG_VARIABLE_PATH, UI_VARIABLE_PATH, variableOption } from './constants';
 import {
-  CONFIG_SCHEMA_VERSION,
-  ControllerConfigSchema,
-  UiStateSchema,
   normalizeConfig,
-  normalizeUiState,
   type ControlLocation,
   type ControllerConfig,
   type ControllerControl,
+} from './schema';
+import {
+  normalizeUiState,
   type ControllerState,
   type ImportFormat,
   type PositionPercent,
   type StatusLevel,
-  type UiState,
-} from './schema';
-
-const StoredStateSchema = z.object({
-  schema: z.literal(CONFIG_SCHEMA_VERSION),
-  config: ControllerConfigSchema.prefault({}),
-  ui: UiStateSchema.prefault({}),
-});
-
-function parseStoredState(raw: unknown): { config: ControllerConfig; ui: UiState } {
-  const parsed = StoredStateSchema.parse(raw);
-  return {
-    config: parsed.config,
-    ui: parsed.ui,
-  };
-}
-
-function persistStateRoot(config: ControllerConfig, ui: UiState) {
-  replaceVariables(
-    {
-      schema: CONFIG_SCHEMA_VERSION,
-      config,
-      ui,
-    },
-    variableOption,
-  );
-}
+} from './state';
 
 function loadInitialState(): ControllerState {
-  const raw = readVariablesRecord(variableOption);
-
-  let config = normalizeConfig(undefined);
-  let ui = normalizeUiState(undefined);
-  let shouldPersist = true;
-
-  try {
-    const parsed = parseStoredState(raw);
-    config = parsed.config;
-    ui = parsed.ui;
-    shouldPersist = false;
-  } catch {
-    // Invalid root payload: reset to defaults under current root schema.
-  }
-
-  if (shouldPersist) {
-    persistStateRoot(config, ui);
-  }
+  const config = normalizeConfig(readVariablesPath(variableOption, CONFIG_VARIABLE_PATH));
+  const ui = normalizeUiState(readVariablesPath(variableOption, UI_VARIABLE_PATH));
 
   return {
     config,
@@ -73,6 +30,7 @@ function loadInitialState(): ControllerState {
 
 export class PresetControllerModel {
   private state: ControllerState;
+  private readonly listeners = new Set<() => void>();
 
   constructor(initialState: ControllerState = loadInitialState()) {
     this.state = initialState;
@@ -82,13 +40,22 @@ export class PresetControllerModel {
     return this.state;
   }
 
+  subscribe(listener: () => void) {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
   setStatus(level: StatusLevel, text: string) {
     this.state.statusLevel = level;
     this.state.statusText = text;
+    this.emitChange();
   }
 
   setApplying(applying: boolean) {
     this.state.applying = applying;
+    this.emitChange();
   }
 
   replaceConfig(config: ControllerConfig) {
@@ -103,6 +70,7 @@ export class PresetControllerModel {
 
   markClean() {
     this.state.dirty = false;
+    this.emitChange();
   }
 
   setCollapsed(collapsed: boolean) {
@@ -136,7 +104,7 @@ export class PresetControllerModel {
       return false;
     }
 
-    if (control.type === 'switch' && typeof value === 'boolean') {
+    if (control.type === 'toggle' && typeof value === 'boolean') {
       if (control.value === value) {
         return false;
       }
@@ -160,14 +128,22 @@ export class PresetControllerModel {
   }
 
   private getControl(location: ControlLocation): ControllerControl | undefined {
-    return this.state.config.groups[location.groupIndex]?.items[location.itemIndex]?.controls[location.controlIndex];
+    return this.state.config.groups[location.groupIndex]?.controls[location.controlIndex];
   }
 
   private persistConfig() {
-    persistStateRoot(this.state.config, this.state.ui);
+    updateVariablesPath(variableOption, CONFIG_VARIABLE_PATH, this.state.config);
+    this.emitChange();
   }
 
   private persistUi() {
-    persistStateRoot(this.state.config, this.state.ui);
+    updateVariablesPath(variableOption, UI_VARIABLE_PATH, this.state.ui);
+    this.emitChange();
+  }
+
+  private emitChange() {
+    this.listeners.forEach(listener => {
+      listener();
+    });
   }
 }

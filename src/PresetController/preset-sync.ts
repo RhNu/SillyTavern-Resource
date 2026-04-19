@@ -1,45 +1,44 @@
-import { type ApplyResult, type ControllerConfig, type ControllerControl } from './schema';
+import { type ApplyResult, type ControllerConfig, type ControllerControl, type ControllerOperation } from './schema';
+
+function applyOperationToPreset(
+  operation: ControllerOperation,
+  promptByName: Map<string, PresetPrompt[]>,
+  missingTargets: Set<string>,
+) {
+  const prompts = promptByName.get(operation.target);
+  if (!prompts?.length) {
+    missingTargets.add(operation.target);
+    return 0;
+  }
+
+  prompts.forEach(prompt => {
+    prompt.enabled = operation.enabled;
+  });
+
+  return prompts.length;
+}
 
 function applyControlToPreset(
   control: ControllerControl,
   promptByName: Map<string, PresetPrompt[]>,
   missingTargets: Set<string>,
 ) {
-  let touchedPromptCount = 0;
-
-  if (control.type === 'switch') {
-    control.targets.forEach(targetName => {
-      const prompts = promptByName.get(targetName);
-      if (!prompts?.length) {
-        missingTargets.add(targetName);
-        return;
-      }
-
-      prompts.forEach(prompt => {
-        prompt.enabled = control.value;
-        touchedPromptCount += 1;
-      });
-    });
-
-    return touchedPromptCount;
+  if (control.type === 'toggle') {
+    return (control.value ? control.operations.on : control.operations.off).reduce(
+      (count, operation) => count + applyOperationToPreset(operation, promptByName, missingTargets),
+      0,
+    );
   }
 
-  control.options.forEach(option => {
-    option.targets.forEach(targetName => {
-      const prompts = promptByName.get(targetName);
-      if (!prompts?.length) {
-        missingTargets.add(targetName);
-        return;
-      }
+  const selectedOption = control.options.find(option => option.value === control.value);
+  if (!selectedOption) {
+    return 0;
+  }
 
-      prompts.forEach(prompt => {
-        prompt.enabled = option.value === control.value;
-        touchedPromptCount += 1;
-      });
-    });
-  });
-
-  return touchedPromptCount;
+  return selectedOption.operations.reduce(
+    (count, operation) => count + applyOperationToPreset(operation, promptByName, missingTargets),
+    0,
+  );
 }
 
 export async function applyConfigToInUsePreset(config: ControllerConfig): Promise<ApplyResult> {
@@ -59,10 +58,8 @@ export async function applyConfigToInUsePreset(config: ControllerConfig): Promis
   let touchedPromptCount = 0;
 
   config.groups.forEach(group => {
-    group.items.forEach(item => {
-      item.controls.forEach(control => {
-        touchedPromptCount += applyControlToPreset(control, promptByName, missingTargets);
-      });
+    group.controls.forEach(control => {
+      touchedPromptCount += applyControlToPreset(control, promptByName, missingTargets);
     });
   });
 
