@@ -1,4 +1,8 @@
-import type { TaskGroup, TaskGroupCounts, TaskGroupStatus } from '@/ImageGenerationHelperV2/features/tasking/task-projection';
+import type {
+  TaskGroup,
+  TaskGroupCounts,
+  TaskGroupStatus,
+} from '@/ImageGenerationHelperV2/features/tasking/task-projection';
 
 const TASK_FOCUS_PRIORITY: Record<TaskGroup['kind'], number> = {
   'image-manual': 4,

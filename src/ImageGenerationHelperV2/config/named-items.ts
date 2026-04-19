@@ -65,7 +65,7 @@ export function deleteNamedItem<T>(collection: NamedItems<T>, name: string): Nam
   return {
     selected:
       collection.selected === name
-        ? Object.keys(items)[0] ?? ''
+        ? (Object.keys(items)[0] ?? '')
         : resolveSelectedNamedItemName({
             selected: collection.selected,
             items,

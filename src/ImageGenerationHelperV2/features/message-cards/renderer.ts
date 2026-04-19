@@ -69,7 +69,9 @@ export function renderMessageCard(
 
   $viewport.append(
     $('<div class="imggen-message-card__summary">')
-      .append($('<span class="imggen-message-card__title">').text(`消息 ${state.messageId} · 图片块 ${state.blockOrder + 1}`))
+      .append(
+        $('<span class="imggen-message-card__title">').text(`消息 ${state.messageId} · 图片块 ${state.blockOrder + 1}`),
+      )
       .append($('<span class="imggen-message-card__meta">').text(`${positionText} · ${statusText}`)),
   );
 

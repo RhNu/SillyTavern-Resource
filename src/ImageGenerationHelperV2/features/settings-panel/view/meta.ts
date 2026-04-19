@@ -58,8 +58,7 @@ export const HELP_TEXT = {
   extractTags: '若匹配到这些标签，只保留标签中的内容作为精简上下文。',
   promptPreset: '图片生成时会读取当前预设的前缀、后缀、负面词和注入模式，拼成最终请求。',
   promptNegative: '图片生成请求使用的负面词。',
-  promptInjectionMode:
-    '开启 NAI 适配后，若提示词中使用 | 分隔多段内容，后缀只注入第一段；关闭时始终按普通逗号拼接。',
+  promptInjectionMode: '开启 NAI 适配后，若提示词中使用 | 分隔多段内容，后缀只注入第一段；关闭时始终按普通逗号拼接。',
   promptTemplate:
     '提示词生成消息会引用这里的模板文本来约束最终绘图提示词内容；模板不需要输出锚点、包裹标签或 JSON 外壳。',
   characterLibrary: `人物库条目会填入模板中的 ${PROMPT_TEMPLATE_CHARACTER_LIST_TOKEN} 占位符。`,

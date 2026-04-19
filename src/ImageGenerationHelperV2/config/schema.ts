@@ -12,10 +12,7 @@ import {
   DEFAULT_RENDER_LATEST_REF_MESSAGES_COUNT,
   createBuiltinTemplateItems,
 } from '@/ImageGenerationHelperV2/config/defaults';
-import {
-  normalizeNamedItems,
-  type NamedItems,
-} from '@/ImageGenerationHelperV2/config/named-items';
+import { normalizeNamedItems, type NamedItems } from '@/ImageGenerationHelperV2/config/named-items';
 
 export const NOVELAI_MODEL_OPTIONS = [
   { value: 'nai-diffusion-4-5-full', text: 'NAI Diffusion Anime V4.5 (Full)' },

@@ -2,9 +2,18 @@ import { createScriptIdDiv, teleportStyle } from '@util/script';
 import { IMGGEN_BLOCK_STATE_UPDATED_EVENT, SCRIPT_DISPLAY_NAME } from '@/ImageGenerationHelperV2/app/ids';
 import { getImageGenerationStore, subscribeImageGenerationStore } from '@/ImageGenerationHelperV2/config/store';
 import { logError, logWarn } from '@/ImageGenerationHelperV2/shared/log';
-import { showErrorToast, showInfoToast, showSuccessToast, showWarningToast } from '@/ImageGenerationHelperV2/shared/toast';
+import {
+  showErrorToast,
+  showInfoToast,
+  showSuccessToast,
+  showWarningToast,
+} from '@/ImageGenerationHelperV2/shared/toast';
 import { getResolvedImgGenMessageState } from '@/ImageGenerationHelperV2/features/image-generation/resolved-state';
-import { clampCarouselIndex, removeMediaUrlAtIndex, resolveRenderableRefMessageIds } from '@/ImageGenerationHelperV2/features/message-cards/ui-state';
+import {
+  clampCarouselIndex,
+  removeMediaUrlAtIndex,
+  resolveRenderableRefMessageIds,
+} from '@/ImageGenerationHelperV2/features/message-cards/ui-state';
 import '@/ImageGenerationHelperV2/features/message-cards/runtime.css';
 
 const CARD_SELECTOR = '.imggen-message-card';
@@ -111,7 +120,9 @@ function renderMessageCard($card: JQuery<HTMLElement>, state: RenderBlockState, 
 
   $viewport.append(
     $('<div class="imggen-message-card__summary">')
-      .append($('<span class="imggen-message-card__title">').text(`消息 ${state.messageId} · 图片块 ${state.blockOrder + 1}`))
+      .append(
+        $('<span class="imggen-message-card__title">').text(`消息 ${state.messageId} · 图片块 ${state.blockOrder + 1}`),
+      )
       .append($('<span class="imggen-message-card__meta">').text(`${positionText} · ${statusText}`)),
   );
 
@@ -502,7 +513,9 @@ export function createImageGenerationMessageUi(api: MessageUiApi) {
 
     const $host = createScriptIdDiv().addClass('imggen-edit-popup');
     const $textarea = $('<textarea class="text_pole" rows="6">').val(state.prompt);
-    const $deleteButton = $('<button type="button" class="menu_button redWarningBG imggen-button">删除当前图片</button>');
+    const $deleteButton = $(
+      '<button type="button" class="menu_button redWarningBG imggen-button">删除当前图片</button>',
+    );
     const $saveButton = $('<button type="button" class="menu_button imggen-button">仅修改</button>');
     const $generateButton = $('<button type="button" class="menu_button imggen-button">生成</button>');
     const $cancelButton = $('<button type="button" class="menu_button menu_button_cancel imggen-button">取消</button>');
@@ -753,11 +766,12 @@ export function createImageGenerationMessageUi(api: MessageUiApi) {
     eventOn(tavern_events.MORE_MESSAGES_LOADED, scheduleSync).stop,
     eventOn(IMGGEN_BLOCK_STATE_UPDATED_EVENT, scheduleSync).stop,
     subscribeImageGenerationStore(
-      state => [
-        state.config.enabled,
-        state.config.generation.renderLatestRefMessagesEnabled,
-        state.config.generation.renderLatestRefMessagesCount,
-      ] as const,
+      state =>
+        [
+          state.config.enabled,
+          state.config.generation.renderLatestRefMessagesEnabled,
+          state.config.generation.renderLatestRefMessagesCount,
+        ] as const,
       ([enabled]) => {
         if (!enabled) {
           clearSync();

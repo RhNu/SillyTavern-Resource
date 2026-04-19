@@ -39,9 +39,11 @@ export default function PromptGenerationTab() {
       : apiPresetNames[0]) ?? '';
   const currentApiPreset =
     config.independentApi.presets.items[activeApiPresetName] ?? getImageGenerationStore().getActiveApiPreset();
-  const apiSummary = [activeApiPresetName || '未命名预设', currentApiPreset.model.trim() || '未设置模型', getApiHost(currentApiPreset.apiurl)].join(
-    ' · ',
-  );
+  const apiSummary = [
+    activeApiPresetName || '未命名预设',
+    currentApiPreset.model.trim() || '未设置模型',
+    getApiHost(currentApiPreset.apiurl),
+  ].join(' · ');
   const filterCount = config.independentApi.filterTags
     .split('\n')
     .map(item => item.trim())

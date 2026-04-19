@@ -19,8 +19,9 @@ export default function PromptTemplateTab() {
   const promptPresetNames = Object.keys(config.prompt.presets.items);
   const templateNames = Object.keys(config.prompt.templates.items);
   const activePromptPresetName =
-    (config.prompt.presets.selected in config.prompt.presets.items ? config.prompt.presets.selected : promptPresetNames[0]) ??
-    '';
+    (config.prompt.presets.selected in config.prompt.presets.items
+      ? config.prompt.presets.selected
+      : promptPresetNames[0]) ?? '';
   const activeTemplateName =
     (config.prompt.templates.selected in config.prompt.templates.items
       ? config.prompt.templates.selected

@@ -2,7 +2,11 @@ import { teleportStyle } from '@util/script';
 import { FLOATING_MENU_IDS } from '@/ImageGenerationHelperV2/app/ids';
 import { getImageGenerationStore } from '@/ImageGenerationHelperV2/config/store';
 import type { TaskGroup, TaskProjection } from '@/ImageGenerationHelperV2/features/tasking/task-projection';
-import { getTaskGroupProgress, getTaskStatusLabel, pickFocusGroup } from '@/ImageGenerationHelperV2/features/tasking/task-progress';
+import {
+  getTaskGroupProgress,
+  getTaskStatusLabel,
+  pickFocusGroup,
+} from '@/ImageGenerationHelperV2/features/tasking/task-progress';
 import '@/ImageGenerationHelperV2/features/floating-menu/view.css';
 
 const ROOT_ID = FLOATING_MENU_IDS.root;

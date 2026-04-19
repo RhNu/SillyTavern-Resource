@@ -2,9 +2,17 @@ import { BUTTON_MANUAL_PROMPT_GENERATION, SCRIPT_DISPLAY_NAME } from '@/ImageGen
 import { clearActiveDestroy, replaceActiveDestroy } from '@/ImageGenerationHelperV2/app/lifecycle';
 import { createServiceRegistry } from '@/ImageGenerationHelperV2/app/service-registry';
 import { logError } from '@/ImageGenerationHelperV2/shared/log';
-import { mountToastStyles, showInfoToast, showSuccessToast, showWarningToast } from '@/ImageGenerationHelperV2/shared/toast';
+import {
+  mountToastStyles,
+  showInfoToast,
+  showSuccessToast,
+  showWarningToast,
+} from '@/ImageGenerationHelperV2/shared/toast';
 import { attachTaskToastProjection } from '@/ImageGenerationHelperV2/features/tasking/task-projection';
-import { initializeImageGenerationUi, ensureImgGenRegex } from '@/ImageGenerationHelperV2/features/image-generation/controller';
+import {
+  initializeImageGenerationUi,
+  ensureImgGenRegex,
+} from '@/ImageGenerationHelperV2/features/image-generation/controller';
 import { initializePromptGeneration } from '@/ImageGenerationHelperV2/features/prompt-generation/controller';
 import { initializeFloatingMenu } from '@/ImageGenerationHelperV2/features/floating-menu/controller';
 import { initializeSettingsPanelLauncher } from '@/ImageGenerationHelperV2/features/settings-panel/launcher';

@@ -1,8 +1,4 @@
-import {
-  applyExtractTags,
-  applyFilterTags,
-  stripXmlComments,
-} from '@/ImageGenerationHelperV2/shared/text';
+import { applyExtractTags, applyFilterTags, stripXmlComments } from '@/ImageGenerationHelperV2/shared/text';
 import { IMGGEN_BLOCK_STATE_UPDATED_EVENT } from '@/ImageGenerationHelperV2/app/ids';
 import { getImageGenerationStore, subscribeImageGenerationStore } from '@/ImageGenerationHelperV2/config/store';
 import { BUILTIN_PROMPT_GENERATION_MESSAGES, type MessageEntry } from '@/ImageGenerationHelperV2/config/defaults';
@@ -15,11 +11,22 @@ import {
   setImgGenBlocksInMessageVariables,
   type ImgGenResolvedBlockState,
 } from '@/ImageGenerationHelperV2/features/image-generation/block-repository';
-import { buildImgGenRef, hasImgGenRefs, stripImgGenBlocks } from '@/ImageGenerationHelperV2/features/image-generation/ref-codec';
-import { generateImageBlocks, queueAutomaticImageBlocks } from '@/ImageGenerationHelperV2/features/image-generation/controller';
+import {
+  buildImgGenRef,
+  hasImgGenRefs,
+  stripImgGenBlocks,
+} from '@/ImageGenerationHelperV2/features/image-generation/ref-codec';
+import {
+  generateImageBlocks,
+  queueAutomaticImageBlocks,
+} from '@/ImageGenerationHelperV2/features/image-generation/controller';
 import type { TaskResultToast } from '@/ImageGenerationHelperV2/features/tasking/task-events';
 import type { TaskProjection as TaskCenter } from '@/ImageGenerationHelperV2/features/tasking/task-projection';
-import { TaskStageGuard, TaskStageTimeoutError, type TaskStagePartial } from '@/ImageGenerationHelperV2/features/tasking/task-stage';
+import {
+  TaskStageGuard,
+  TaskStageTimeoutError,
+  type TaskStagePartial,
+} from '@/ImageGenerationHelperV2/features/tasking/task-stage';
 import {
   PROMPT_GENERATION_HISTORY_CONTEXT_TOKEN,
   PROMPT_GENERATION_LATEST_STORY_TOKEN,

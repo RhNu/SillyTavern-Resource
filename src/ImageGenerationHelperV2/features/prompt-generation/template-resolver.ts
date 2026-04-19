@@ -1,7 +1,10 @@
 import { getImageGenerationStore } from '@/ImageGenerationHelperV2/config/store';
 import { BUILTIN_TEMPLATE_NAI_NAME, BUILTIN_TEMPLATES } from '@/ImageGenerationHelperV2/config/defaults';
 import { buildPromptCharacterList } from '@/ImageGenerationHelperV2/features/prompt-generation/character-resolver';
-import { PROMPT_TEMPLATE_CHARACTER_LIST_TOKEN, replacePromptToken } from '@/ImageGenerationHelperV2/features/prompt-generation/placeholders';
+import {
+  PROMPT_TEMPLATE_CHARACTER_LIST_TOKEN,
+  replacePromptToken,
+} from '@/ImageGenerationHelperV2/features/prompt-generation/placeholders';
 
 export function buildResolvedPromptTemplate(): string {
   const store = getImageGenerationStore();

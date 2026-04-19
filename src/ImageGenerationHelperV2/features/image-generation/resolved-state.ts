@@ -1,6 +1,9 @@
 import { createChatGateway } from '@/ImageGenerationHelperV2/adapters/tavern/chat-gateway';
 import { matchImgGenRefs, type ImgGenRefMatch } from '@/ImageGenerationHelperV2/features/image-generation/ref-codec';
-import { resolveImgGenBlocks, type ImgGenResolvedBlockState } from '@/ImageGenerationHelperV2/features/image-generation/block-repository';
+import {
+  resolveImgGenBlocks,
+  type ImgGenResolvedBlockState,
+} from '@/ImageGenerationHelperV2/features/image-generation/block-repository';
 
 type ImgGenResolvedMessageState = {
   message: ChatMessage;

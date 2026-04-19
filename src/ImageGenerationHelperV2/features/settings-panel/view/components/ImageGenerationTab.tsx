@@ -37,7 +37,8 @@ export default function ImageGenerationTab() {
   const [imageSettingsExpanded, setImageSettingsExpanded] = useState(false);
 
   const selectedSizePreset = resolveSizePresetValue(config.image);
-  const modelText = NOVELAI_MODEL_OPTIONS.find(option => option.value === config.image.model)?.text ?? config.image.model;
+  const modelText =
+    NOVELAI_MODEL_OPTIONS.find(option => option.value === config.image.model)?.text ?? config.image.model;
   const imageSettingsSummary = [modelText, config.image.sampler, `${config.image.width}x${config.image.height}`].join(
     ' · ',
   );
@@ -526,7 +527,9 @@ export default function ImageGenerationTab() {
             />
           </label>
         </div>
-        <p className="imggen-hint">生成图片会优先保存到当前角色对应的图片子目录；没有当前角色上下文时回退到公共目录。</p>
+        <p className="imggen-hint">
+          生成图片会优先保存到当前角色对应的图片子目录；没有当前角色上下文时回退到公共目录。
+        </p>
       </section>
     </>
   );

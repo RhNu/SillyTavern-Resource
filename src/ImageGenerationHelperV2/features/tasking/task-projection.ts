@@ -1,7 +1,16 @@
 import { SCRIPT_DISPLAY_NAME } from '@/ImageGenerationHelperV2/app/ids';
 import { ActionToastSession } from '@/ImageGenerationHelperV2/shared/action-toast';
-import { showErrorToast, showInfoToast, showSuccessToast, showWarningToast } from '@/ImageGenerationHelperV2/shared/toast';
-import { getTaskStatusLabel, pickFocusGroup, sumTaskGroupCounts } from '@/ImageGenerationHelperV2/features/tasking/task-progress';
+import {
+  showErrorToast,
+  showInfoToast,
+  showSuccessToast,
+  showWarningToast,
+} from '@/ImageGenerationHelperV2/shared/toast';
+import {
+  getTaskStatusLabel,
+  pickFocusGroup,
+  sumTaskGroupCounts,
+} from '@/ImageGenerationHelperV2/features/tasking/task-progress';
 import type { TaskReporter, TaskResultToast } from '@/ImageGenerationHelperV2/features/tasking/task-events';
 
 export type TaskGroupKind = 'prompt-auto' | 'prompt-manual' | 'image-auto' | 'image-manual';

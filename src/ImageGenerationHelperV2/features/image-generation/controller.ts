@@ -3,9 +3,18 @@ import { getImageGenerationStore, subscribeImageGenerationStore } from '@/ImageG
 import { logError, logWarn } from '@/ImageGenerationHelperV2/shared/log';
 import { showInfoToast, showWarningToast } from '@/ImageGenerationHelperV2/shared/toast';
 import type { TaskResultToast } from '@/ImageGenerationHelperV2/features/tasking/task-events';
-import type { TaskProjection as TaskCenter, TaskGroupFocus } from '@/ImageGenerationHelperV2/features/tasking/task-projection';
-import { createImageGenerationMessageUi, type RenderBlockState } from '@/ImageGenerationHelperV2/features/message-cards/controller';
-import { normalizeImgGenMessageBlockState, setImgGenBlocksInMessageVariables } from '@/ImageGenerationHelperV2/features/image-generation/block-repository';
+import type {
+  TaskProjection as TaskCenter,
+  TaskGroupFocus,
+} from '@/ImageGenerationHelperV2/features/tasking/task-projection';
+import {
+  createImageGenerationMessageUi,
+  type RenderBlockState,
+} from '@/ImageGenerationHelperV2/features/message-cards/controller';
+import {
+  normalizeImgGenMessageBlockState,
+  setImgGenBlocksInMessageVariables,
+} from '@/ImageGenerationHelperV2/features/image-generation/block-repository';
 import { buildFinalImagePrompt } from '@/ImageGenerationHelperV2/features/image-generation/prompt-builder';
 import {
   buildAutoGenerationQueueToastMessage,
@@ -598,7 +607,9 @@ function buildManualBatchResultToast(batch: ManualGenerationBatch): TaskResultTo
 
   const level =
     batch.failedCount > 0
-      ? (batch.succeededCount > 0 || batch.cancelledCount > 0 ? 'warning' : 'error')
+      ? batch.succeededCount > 0 || batch.cancelledCount > 0
+        ? 'warning'
+        : 'error'
       : batch.cancelledCount > 0
         ? 'info'
         : 'success';
@@ -907,12 +918,7 @@ async function handleGeneration(
           } else if (batch) {
             setManualBatchProgress(batch, messageId, blockId, retryMessage);
           }
-          await waitForTaskDelay(
-            taskKey,
-            store.config.generation.retryDelaySeconds * 1000,
-            messageId,
-            blockId,
-          );
+          await waitForTaskDelay(taskKey, store.config.generation.retryDelaySeconds * 1000, messageId, blockId);
         }
       }
     }

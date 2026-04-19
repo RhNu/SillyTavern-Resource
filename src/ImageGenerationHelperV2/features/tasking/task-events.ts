@@ -1,4 +1,11 @@
-import type { TaskGroup, TaskGroupCancelAction, TaskGroupCounts, TaskGroupFocus, TaskGroupKind, TaskGroupStatus } from '@/ImageGenerationHelperV2/features/tasking/task-projection';
+import type {
+  TaskGroup,
+  TaskGroupCancelAction,
+  TaskGroupCounts,
+  TaskGroupFocus,
+  TaskGroupKind,
+  TaskGroupStatus,
+} from '@/ImageGenerationHelperV2/features/tasking/task-projection';
 
 export type TaskLifecycleInput = {
   id: string;

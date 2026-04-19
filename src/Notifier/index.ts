@@ -1,8 +1,8 @@
-import { createElement } from 'react';
 import { mountExtensionSetting } from '@util/ui';
+import { createElement } from 'react';
 import './index.scss';
-import SettingsPanel from './SettingsPanel';
 import { createNotifierRuntime } from './runtime';
+import SettingsPanel from './SettingsPanel';
 
 let activeDestroy: (() => void) | null = null;
 
@@ -24,11 +24,7 @@ function initialize() {
 
   activeDestroy = destroy;
 
-  $(window)
-    .off('pagehide.notifier')
-    .on('pagehide.notifier', () => {
-      destroy();
-    });
+  $(window).off('pagehide.notifier').on('pagehide.notifier', destroy);
 }
 
 $(() => {

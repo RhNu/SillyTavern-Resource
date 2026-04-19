@@ -19,14 +19,10 @@ export function createMessageVariableGateway() {
       });
     },
     updateMessageVariables(messageId: number, updater: VariableUpdater) {
-      return updateVariablesWith(
-        variables =>
-          updater(normalizeVariablesRecord(variables)),
-        {
-          type: 'message',
-          message_id: messageId,
-        },
-      );
+      return updateVariablesWith(variables => updater(normalizeVariablesRecord(variables)), {
+        type: 'message',
+        message_id: messageId,
+      });
     },
   };
 }

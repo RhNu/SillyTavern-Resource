@@ -4,7 +4,10 @@ import {
   IMGGEN_MESSAGE_VARIABLE_VERSION,
 } from '@/ImageGenerationHelperV2/app/ids';
 import { createMessageVariableGateway } from '@/ImageGenerationHelperV2/adapters/tavern/message-variable-gateway';
-import { PromptGenerationResponseSchema, type PromptGenerationResponse } from '@/ImageGenerationHelperV2/features/prompt-generation/protocol';
+import {
+  PromptGenerationResponseSchema,
+  type PromptGenerationResponse,
+} from '@/ImageGenerationHelperV2/features/prompt-generation/protocol';
 
 export type ImgGenMessageBlockState = {
   prompt: string;

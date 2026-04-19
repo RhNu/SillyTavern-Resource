@@ -7,7 +7,10 @@ type PromptAssemblyOptions = {
 };
 
 function normalizePromptPart(value: string): string {
-  return value.trim().replace(/^,+|,+$/g, '').trim();
+  return value
+    .trim()
+    .replace(/^,+|,+$/g, '')
+    .trim();
 }
 
 function joinPromptParts(parts: string[]): string {

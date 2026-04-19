@@ -9,7 +9,7 @@ export function escapeHtml(value: string): string {
         return '&gt;';
       case '"':
         return '&quot;';
-      case '\'':
+      case "'":
         return '&#39;';
       default:
         return char;
