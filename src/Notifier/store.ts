@@ -1,9 +1,12 @@
+import { createLogger } from '@util/common';
 import { readVariablesRecord, updateVariablesPath } from '@util/variables';
 import { klona } from 'klona';
 import _ from 'lodash';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { STORE_KEY } from './constants';
+import { SCRIPT_DISPLAY_NAME, STORE_KEY } from './constants';
+
+const logger = createLogger(SCRIPT_DISPLAY_NAME);
 
 export type NotificationPermissionState = NotificationPermission | 'unsupported';
 
@@ -49,10 +52,13 @@ function normalizeStoredSettings(raw: unknown): NotifierSettings {
 }
 
 function loadStoredSettings(): NotifierSettings {
-  return normalizeStoredSettings(readVariablesRecord(variableOption));
+  const settings = normalizeStoredSettings(readVariablesRecord(variableOption));
+  logger.info('已加载 Notifier 设置。', settings);
+  return settings;
 }
 
 function persistSettings(settings: NotifierSettings) {
+  logger.debug('持久化 Notifier 设置。', settings);
   updateVariablesPath(variableOption, STORE_KEY, settings);
 }
 
@@ -72,6 +78,7 @@ export const useNotifierStore = create<NotifierState>()(
     updateSettings: recipe => {
       const nextSettings = produceSettings(get().settings, recipe);
       if (!_.isEqual(nextSettings, get().settings)) {
+        logger.info('Notifier 设置已更新。', nextSettings);
         set({ settings: nextSettings });
       }
     },
@@ -96,18 +103,21 @@ export const useNotifierStore = create<NotifierState>()(
 
     setRuntimeActive: active => {
       if (get().runtimeActive !== active) {
+        logger.debug(`runtimeActive 变更为 ${active}`);
         set({ runtimeActive: active });
       }
     },
 
     setRuntimeStarting: starting => {
       if (get().runtimeStarting !== starting) {
+        logger.debug(`runtimeStarting 变更为 ${starting}`);
         set({ runtimeStarting: starting });
       }
     },
 
     setNotificationPermission: permission => {
       if (get().notificationPermission !== permission) {
+        logger.info(`通知权限状态更新为 ${permission}`);
         set({ notificationPermission: permission });
       }
     },

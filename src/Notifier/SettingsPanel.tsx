@@ -1,12 +1,16 @@
+import { createLogger } from '@util/common';
 import { ExtensionSettingDrawer } from '@util/components/ExtensionSettingDrawer';
 import { HelpMarker } from '@util/components/HelpMarker';
 import { useState } from 'react';
+import { SCRIPT_DISPLAY_NAME } from './constants';
 import type { NotifierRuntime } from './runtime';
 import { useNotifierStore } from './store';
 
 type Props = {
   runtime: NotifierRuntime;
 };
+
+const logger = createLogger(SCRIPT_DISPLAY_NAME);
 
 function getPermissionLabel(permission: string) {
   if (permission === 'granted') {
@@ -46,9 +50,11 @@ export default function SettingsPanel({ runtime }: Props) {
   const keepAliveEnabled = settings.keepAliveEnabled;
 
   const handlePermissionRequest = async () => {
+    logger.info('设置面板发起通知权限请求。');
     setRequestingPermission(true);
     try {
-      await runtime.requestPermission();
+      const permission = await runtime.requestPermission();
+      logger.info(`设置面板通知权限请求完成：${permission}`);
     } finally {
       setRequestingPermission(false);
     }
@@ -86,10 +92,12 @@ export default function SettingsPanel({ runtime }: Props) {
               type="button"
               onClick={() => {
                 if (keepAliveEnabled) {
+                  logger.info('设置面板点击：停止后台常驻。');
                   runtime.stopKeepAlive();
                   return;
                 }
 
+                logger.info('设置面板点击：启动后台常驻。');
                 void runtime.startKeepAlive();
               }}
             >
@@ -132,7 +140,11 @@ export default function SettingsPanel({ runtime }: Props) {
             <input
               checked={settings.notificationsEnabled}
               type="checkbox"
-              onChange={event => setNotificationsEnabled(event.currentTarget.checked)}
+              onChange={event => {
+                const enabled = event.currentTarget.checked;
+                logger.info(`设置面板切换：通知开关=${enabled}`);
+                setNotificationsEnabled(enabled);
+              }}
             />
             <span>收到生成结束通知</span>
           </label>
@@ -143,6 +155,7 @@ export default function SettingsPanel({ runtime }: Props) {
               disabled={!settings.notificationsEnabled || notificationPermission === 'denied' || requestingPermission}
               type="button"
               onClick={() => {
+                logger.info('设置面板点击：申请通知权限按钮。');
                 void handlePermissionRequest();
               }}
             >
@@ -179,7 +192,11 @@ export default function SettingsPanel({ runtime }: Props) {
             <input
               checked={settings.showScriptButton}
               type="checkbox"
-              onChange={event => setShowScriptButton(event.currentTarget.checked)}
+              onChange={event => {
+                const enabled = event.currentTarget.checked;
+                logger.info(`设置面板切换：脚本按钮显示=${enabled}`);
+                setShowScriptButton(enabled);
+              }}
             />
             <span>在脚本按钮区域显示启停按钮</span>
           </label>

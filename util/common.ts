@@ -3,6 +3,67 @@ import JSON5 from 'json5';
 import { jsonrepair } from 'jsonrepair';
 import { toDotPath } from 'zod/v4/core';
 
+export type LoggerMethod = (...args: unknown[]) => void;
+
+export type Logger = {
+  log: LoggerMethod;
+  debug: LoggerMethod;
+  info: LoggerMethod;
+  warn: LoggerMethod;
+  error: LoggerMethod;
+};
+
+function normalizeLoggerPrefix(prefix: string): string {
+  const trimmed = prefix.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    return trimmed;
+  }
+
+  return `[${trimmed}]`;
+}
+
+function prependLogPrefix(prefix: string, args: unknown[]): unknown[] {
+  if (!prefix) {
+    return args;
+  }
+
+  if (args.length === 0) {
+    return [prefix];
+  }
+
+  const [first, ...rest] = args;
+  if (typeof first === 'string') {
+    return [`${prefix} ${first}`, ...rest];
+  }
+
+  if (first === undefined) {
+    return [prefix, ...rest];
+  }
+
+  return [prefix, ...args];
+}
+
+export function createLogger(prefix: string): Logger {
+  const normalizedPrefix = normalizeLoggerPrefix(prefix);
+  const wrap =
+    (method: (...args: unknown[]) => void): LoggerMethod =>
+    (...args: unknown[]) => {
+      method(...prependLogPrefix(normalizedPrefix, args));
+    };
+
+  return {
+    log: wrap(console.log.bind(console)),
+    debug: wrap(console.debug.bind(console)),
+    info: wrap(console.info.bind(console)),
+    warn: wrap(console.warn.bind(console)),
+    error: wrap(console.error.bind(console)),
+  };
+}
+
 export function assignInplace<T>(destination: T[], new_array: T[]): T[] {
   destination.length = 0;
   destination.push(...new_array);

@@ -1,6 +1,10 @@
+import { createLogger } from '@util/common';
 import { getHostWindow } from '@util/host';
+import { SCRIPT_DISPLAY_NAME } from './constants';
 import { sendSystemNotification } from './notification';
 import { useNotifierStore } from './store';
+
+const logger = createLogger(SCRIPT_DISPLAY_NAME);
 
 export type NotifierNotificationInput = {
   title: string;
@@ -56,21 +60,32 @@ export function createNotifierBus(): NotifierBus {
 
   const notify = (input: NotifierNotificationInput): Notification | null => {
     const state = useNotifierStore.getState();
-    if (!state.settings.notificationsEnabled || state.notificationPermission !== 'granted') {
+    if (!state.settings.notificationsEnabled) {
+      logger.debug('通知已跳过：通知总开关关闭。');
+      return null;
+    }
+
+    if (state.notificationPermission !== 'granted') {
+      logger.debug(`通知已跳过：权限状态为 ${state.notificationPermission}。`);
       return null;
     }
 
     if (input.onlyWhenHostWindowBlurred && isHostWindowFocused()) {
+      logger.debug('通知已跳过：宿主窗口仍在前台。');
       return null;
     }
 
     const notification = sendSystemNotification(input.title, input.body);
     if (!notification) {
+      logger.warn('通知发送失败：系统通知实例创建失败。');
       return null;
     }
 
+    logger.info(`通知已发送：${input.title}`);
+
     notification.onclick = event => {
       event.preventDefault();
+      logger.info(`通知被点击：${input.title}`);
       if (input.focusHostWindowOnClick) {
         getHostWindow().focus();
       }
@@ -84,19 +99,28 @@ export function createNotifierBus(): NotifierBus {
   const registerSource = (source: string, defaults: NotifierSourceDefaults = {}): NotifierSourceHandle => {
     const token = Symbol(source);
     sourceTokens.set(token, source);
+    logger.info(`通知源已注册：${source}`);
 
     return {
       source,
       notify: input => {
         if (!sourceTokens.has(token)) {
+          logger.debug(`通知已跳过：来源 ${source} 已注销。`);
           return null;
         }
 
         const normalized = normalizeNotificationInput(input, defaults);
-        return normalized ? notify(normalized) : null;
+        if (!normalized) {
+          logger.warn(`通知已跳过：来源 ${source} 的输入缺少标题或正文。`);
+          return null;
+        }
+
+        return notify(normalized);
       },
       unregister: () => {
-        sourceTokens.delete(token);
+        if (sourceTokens.delete(token)) {
+          logger.info(`通知源已注销：${source}`);
+        }
       },
     };
   };
