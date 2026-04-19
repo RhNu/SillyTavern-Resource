@@ -15,10 +15,6 @@ function resolveImportFormat(raw: string, formatHint: ImportFormat, sourceName?:
     return 'yaml';
   }
 
-  if (lowerName.endsWith('.toml')) {
-    throw new Error('当前版本暂不支持 TOML 导入，请改用 JSON 或 YAML。');
-  }
-
   const trimmed = raw.trim();
   return trimmed.startsWith('{') || trimmed.startsWith('[') ? 'json' : 'yaml';
 }

@@ -1,24 +1,69 @@
-import { readVariablesPath, updateVariablesPath } from '@util/variables';
-import { STORE_ROOT_PATH, variableOption } from './constants';
+import { readVariablesRecord } from '@util/variables';
+import { variableOption } from './constants';
 import {
+  CONFIG_SCHEMA_VERSION,
+  ControllerConfigSchema,
+  UiStateSchema,
+  normalizeConfig,
+  normalizeUiState,
   type ControlLocation,
-  type ControllerControl,
   type ControllerConfig,
+  type ControllerControl,
   type ControllerState,
   type ImportFormat,
   type PositionPercent,
   type StatusLevel,
-  normalizeConfig,
-  normalizeUiState,
+  type UiState,
 } from './schema';
 
+const StoredStateSchema = z.object({
+  schema: z.literal(CONFIG_SCHEMA_VERSION),
+  config: ControllerConfigSchema.prefault({}),
+  ui: UiStateSchema.prefault({}),
+});
+
+function parseStoredState(raw: unknown): { config: ControllerConfig; ui: UiState } {
+  const parsed = StoredStateSchema.parse(raw);
+  return {
+    config: parsed.config,
+    ui: parsed.ui,
+  };
+}
+
+function persistStateRoot(config: ControllerConfig, ui: UiState) {
+  replaceVariables(
+    {
+      schema: CONFIG_SCHEMA_VERSION,
+      config,
+      ui,
+    },
+    variableOption,
+  );
+}
+
 function loadInitialState(): ControllerState {
-  const configRaw = readVariablesPath(variableOption, `${STORE_ROOT_PATH}.config`);
-  const uiRaw = readVariablesPath(variableOption, `${STORE_ROOT_PATH}.ui`);
+  const raw = readVariablesRecord(variableOption);
+
+  let config = normalizeConfig(undefined);
+  let ui = normalizeUiState(undefined);
+  let shouldPersist = true;
+
+  try {
+    const parsed = parseStoredState(raw);
+    config = parsed.config;
+    ui = parsed.ui;
+    shouldPersist = false;
+  } catch {
+    // Invalid root payload: reset to defaults under current root schema.
+  }
+
+  if (shouldPersist) {
+    persistStateRoot(config, ui);
+  }
 
   return {
-    config: normalizeConfig(configRaw),
-    ui: normalizeUiState(uiRaw),
+    config,
+    ui,
     dirty: false,
     applying: false,
     statusLevel: 'idle',
@@ -119,10 +164,10 @@ export class PresetControllerModel {
   }
 
   private persistConfig() {
-    updateVariablesPath(variableOption, `${STORE_ROOT_PATH}.config`, this.state.config);
+    persistStateRoot(this.state.config, this.state.ui);
   }
 
   private persistUi() {
-    updateVariablesPath(variableOption, `${STORE_ROOT_PATH}.ui`, this.state.ui);
+    persistStateRoot(this.state.config, this.state.ui);
   }
 }

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const CONFIG_SCHEMA_VERSION = 1;
+
 const NonEmptyStringSchema = z.string().trim().min(1);
 
 function findDuplicateIndexes(values: string[]): number[] {
@@ -130,7 +132,7 @@ export const GroupSchema = z
 
 export const ControllerConfigSchema = z
   .object({
-    schema: z.literal('preset-controller/v1').default('preset-controller/v1'),
+    schema: z.literal(CONFIG_SCHEMA_VERSION).default(CONFIG_SCHEMA_VERSION),
     title: z.string().default('通用预设控制器'),
     description: z.string().default('将规则映射到 in_use 预设提示词开关'),
     groups: z.array(GroupSchema).default([]),
