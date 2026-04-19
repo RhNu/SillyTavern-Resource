@@ -1,3 +1,4 @@
+import { getHostJQuery } from '@util/host';
 import type { SyncIndicatorView, TrackerSnapshot } from './types';
 
 const HOST_SELECTOR = '#user-settings-button .drawer-toggle';
@@ -5,12 +6,6 @@ const ICON_SELECTOR = '#user-settings-button .drawer-icon';
 const HOST_ACTIVE_CLASS = 'sync-indicator-host';
 const RETRY_LIMIT = 8;
 const RETRY_DELAY_MS = 500;
-
-type ParentWindow = Window & typeof globalThis & { jQuery?: JQueryStatic };
-
-function getParentJQuery(): JQueryStatic {
-  return ((window.parent as ParentWindow).jQuery ?? $) as JQueryStatic;
-}
 
 function getTitle(snapshot: TrackerSnapshot): string {
   if (snapshot.state === 'syncing') {
@@ -21,7 +16,7 @@ function getTitle(snapshot: TrackerSnapshot): string {
 }
 
 export function createSyncIndicatorView(): SyncIndicatorView {
-  const parent$ = getParentJQuery();
+  const parent$ = getHostJQuery();
   let latestSnapshot: TrackerSnapshot = { pendingCount: 0, state: 'idle' };
   let $host: JQuery<HTMLElement> | null = null;
   let $icon: JQuery<HTMLElement> | null = null;

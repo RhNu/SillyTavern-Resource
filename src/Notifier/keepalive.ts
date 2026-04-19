@@ -1,3 +1,4 @@
+import { getInteractionDocuments } from '@util/host';
 import { SCRIPT_BUTTON_START, SCRIPT_BUTTON_STOP, SCRIPT_DISPLAY_NAME, SILENT_AUDIO_URL } from './constants';
 
 type KeepAliveControllerOptions = {
@@ -11,19 +12,6 @@ type StartOptions = {
 
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError';
-}
-
-function getHostDocument() {
-  return window.parent.document;
-}
-
-function getInteractionDocuments() {
-  const documents = [document];
-  const hostDocument = getHostDocument();
-  if (hostDocument !== document) {
-    documents.push(hostDocument);
-  }
-  return documents;
 }
 
 function createInteractionGate(onUnlocked: () => void) {

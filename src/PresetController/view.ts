@@ -1,5 +1,4 @@
-import { createScriptIdDiv } from '@util/script';
-import { ROOT_ELEMENT_ID, SCRIPT_DISPLAY_NAME } from './constants';
+import { SCRIPT_DISPLAY_NAME } from './constants';
 import { type ControlLocation, type ControllerConfig, type ControllerState, type UiState } from './schema';
 
 type ViewRefs = {
@@ -34,19 +33,9 @@ export class PresetControllerView {
   private readonly doc: Document;
   private controlLocationMap = new Map<string, ControlLocation>();
 
-  constructor(doc: Document) {
+  constructor(doc: Document, root: HTMLElement) {
     this.doc = doc;
-
-    const $root = createScriptIdDiv()
-      .attr('id', ROOT_ELEMENT_ID)
-      .attr('data-preset-controller-root', 'true')
-      .addClass('preset-controller-root');
-    $root.appendTo(doc.body ?? doc.documentElement);
-
-    const root = $root[0];
-    if (!root) {
-      throw new Error('悬浮窗挂载失败。');
-    }
+    this.root = root;
 
     root.innerHTML = `
       <section class="preset-controller-card" aria-label="${SCRIPT_DISPLAY_NAME}">
@@ -92,7 +81,6 @@ export class PresetControllerView {
       </section>
     `;
 
-    this.root = root;
     this.refs = {
       header: queryRequired(root, '[data-pc="drag-handle"]'),
       titleNode: queryRequired(root, '.preset-controller-title'),

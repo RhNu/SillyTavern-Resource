@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { createScriptIdDiv, ensureExtensionsMenuButtonWithRetry, teleportStyle } from '@util/script';
+import { ensureExtensionsMenuButtonWithRetry, teleportStyle } from '@util/script';
+import { createTemporaryHost } from '@util/ui';
 import { SCRIPT_DISPLAY_NAME, SETTINGS_PANEL_IDS } from '@/ImageGenerationHelperV2/app/ids';
 import { showErrorToast } from '@/ImageGenerationHelperV2/shared/toast';
 import SettingsPanel from '@/ImageGenerationHelperV2/features/settings-panel/view/SettingsPanel';
@@ -34,34 +35,32 @@ export function openImageGenerationSettingsPopup(): void {
     return;
   }
 
-  const $host = createScriptIdDiv()
-    .attr('id', POPUP_CONTENT_ID)
-    .addClass('imggen-settings-host imggen-settings-popup-host')
-    .attr('data-imggen-host', 'settings-popup');
+  let cleaned = false;
+  let cleanup = () => undefined;
+  const hostHandle = createTemporaryHost({
+    id: POPUP_CONTENT_ID,
+    className: 'imggen-settings-host imggen-settings-popup-host',
+    attributes: {
+      'data-imggen-host': 'settings-popup',
+    },
+    onDisconnected: () => cleanup(),
+  });
+  const $host = hostHandle.$host;
   const root = createRoot($host[0]);
   root.render(createElement(SettingsPanel));
 
-  let cleaned = false;
-  const cleanup = () => {
+  cleanup = () => {
     if (cleaned) {
       return;
     }
 
     cleaned = true;
-    observer.disconnect();
     root.unmount();
-    $host.remove();
+    hostHandle.destroy();
     if (activePopup?.$host[0] === $host[0]) {
       activePopup = undefined;
     }
   };
-
-  const observer = new MutationObserver(() => {
-    if (!document.body.contains($host[0])) {
-      cleanup();
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
 
   activePopup = {
     root,

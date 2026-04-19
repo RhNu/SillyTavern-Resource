@@ -1,3 +1,4 @@
+import { getHostWindow } from '@util/host';
 import _ from 'lodash';
 import { bindScriptButtonEvents, createKeepAliveController, syncScriptButtons } from './keepalive';
 import { getNotificationPermissionState, requestNotificationPermission, sendSystemNotification } from './notification';
@@ -19,7 +20,7 @@ function sendGenerationFinishedNotification() {
 
   notification.onclick = event => {
     event.preventDefault();
-    window.parent.focus();
+    getHostWindow().focus();
     notification.close();
   };
 }

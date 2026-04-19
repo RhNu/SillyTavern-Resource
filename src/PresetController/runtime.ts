@@ -1,12 +1,13 @@
-import { SCRIPT_DISPLAY_NAME } from './constants';
-import { getHostContext } from './host';
+import { DEFAULT_PANEL_HEIGHT, DEFAULT_PANEL_WIDTH, ROOT_ELEMENT_ID, SCRIPT_DISPLAY_NAME, VIEWPORT_PADDING } from './constants';
 import { parseImportedConfig } from './importer';
 import { PresetControllerModel } from './model';
-import { clampPosition, fromPercentPosition, getDefaultPosition, toPercentPosition } from './position';
 import { applyConfigToInUsePreset } from './preset-sync';
-import { formatError, ImportFormatSchema, type Position } from './schema';
+import { formatError, ImportFormatSchema } from './schema';
 import { installStyle, removePreviousMount } from './style';
 import { PresetControllerView } from './view';
+import { mountDraggableFloatingSurface, type FloatingPercentPosition, toFloatingPercentPosition } from '@util/floating';
+import { getHostDomContext } from '@util/host';
+import { createScriptIdDiv } from '@util/script';
 
 function notify(level: 'success' | 'info' | 'warning' | 'error', message: string) {
   if (typeof toastr !== 'undefined') {
@@ -43,31 +44,45 @@ function notify(level: 'success' | 'info' | 'warning' | 'error', message: string
 }
 
 export function createPresetControllerRuntime() {
-  const { doc, win } = getHostContext();
+  const { doc, win } = getHostDomContext();
   removePreviousMount(doc);
 
   const styleElement = installStyle(doc);
   const model = new PresetControllerModel();
-  const view = new PresetControllerView(doc);
+  const root = createScriptIdDiv()
+    .attr('id', ROOT_ELEMENT_ID)
+    .attr('data-preset-controller-root', 'true')
+    .addClass('preset-controller-root')[0];
+  if (!root) {
+    throw new Error('悬浮窗挂载失败。');
+  }
+
+  const view = new PresetControllerView(doc, root);
+  const floating = mountDraggableFloatingSurface({
+    doc,
+    win,
+    root,
+    padding: VIEWPORT_PADDING,
+    fallbackWidth: DEFAULT_PANEL_WIDTH,
+    fallbackHeight: DEFAULT_PANEL_HEIGHT,
+    dragHandle: '[data-pc="drag-handle"]',
+    ignoreDragWithin: 'button,input,select,textarea,label,summary',
+    loadPosition: () => model.getState().ui.position,
+    getDefaultPosition: () => ({
+      x: win.innerWidth - DEFAULT_PANEL_WIDTH - 18,
+      y: Math.max(64, Math.round(win.innerHeight * 0.18)),
+    }),
+    savePosition: (position: FloatingPercentPosition) => {
+      model.setPosition(position);
+    },
+  });
 
   let autoApplyTimer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
-  let dragging = false;
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
 
   const renderShell = () => view.renderShell(model.getState());
   const renderGroups = () => view.renderGroups(model.getState().config, model.getState().ui);
   const renderStatus = () => view.renderStatus(model.getState());
-
-  const moveRootTo = (nextPosition: Position, persist = false) => {
-    const clamped = clampPosition(nextPosition, win, view.root);
-    view.setPosition(clamped.x, clamped.y);
-
-    if (persist) {
-      model.setPosition(toPercentPosition(clamped, win, view.root));
-    }
-  };
 
   const applyNow = async (reason: string) => {
     if (model.getState().applying) {
@@ -133,47 +148,6 @@ export function createPresetControllerRuntime() {
       renderStatus();
       notify('error', message);
     }
-  };
-
-  const onPointerMove = (event: PointerEvent) => {
-    if (!dragging) {
-      return;
-    }
-
-    moveRootTo({
-      x: event.clientX - dragOffsetX,
-      y: event.clientY - dragOffsetY,
-    });
-  };
-
-  const stopDragging = () => {
-    if (!dragging) {
-      return;
-    }
-
-    dragging = false;
-    view.root.classList.remove('is-dragging');
-    const rect = view.getRect();
-    moveRootTo({ x: rect.left, y: rect.top }, true);
-  };
-
-  const onHeaderPointerDown = (event: PointerEvent) => {
-    const target = event.target as HTMLElement | null;
-    if (target?.closest('button,input,select,textarea,label,summary')) {
-      return;
-    }
-
-    const rect = view.getRect();
-    dragging = true;
-    dragOffsetX = event.clientX - rect.left;
-    dragOffsetY = event.clientY - rect.top;
-    view.root.classList.add('is-dragging');
-    event.preventDefault();
-  };
-
-  const onResize = () => {
-    const rect = view.getRect();
-    moveRootTo({ x: rect.left, y: rect.top }, true);
   };
 
   const onCollapseClick = (event: MouseEvent) => {
@@ -262,18 +236,19 @@ export function createPresetControllerRuntime() {
   renderGroups();
 
   win.requestAnimationFrame(() => {
-    const state = model.getState();
-    const initialPosition = state.ui.position
-      ? fromPercentPosition(state.ui.position, win, view.root)
-      : getDefaultPosition(win, view.root);
-    moveRootTo(initialPosition);
-  });
+    const position = floating.recalculatePosition(false);
+    const positionPercent = toFloatingPercentPosition(position, {
+      win,
+      element: view.root,
+      padding: VIEWPORT_PADDING,
+      fallbackWidth: DEFAULT_PANEL_WIDTH,
+      fallbackHeight: DEFAULT_PANEL_HEIGHT,
+    });
 
-  view.refs.header.addEventListener('pointerdown', onHeaderPointerDown);
-  doc.addEventListener('pointermove', onPointerMove);
-  doc.addEventListener('pointerup', stopDragging);
-  doc.addEventListener('pointercancel', stopDragging);
-  win.addEventListener('resize', onResize);
+    if (!model.getState().ui.position) {
+      model.setPosition(positionPercent);
+    }
+  });
 
   view.refs.collapseButton.addEventListener('click', onCollapseClick);
   view.refs.groupsNode.addEventListener('click', onGroupsClick);
@@ -302,12 +277,6 @@ export function createPresetControllerRuntime() {
       autoApplyTimer = undefined;
     }
 
-    view.refs.header.removeEventListener('pointerdown', onHeaderPointerDown);
-    doc.removeEventListener('pointermove', onPointerMove);
-    doc.removeEventListener('pointerup', stopDragging);
-    doc.removeEventListener('pointercancel', stopDragging);
-    win.removeEventListener('resize', onResize);
-
     view.refs.collapseButton.removeEventListener('click', onCollapseClick);
     view.refs.groupsNode.removeEventListener('click', onGroupsClick);
     view.refs.groupsNode.removeEventListener('change', onGroupsChange);
@@ -318,6 +287,7 @@ export function createPresetControllerRuntime() {
     view.refs.importFileButton.removeEventListener('click', onImportFileClick);
     view.refs.importFileInput.removeEventListener('change', onImportFileChange);
 
+    floating.destroy();
     view.destroy();
     styleElement.remove();
   };

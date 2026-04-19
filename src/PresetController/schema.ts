@@ -29,7 +29,7 @@ function addDuplicateIssues(
 ) {
   findDuplicateIndexes(values).forEach(index => {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       path: [...pathPrefix, index, fieldName],
       message,
     });
@@ -80,7 +80,7 @@ export const RadioControlSchema = z
     const selectedValue = control.value ?? control.selected ?? control.options[0]?.value;
     if (!selectedValue || !control.options.some(option => option.value === selectedValue)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['value'],
         message: 'radio 的 value/selected 必须对应 options 里的 value',
       });
@@ -152,12 +152,12 @@ export const ControllerConfigSchema = z
           const seen = seenControls.get(control.id);
           if (seen) {
             ctx.addIssue({
-              code: z.ZodIssueCode.custom,
+              code: 'custom',
               path: ['groups', groupIndex, 'items', itemIndex, 'controls', controlIndex, 'id'],
               message: 'control.id 必须全局唯一',
             });
             ctx.addIssue({
-              code: z.ZodIssueCode.custom,
+              code: 'custom',
               path: ['groups', seen[0], 'items', seen[1], 'controls', seen[2], 'id'],
               message: 'control.id 必须全局唯一',
             });

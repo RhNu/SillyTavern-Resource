@@ -1,3 +1,4 @@
+import { getHostWindow } from '@util/host';
 import type { TrackerHandle, TrackerListener, TrackerSnapshot, SyncVisualState } from './types';
 
 const TRACKER_KEY = '__TH_SYNC_INDICATOR_TRACKER__';
@@ -22,18 +23,6 @@ type WindowTrackerStore = {
   state: SyncVisualState;
   idleTimer: ReturnType<typeof setTimeout> | undefined;
 };
-
-function getTrackingWindow(): MonitoredWindow {
-  try {
-    if (window.parent && window.parent !== window) {
-      return window.parent as MonitoredWindow;
-    }
-  } catch (error) {
-    console.warn('[SyncIndicator] Falling back to iframe window for tracking.', error);
-  }
-
-  return window as MonitoredWindow;
-}
 
 function createSnapshot(store: WindowTrackerStore): TrackerSnapshot {
   return {
@@ -205,7 +194,7 @@ function ensureStore(targetWindow: MonitoredWindow): WindowTrackerStore {
 }
 
 export function attachSyncTracker(listener: TrackerListener): TrackerHandle {
-  const targetWindow = getTrackingWindow();
+  const targetWindow = getHostWindow() as MonitoredWindow;
   const store = ensureStore(targetWindow);
 
   store.listeners.add(listener);

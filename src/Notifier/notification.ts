@@ -1,8 +1,9 @@
+import { getHostWindow } from '@util/host';
 import { NOTIFICATION_ICON_URL } from './constants';
 import type { NotificationPermissionState } from './store';
 
 function resolveNotificationApi(): typeof Notification | null {
-  return (window.parent as Window & typeof globalThis).Notification ?? window.Notification ?? null;
+  return (getHostWindow() as Window & typeof globalThis).Notification ?? window.Notification ?? null;
 }
 
 export function getNotificationPermissionState(): NotificationPermissionState {

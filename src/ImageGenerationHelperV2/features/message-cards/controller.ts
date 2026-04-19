@@ -1,4 +1,5 @@
-import { createScriptIdDiv, teleportStyle } from '@util/script';
+import { teleportStyle } from '@util/script';
+import { createTemporaryHost } from '@util/ui';
 import { IMGGEN_BLOCK_STATE_UPDATED_EVENT, SCRIPT_DISPLAY_NAME } from '@/ImageGenerationHelperV2/app/ids';
 import { getImageGenerationStore, subscribeImageGenerationStore } from '@/ImageGenerationHelperV2/config/store';
 import { logError, logWarn } from '@/ImageGenerationHelperV2/shared/log';
@@ -511,7 +512,10 @@ export function createImageGenerationMessageUi(api: MessageUiApi) {
       return;
     }
 
-    const $host = createScriptIdDiv().addClass('imggen-edit-popup');
+    const hostHandle = createTemporaryHost({
+      className: 'imggen-edit-popup',
+    });
+    const $host = hostHandle.$host;
     const $textarea = $('<textarea class="text_pole" rows="6">').val(state.prompt);
     const $deleteButton = $(
       '<button type="button" class="menu_button redWarningBG imggen-button">删除当前图片</button>',
@@ -549,7 +553,7 @@ export function createImageGenerationMessageUi(api: MessageUiApi) {
       $saveButton.off('click');
       $generateButton.off('click');
       $deleteButton.off('click');
-      $host.remove();
+      hostHandle.destroy();
     };
 
     const withBusyState = async (handler: () => Promise<void>) => {
@@ -652,7 +656,10 @@ export function createImageGenerationMessageUi(api: MessageUiApi) {
       return;
     }
 
-    const $host = createScriptIdDiv().addClass('imggen-preview-popup');
+    const hostHandle = createTemporaryHost({
+      className: 'imggen-preview-popup',
+    });
+    const $host = hostHandle.$host;
     const $closeButton = $('<button type="button" class="menu_button menu_button_cancel imggen-button">关闭</button>');
     let cleaned = false;
 
@@ -685,7 +692,7 @@ export function createImageGenerationMessageUi(api: MessageUiApi) {
       }
       cleaned = true;
       $closeButton.off('click');
-      $host.remove();
+      hostHandle.destroy();
     };
 
     $closeButton.on('click', () => void popup.completeCancelled());

@@ -1,3 +1,4 @@
+import { getHostWindow } from '@util/host';
 import { teleportStyle } from '@util/script';
 import './index.scss';
 import { attachSyncTracker } from './tracker';
@@ -5,25 +6,11 @@ import { createSyncIndicatorView } from './view';
 
 let activeDestroy: (() => void) | null = null;
 
-type ParentWindow = Window & typeof globalThis;
-
-function getUnloadPromptWindow(): ParentWindow {
-  try {
-    if (window.parent && window.parent !== window) {
-      return window.parent as ParentWindow;
-    }
-  } catch (error) {
-    console.warn('[SyncIndicator] Falling back to iframe window for exit guard.', error);
-  }
-
-  return window;
-}
-
 function init(): void {
   activeDestroy?.();
   console.info('[SyncIndicator] Initializing.');
 
-  const promptWindow = getUnloadPromptWindow();
+  const promptWindow = getHostWindow();
   let unloadGuardAttached = false;
   const { destroy: destroyTeleportedStyle } = teleportStyle();
   const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
