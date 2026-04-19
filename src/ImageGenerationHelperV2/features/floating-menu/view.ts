@@ -1,19 +1,19 @@
-import { teleportStyle } from '@util/script';
-import { type FloatingPercentPosition, mountDraggableFloatingSurface } from '@util/floating';
-import { getHostDomContext } from '@util/host';
 import { FLOATING_MENU_IDS } from '@/ImageGenerationHelperV2/app/ids';
 import { getImageGenerationStore } from '@/ImageGenerationHelperV2/config/store';
-import type { TaskGroup, TaskProjection } from '@/ImageGenerationHelperV2/features/tasking/task-projection';
+import '@/ImageGenerationHelperV2/features/floating-menu/view.css';
 import {
   getTaskGroupProgress,
   getTaskStatusLabel,
   pickFocusGroup,
 } from '@/ImageGenerationHelperV2/features/tasking/task-progress';
-import '@/ImageGenerationHelperV2/features/floating-menu/view.css';
+import type { TaskGroup, TaskProjection } from '@/ImageGenerationHelperV2/features/tasking/task-projection';
+import { type FloatingPercentPosition, mountDraggableFloatingSurface } from '@util/floating';
+import { getHostDomContext } from '@util/host';
+import { teleportStyle } from '@util/script';
 
 const ROOT_ID = FLOATING_MENU_IDS.root;
 const MENU_ID = FLOATING_MENU_IDS.menu;
-const FLOATING_BUTTON_SIZE = 64;
+const FLOATING_BUTTON_SIZE = 54;
 const LEGACY_MOBILE_BREAKPOINT = 768;
 
 type FloatingMenuOptions = {
@@ -27,7 +27,7 @@ function getDefaultPosition(win: Window) {
   const top = isMobile ? win.innerHeight - FLOATING_BUTTON_SIZE - 88 : Math.floor(win.innerHeight * 0.45);
 
   return {
-    x: win.innerWidth - 76,
+    x: win.innerWidth - FLOATING_BUTTON_SIZE - 12,
     y: top,
   };
 }
