@@ -5,14 +5,28 @@ import type { AutomaticQueueCompletionSummary } from '@/ImageGenerationHelperV2/
 
 const IMAGE_GENERATION_NOTIFIER_SOURCE = 'image-generation-helper-v2:auto-image';
 
+function getNotifierBus(): NotifierBus | undefined {
+  const bus = (globalThis as Record<string, unknown>)[NOTIFIER_BUS_GLOBAL_KEY];
+  if (!bus || typeof bus !== 'object' || typeof (bus as NotifierBus).registerSource !== 'function') {
+    return undefined;
+  }
+
+  return bus as NotifierBus;
+}
+
 export function initializeImageGenerationNotifier() {
   let destroyed = false;
   let sourceHandle: NotifierSourceHandle | undefined;
 
-  void waitGlobalInitialized<NotifierBus>(NOTIFIER_BUS_GLOBAL_KEY)
-    .then(bus => {
+  void waitGlobalInitialized(NOTIFIER_BUS_GLOBAL_KEY)
+    .then(() => {
       if (destroyed || sourceHandle) {
         return;
+      }
+
+      const bus = getNotifierBus();
+      if (!bus) {
+        throw new Error(`全局接口 ${NOTIFIER_BUS_GLOBAL_KEY} 不可用`);
       }
 
       sourceHandle = bus.registerSource(IMAGE_GENERATION_NOTIFIER_SOURCE, {
