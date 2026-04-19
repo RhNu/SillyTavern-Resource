@@ -1,5 +1,6 @@
 import { BUTTON_MANUAL_PROMPT_GENERATION, SCRIPT_DISPLAY_NAME } from '@/ImageGenerationHelperV2/app/ids';
 import { clearActiveDestroy, replaceActiveDestroy } from '@/ImageGenerationHelperV2/app/lifecycle';
+import { initializeImageGenerationNotifier } from '@/ImageGenerationHelperV2/app/notifier';
 import { createServiceRegistry } from '@/ImageGenerationHelperV2/app/service-registry';
 import { logError } from '@/ImageGenerationHelperV2/shared/log';
 import {
@@ -58,7 +59,14 @@ export function bootstrapImageGenerationHelperV2() {
     const settingsPanel = initializeSettingsPanelLauncher();
     cleanups.push(settingsPanel.destroy);
 
-    const messageUi = initializeImageGenerationUi(registry.taskProjection);
+    const notifier = initializeImageGenerationNotifier();
+    cleanups.push(notifier.destroy);
+
+    const messageUi = initializeImageGenerationUi(registry.taskProjection, {
+      onAutomaticQueueFinished: summary => {
+        notifier.notifyAutomaticQueueFinished(summary);
+      },
+    });
     cleanups.push(messageUi.destroy);
 
     const promptGeneration = initializePromptGeneration(messageUi.process, registry.taskProjection);

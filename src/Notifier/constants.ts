@@ -1,5 +1,6 @@
 export const SCRIPT_DISPLAY_NAME = 'Notifier';
 export const STORE_KEY = 'notifier';
+export const NOTIFIER_BUS_GLOBAL_KEY = 'NotifierBus';
 
 export const SCRIPT_BUTTON_START = '▶ 启动后台常驻';
 export const SCRIPT_BUTTON_STOP = '⏹ 停止后台常驻';

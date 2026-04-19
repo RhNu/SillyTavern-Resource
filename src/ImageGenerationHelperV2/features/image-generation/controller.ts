@@ -61,6 +61,15 @@ type AutomaticQueueCancellationState = {
   pendingCount: number;
 };
 
+export type AutomaticQueueCompletionSummary = {
+  requestId: string;
+  succeededCount: number;
+  failedCount: number;
+  cancelledCount: number;
+  failureMessages: string[];
+  message: string;
+};
+
 type ImageGenerationLoggedError = Error & {
   __imggenInterrupted?: boolean;
   __imggenLogged?: boolean;
@@ -118,6 +127,7 @@ let automaticQueueDetailOverride:
       message: string;
     }
   | undefined;
+let automaticQueueFinishedNotifier: ((summary: AutomaticQueueCompletionSummary) => void) | undefined;
 
 function getStore() {
   return getImageGenerationStore();
@@ -453,6 +463,32 @@ function buildAutomaticQueueResultToast(session: AutomaticQueueSession): TaskRes
   };
 }
 
+function buildAutomaticQueueCompletionSummary(session: AutomaticQueueSession): AutomaticQueueCompletionSummary {
+  const processedCount = session.succeededCount + session.failedCount + session.cancelledCount;
+  const parts: string[] = [];
+  if (session.succeededCount > 0) {
+    parts.push(`${session.succeededCount} 个完成`);
+  }
+  if (session.failedCount > 0) {
+    parts.push(`${session.failedCount} 个失败`);
+  }
+  if (session.cancelledCount > 0) {
+    parts.push(`${session.cancelledCount} 个已取消`);
+  }
+
+  return {
+    requestId: session.requestId,
+    succeededCount: session.succeededCount,
+    failedCount: session.failedCount,
+    cancelledCount: session.cancelledCount,
+    failureMessages: [...session.failureMessages],
+    message:
+      processedCount > 0
+        ? `自动生图队列结束，${parts.join('，')}`
+        : '自动生图队列结束，没有可处理的图片任务',
+  };
+}
+
 function completeAutomaticQueueSessionIfIdle() {
   const taskCenter = getTaskCenter();
   if (!taskCenter || automaticQueueCancellation.active) {
@@ -473,6 +509,7 @@ function completeAutomaticQueueSessionIfIdle() {
     return;
   }
 
+  automaticQueueFinishedNotifier?.(buildAutomaticQueueCompletionSummary(automaticQueueSession));
   const resultToast = buildAutomaticQueueResultToast(automaticQueueSession);
   automaticQueueSession = undefined;
   automaticQueueDetailOverride = undefined;
@@ -1193,8 +1230,14 @@ export async function ensureImgGenRegex() {
   }
 }
 
-export function initializeImageGenerationUi(taskCenter: TaskCenter) {
+export function initializeImageGenerationUi(
+  taskCenter: TaskCenter,
+  options?: {
+    onAutomaticQueueFinished?: (summary: AutomaticQueueCompletionSummary) => void;
+  },
+) {
   imageTaskCenter = taskCenter;
+  automaticQueueFinishedNotifier = options?.onAutomaticQueueFinished;
 
   const stopEnabledWatch = subscribeImageGenerationStore(
     state => state.config.enabled,
@@ -1226,6 +1269,7 @@ export function initializeImageGenerationUi(taskCenter: TaskCenter) {
       void interruptAllImageGeneration({ reason: 'destroy' });
       automaticQueueDetailOverride = undefined;
       automaticQueueSession = undefined;
+      automaticQueueFinishedNotifier = undefined;
       suppressAutomaticQueueResult = false;
       getTaskCenter()?.removeGroup(IMAGE_AUTO_GROUP_ID);
       imageTaskCenter = undefined;

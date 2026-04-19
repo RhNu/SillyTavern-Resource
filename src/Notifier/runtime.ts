@@ -1,42 +1,11 @@
-import { getHostWindow } from '@util/host';
 import _ from 'lodash';
+import { notifierBus } from './bus';
 import { bindScriptButtonEvents, createKeepAliveController, syncScriptButtons } from './keepalive';
+import { NOTIFIER_BUS_GLOBAL_KEY } from './constants';
 import { getNotificationPermissionState, requestNotificationPermission, sendSystemNotification } from './notification';
 import { useNotifierStore } from './store';
 
 export type NotifierRuntime = ReturnType<typeof createNotifierRuntime>;
-
-function isHostWindowFocused() {
-  const hostDocument = getHostWindow().document ?? document;
-  if (typeof hostDocument.hasFocus === 'function') {
-    return hostDocument.hasFocus();
-  }
-
-  return hostDocument.visibilityState === 'visible';
-}
-
-function sendGenerationFinishedNotification() {
-  const state = useNotifierStore.getState();
-  if (!state.settings.notificationsEnabled || state.notificationPermission !== 'granted') {
-    return;
-  }
-
-  if (isHostWindowFocused()) {
-    return;
-  }
-
-  const characterName = getCurrentCharacterName()?.trim() || '对方';
-  const notification = sendSystemNotification(`${characterName} 有新回复`, '生成已经完成，可以回到对话继续阅读了。');
-  if (!notification) {
-    return;
-  }
-
-  notification.onclick = event => {
-    event.preventDefault();
-    getHostWindow().focus();
-    notification.close();
-  };
-}
 
 export function createNotifierRuntime() {
   const setKeepAliveEnabled = useNotifierStore.getState().setKeepAliveEnabled;
@@ -48,6 +17,8 @@ export function createNotifierRuntime() {
       useNotifierStore.getState().setRuntimeStarting(starting);
     },
   });
+
+  initializeGlobal(NOTIFIER_BUS_GLOBAL_KEY, notifierBus);
 
   useNotifierStore.getState().setNotificationPermission(getNotificationPermissionState());
 
@@ -101,7 +72,14 @@ export function createNotifierRuntime() {
     },
   );
 
-  const generationListener = eventOn(tavern_events.GENERATION_ENDED, sendGenerationFinishedNotification);
+  const tavernGenerationSource = notifierBus.registerSource('tavern-generation');
+  const generationListener = eventOn(tavern_events.GENERATION_ENDED, () => {
+    const characterName = getCurrentCharacterName()?.trim() || '对方';
+    tavernGenerationSource.notify({
+      title: `${characterName} 有新回复`,
+      body: '生成已经完成，可以回到对话继续阅读了。',
+    });
+  });
   const refreshPermission = () => {
     useNotifierStore.getState().setNotificationPermission(getNotificationPermissionState());
   };
@@ -149,6 +127,7 @@ export function createNotifierRuntime() {
       keepAlive.destroy();
       scriptButtonSyncStop();
       scriptButtons.destroy();
+      tavernGenerationSource.unregister();
       generationListener.stop();
       window.removeEventListener('focus', refreshPermission);
       document.removeEventListener('visibilitychange', refreshPermission);
