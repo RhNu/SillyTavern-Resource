@@ -6,9 +6,22 @@ import { useNotifierStore } from './store';
 
 export type NotifierRuntime = ReturnType<typeof createNotifierRuntime>;
 
+function isHostWindowFocused() {
+  const hostDocument = getHostWindow().document ?? document;
+  if (typeof hostDocument.hasFocus === 'function') {
+    return hostDocument.hasFocus();
+  }
+
+  return hostDocument.visibilityState === 'visible';
+}
+
 function sendGenerationFinishedNotification() {
   const state = useNotifierStore.getState();
   if (!state.settings.notificationsEnabled || state.notificationPermission !== 'granted') {
+    return;
+  }
+
+  if (isHostWindowFocused()) {
     return;
   }
 
