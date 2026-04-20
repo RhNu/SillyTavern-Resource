@@ -1,113 +1,140 @@
+import _ from 'lodash';
 import { POPUP_CONTENT_ID, sourceLabels } from './constants';
 import { collectWorldbookTokenStats, updateGlobalStats } from './stats';
 import type { BookStats, WorldbookTokenStats } from './types';
+
+type RenderContent = string | JQuery<HTMLElement>;
 
 const toast = (type: 'info' | 'success' | 'warning' | 'error', message: string, title?: string): void => {
   toastr[type](message, title);
 };
 
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, ch => {
-    const table: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    };
-    return table[ch] ?? ch;
-  });
-
 const formatNumber = (value: number): string => value.toLocaleString();
 
-const renderLoading = (): string => `<div style="padding:12px 4px;">正在统计世界书…</div>`;
+const renderLoading = (): JQuery<HTMLElement> => $('<div>').attr('style', 'padding:12px 4px;').text('正在统计世界书…');
 
-const renderError = (message: string): string =>
-  `<div style="padding:12px 4px;color:var(--SmartThemeUnderlineColor,#ff8080);">${escapeHtml(message)}</div>`;
+const renderError = (message: string): JQuery<HTMLElement> =>
+  $('<div>').attr('style', 'padding:12px 4px;color:var(--SmartThemeUnderlineColor,#ff8080);').text(message);
 
-const renderBookRow = (name: string, book: BookStats): string => {
-  const safeName = escapeHtml(name);
-  return `
-    <tr>
-      <td style="padding:6px 8px;border-bottom:1px solid var(--SmartThemeBorderColor,#333);">
-        <div>${safeName}</div>
-        <div style="font-size:0.8rem;opacity:0.7;">启用 ${book.enabledCount}/${book.entryCount}</div>
-      </td>
-      <td style="padding:6px 8px;border-bottom:1px solid var(--SmartThemeBorderColor,#333);">${sourceLabels[book.source]}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid var(--SmartThemeBorderColor,#333);text-align:right;">${formatNumber(
-        book.total,
-      )}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid var(--SmartThemeBorderColor,#333);text-align:right;">${formatNumber(
-        book.constant,
-      )}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid var(--SmartThemeBorderColor,#333);text-align:right;">${formatNumber(
-        book.selective,
-      )}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid var(--SmartThemeBorderColor,#333);text-align:right;">${formatNumber(
-        book.vectorized,
-      )}</td>
-    </tr>
-  `;
+const createCell = (value: string, options?: { alignRight?: boolean }): JQuery<HTMLElement> => {
+  const alignStyle = options?.alignRight ? 'text-align:right;' : '';
+  return $('<td>')
+    .attr('style', `padding:6px 8px;border-bottom:1px solid var(--SmartThemeBorderColor,#333);${alignStyle}`)
+    .text(value);
 };
 
-const renderStats = (stats: WorldbookTokenStats): string => {
+const renderBookRow = (name: string, book: BookStats): JQuery<HTMLElement> => {
+  const $row = $('<tr>');
+  const $nameCell = $('<td>').attr(
+    'style',
+    'padding:6px 8px;border-bottom:1px solid var(--SmartThemeBorderColor,#333);',
+  );
+
+  $nameCell
+    .append($('<div>').text(name))
+    .append(
+      $('<div>').attr('style', 'font-size:0.8rem;opacity:0.7;').text(`启用 ${book.enabledCount}/${book.entryCount}`),
+    );
+
+  $row
+    .append($nameCell)
+    .append(createCell(sourceLabels[book.source]))
+    .append(createCell(formatNumber(book.total), { alignRight: true }))
+    .append(createCell(formatNumber(book.constant), { alignRight: true }))
+    .append(createCell(formatNumber(book.selective), { alignRight: true }))
+    .append(createCell(formatNumber(book.vectorized), { alignRight: true }));
+
+  return $row;
+};
+
+const createSummaryCard = (label: string, value: number): JQuery<HTMLElement> =>
+  $('<div>')
+    .attr(
+      'style',
+      'padding:8px 10px;border-radius:8px;border:1px solid var(--SmartThemeBorderColor,#333);background:var(--SmartThemeBlurTintColor,#232323);',
+    )
+    .append($('<div>').attr('style', 'font-size:0.75rem;opacity:0.75;').text(label))
+    .append($('<div>').attr('style', 'font-size:1.05rem;font-weight:600;margin-top:4px;').text(formatNumber(value)));
+
+const renderStats = (stats: WorldbookTokenStats): JQuery<HTMLElement> => {
   const subtitle = `上次统计：${new Date(stats.generatedAt).toLocaleString()}`;
-  const entries = Object.entries(stats.byWorldbook).sort((a, b) => b[1].total - a[1].total);
-  const summaryCard = (label: string, value: number): string => `
-    <div style="padding:8px 10px;border-radius:8px;border:1px solid var(--SmartThemeBorderColor,#333);background:var(--SmartThemeBlurTintColor,#232323);">
-      <div style="font-size:0.75rem;opacity:0.75;">${label}</div>
-      <div style="font-size:1.05rem;font-weight:600;margin-top:4px;">${formatNumber(value)}</div>
-    </div>
-  `;
+  const entries = _.orderBy(
+    Object.entries(stats.byWorldbook) as Array<[string, BookStats]>,
+    ([, book]) => book.total,
+    'desc',
+  );
 
-  const table =
-    entries.length === 0
-      ? `<div style="padding:8px 4px;opacity:0.8;">当前没有绑定世界书。</div>`
-      : `
-        <div style="border:1px solid var(--SmartThemeBorderColor,#333);border-radius:8px;overflow:hidden;">
-          <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr style="background:rgba(255,255,255,0.05);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;">
-                <th style="padding:6px 8px;text-align:left;">名称</th>
-                <th style="padding:6px 8px;text-align:left;">来源</th>
-                <th style="padding:6px 8px;text-align:right;">总数</th>
-                <th style="padding:6px 8px;text-align:right;">常量</th>
-                <th style="padding:6px 8px;text-align:right;">选择</th>
-                <th style="padding:6px 8px;text-align:right;">向量</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${entries.map(([name, book]) => renderBookRow(name, book)).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
+  const $root = $('<div>').attr('style', 'display:flex;flex-direction:column;gap:12px;');
+  const $header = $('<div>').attr(
+    'style',
+    'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;',
+  );
+  const $title = $('<div>')
+    .append($('<div>').attr('style', 'font-size:1.05rem;font-weight:600;').text('世界书统计'))
+    .append($('<div>').attr('style', 'font-size:0.85rem;opacity:0.75;').text(subtitle));
 
-  return `
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-        <div>
-          <div style="font-size:1.05rem;font-weight:600;">世界书统计</div>
-          <div style="font-size:0.85rem;opacity:0.75;">${escapeHtml(subtitle)}</div>
-        </div>
-        <button
-          class="menu_button"
-          data-action="refresh"
-          type="button"
-          style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:auto;min-width:0;white-space:nowrap;writing-mode:horizontal-tb;text-orientation:mixed;"
-        >
-          重新统计
-        </button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">
-        ${summaryCard('总词符数', stats.total)}
-        ${summaryCard('常量', stats.constant)}
-        ${summaryCard('选择', stats.selective)}
-        ${summaryCard('向量', stats.vectorized)}
-      </div>
-      ${table}
-    </div>
-  `;
+  const $refreshButton = $('<button>')
+    .addClass('menu_button')
+    .attr('data-action', 'refresh')
+    .attr('type', 'button')
+    .attr(
+      'style',
+      'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:auto;min-width:0;white-space:nowrap;writing-mode:horizontal-tb;text-orientation:mixed;',
+    )
+    .text('重新统计');
+
+  $header.append($title, $refreshButton);
+
+  const $summary = $('<div>').attr('style', 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;');
+  $summary
+    .append(createSummaryCard('总词符数', stats.total))
+    .append(createSummaryCard('常量', stats.constant))
+    .append(createSummaryCard('选择', stats.selective))
+    .append(createSummaryCard('向量', stats.vectorized));
+
+  let $table: JQuery<HTMLElement>;
+  if (entries.length === 0) {
+    $table = $('<div>').attr('style', 'padding:8px 4px;opacity:0.8;').text('当前没有绑定世界书。');
+  } else {
+    const $tableWrapper = $('<div>').attr(
+      'style',
+      'border:1px solid var(--SmartThemeBorderColor,#333);border-radius:8px;overflow:hidden;',
+    );
+    const $tableElement = $('<table>').attr('style', 'width:100%;border-collapse:collapse;');
+    const $tableHeader = $('<thead>');
+    const $tableHeaderRow = $('<tr>').attr(
+      'style',
+      'background:rgba(255,255,255,0.05);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;',
+    );
+    const $tableBody = $('<tbody>');
+
+    [
+      { text: '名称', alignRight: false },
+      { text: '来源', alignRight: false },
+      { text: '总数', alignRight: true },
+      { text: '常量', alignRight: true },
+      { text: '选择', alignRight: true },
+      { text: '向量', alignRight: true },
+    ].forEach(({ text, alignRight }) => {
+      $tableHeaderRow.append(
+        $('<th>')
+          .attr('style', `padding:6px 8px;text-align:${alignRight ? 'right' : 'left'};`)
+          .text(text),
+      );
+    });
+
+    entries.forEach(([name, book]) => {
+      $tableBody.append(renderBookRow(name, book));
+    });
+
+    $tableHeader.append($tableHeaderRow);
+    $tableElement.append($tableHeader, $tableBody);
+    $tableWrapper.append($tableElement);
+    $table = $tableWrapper;
+  }
+
+  $root.append($header, $summary, $table);
+  return $root;
 };
 
 let statsInFlight = false;
@@ -117,9 +144,13 @@ const resolveContentTarget = ($content: JQuery<HTMLElement>): JQuery<HTMLElement
   return $dialogContent.length ? $dialogContent : $content;
 };
 
-const setContent = ($content: JQuery<HTMLElement>, html: string): JQuery<HTMLElement> => {
+const setContent = ($content: JQuery<HTMLElement>, content: RenderContent): JQuery<HTMLElement> => {
   const $target = resolveContentTarget($content);
-  $target.html(html);
+  if (typeof content === 'string') {
+    $target.html(content);
+  } else {
+    $target.empty().append(content);
+  }
   return $target;
 };
 
@@ -152,7 +183,7 @@ const runStatsAndRender = async ($content: JQuery<HTMLElement>): Promise<void> =
       books: Object.keys(stats.byWorldbook).length,
       durationMs: duration,
     });
-    if (Object.keys(stats.byWorldbook).length === 0) {
+    if (_.isEmpty(stats.byWorldbook)) {
       toast('info', '当前没有绑定世界书。', '世界书统计');
     } else {
       toast('success', `统计完成：${stats.total.toLocaleString()} Tokens`, '世界书统计');
@@ -169,7 +200,7 @@ const runStatsAndRender = async ($content: JQuery<HTMLElement>): Promise<void> =
 };
 
 export const openPanel = async (): Promise<void> => {
-  const $content = $(`<div id="${POPUP_CONTENT_ID}">${renderLoading()}</div>`);
+  const $content = $('<div>').attr('id', POPUP_CONTENT_ID).append(renderLoading());
   void SillyTavern.callGenericPopup($content, SillyTavern.POPUP_TYPE.DISPLAY, '世界书统计', {
     wide: true,
     large: true,
