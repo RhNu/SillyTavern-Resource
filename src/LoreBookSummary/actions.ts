@@ -90,10 +90,17 @@ const renderStats = (stats: WorldbookTokenStats): string => {
           <div style="font-size:1.05rem;font-weight:600;">世界书统计</div>
           <div style="font-size:0.85rem;opacity:0.75;">${escapeHtml(subtitle)}</div>
         </div>
-        <button class="menu_button" data-action="refresh" type="button">重新统计</button>
+        <button
+          class="menu_button"
+          data-action="refresh"
+          type="button"
+          style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:auto;min-width:0;white-space:nowrap;writing-mode:horizontal-tb;text-orientation:mixed;"
+        >
+          重新统计
+        </button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">
-        ${summaryCard('总 Tokens', stats.total)}
+        ${summaryCard('总词符数', stats.total)}
         ${summaryCard('常量', stats.constant)}
         ${summaryCard('选择', stats.selective)}
         ${summaryCard('向量', stats.vectorized)}

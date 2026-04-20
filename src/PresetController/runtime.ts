@@ -1,5 +1,11 @@
 import { mountExtensionSetting } from '@util/ui';
-import { DEFAULT_PANEL_HEIGHT, DEFAULT_PANEL_WIDTH, ROOT_ELEMENT_ID, SCRIPT_DISPLAY_NAME, VIEWPORT_PADDING } from './constants';
+import {
+  DEFAULT_PANEL_HEIGHT,
+  DEFAULT_PANEL_WIDTH,
+  ROOT_ELEMENT_ID,
+  SCRIPT_DISPLAY_NAME,
+  VIEWPORT_PADDING,
+} from './constants';
 import { parseImportedConfig } from './importer';
 import { PresetControllerModel } from './model';
 import { applyConfigToInUsePreset } from './preset-sync';

@@ -37,22 +37,46 @@ const getTokenCount = async (text: string): Promise<number> => {
 
 const collectWorldbookSources = (): Map<string, WorldbookSource> => {
   const sources = new Map<string, WorldbookSource>();
-  const charWorldbooks = getCharWorldbookNames('current');
-  if (charWorldbooks.primary) {
-    sources.set(charWorldbooks.primary, 'primary');
+
+  let hasCurrentCharacter = false;
+  try {
+    hasCurrentCharacter = Boolean(getCharData('current'));
+  } catch (error) {
+    console.warn('[WorldbookTokenStats] Failed to read current character status.', error);
   }
-  for (const name of charWorldbooks.additional) {
-    if (!sources.has(name)) sources.set(name, 'additional');
+
+  if (!hasCurrentCharacter) {
+    console.info('[WorldbookTokenStats] No current character opened, skip character worldbooks.');
+  } else {
+    try {
+      const charWorldbooks = getCharWorldbookNames('current');
+      if (charWorldbooks.primary) {
+        sources.set(charWorldbooks.primary, 'primary');
+      }
+      for (const name of charWorldbooks.additional) {
+        if (!sources.has(name)) sources.set(name, 'additional');
+      }
+    } catch (error) {
+      console.warn(
+        '[WorldbookTokenStats] Failed to resolve current character worldbooks, continue without them.',
+        error,
+      );
+    }
   }
 
   for (const name of getGlobalWorldbookNames()) {
     if (!sources.has(name)) sources.set(name, 'global');
   }
 
-  const chatWorldbook = getChatWorldbookName('current');
-  if (chatWorldbook && !sources.has(chatWorldbook)) {
-    sources.set(chatWorldbook, 'chat');
+  try {
+    const chatWorldbook = getChatWorldbookName('current');
+    if (chatWorldbook && !sources.has(chatWorldbook)) {
+      sources.set(chatWorldbook, 'chat');
+    }
+  } catch (error) {
+    console.warn('[WorldbookTokenStats] Failed to resolve current chat worldbook, continue without it.', error);
   }
+
   return sources;
 };
 

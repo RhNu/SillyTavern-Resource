@@ -1,11 +1,6 @@
 import { readVariablesPath, updateVariablesPath } from '@util/variables';
 import { CONFIG_VARIABLE_PATH, UI_VARIABLE_PATH, variableOption } from './constants';
-import {
-  normalizeConfig,
-  type ControlLocation,
-  type ControllerConfig,
-  type ControllerControl,
-} from './schema';
+import { normalizeConfig, type ControlLocation, type ControllerConfig, type ControllerControl } from './schema';
 import {
   normalizeUiState,
   type ControllerState,

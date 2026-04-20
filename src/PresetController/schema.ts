@@ -50,7 +50,9 @@ export const SetPromptEnabledOperationSchema = z
   })
   .describe('将指定提示词设为启用或禁用。');
 
-export const ControlOperationSchema = z.discriminatedUnion('type', [SetPromptEnabledOperationSchema]).describe('控制器操作。');
+export const ControlOperationSchema = z
+  .discriminatedUnion('type', [SetPromptEnabledOperationSchema])
+  .describe('控制器操作。');
 
 export const ToggleControlSchema = z
   .object({
@@ -136,7 +138,10 @@ export const ControllerConfigSchema = z
   .object({
     schema: z.literal(CONFIG_SCHEMA_VERSION).default(CONFIG_SCHEMA_VERSION).describe('配置格式版本。'),
     title: z.string().default('通用预设控制器').describe('控制器标题。'),
-    description: z.string().default('将界面 control 映射为对 in_use 预设执行的 operations').describe('控制器说明文本。'),
+    description: z
+      .string()
+      .default('将界面 control 映射为对 in_use 预设执行的 operations')
+      .describe('控制器说明文本。'),
     groups: z.array(GroupSchema).default([]).describe('视觉分组列表。'),
   })
   .describe('PresetController 配置根对象。')
