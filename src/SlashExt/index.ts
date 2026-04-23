@@ -1,5 +1,9 @@
 import { isSlashCommandArgumentTrue, slashCommand, slashCommandArgumentTypes } from '@util/slash-command';
 
+function hideRange(start: number, end: number) {
+  return triggerSlash(`/hide ${start}-${end}`);
+}
+
 function init() {
   // Hide-all command: Hides all messages in the current chat. Optionally jumps to the last message after hiding.
   slashCommand('hide-all')
@@ -9,9 +13,9 @@ function init() {
     .callback(async args => {
       const lastMessageId = getLastMessageId();
       console.log(`Hiding all messages up to ID ${lastMessageId}`);
-      await triggerSlash(`/hide 0-${lastMessageId}`);
+      await hideRange(0, lastMessageId);
       if (isSlashCommandArgumentTrue(args.jump)) {
-        triggerSlash(`/chat-jump ${lastMessageId}`);
+        await triggerSlash(`/chat-jump ${lastMessageId}`);
       }
     })
     .register();
@@ -19,7 +23,7 @@ function init() {
 
   // Hide-except-last command: Hides all messages except the last one in the current chat.
   slashCommand('hide-except-last')
-    .aliases('hel', 'hideexceptlast')
+    .aliases('hideexceptlast')
     .help('隐藏除最后一条消息以外的所有消息')
     .callback(async () => {
       const lastMessageId = getLastMessageId();
@@ -28,7 +32,7 @@ function init() {
         return;
       }
       console.log(`Hiding all messages except the last one with ID ${lastMessageId}`);
-      await triggerSlash(`/hide 0-${lastMessageId - 1}`);
+      await hideRange(0, lastMessageId - 1);
     })
     .register();
   console.info('Slash command "hide-except-last" registered.');

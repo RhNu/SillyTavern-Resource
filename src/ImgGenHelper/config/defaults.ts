@@ -273,6 +273,14 @@ ${PROMPT_GENERATION_LATEST_STORY_TOKEN}
   },
   {
     role: 'assistant',
+    content: `{"acknowledged": true, "will_output": "single JSON object with arguments.insertions[].after_paragraph, optional reasoning, and prompt"}`,
+  },
+  {
+    role: 'user',
+    content: 'continue',
+  },
+  {
+    role: 'assistant',
     content: `<think>
 Thought skipped. }
 Returning the final JSON object now. No explanations, markdown, or wrapper tags.
