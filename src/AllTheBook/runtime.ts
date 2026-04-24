@@ -1,6 +1,7 @@
 import type { Logger } from '@util/common';
 
 import { LAST_SCAN_TTL_MS, SCAN_PROMPT_ID_PREFIX } from './constants';
+import { registerAllTheBookCommand } from './command';
 import { collectContextWorldbookNames, createContextSignature } from './context';
 import { buildPreparedScanPayload, collectSelectiveEntries } from './payload';
 import type { LastInjectionRecord, PreparedScanPayload } from './types';
@@ -234,6 +235,9 @@ export function createAllTheBookRuntime(logger: Logger) {
     }),
   ];
 
+  registerAllTheBookCommand(logger, () => {
+    scheduleRefresh('slash-command-converted');
+  });
   scheduleRefresh('bootstrap');
 
   return {
