@@ -28,7 +28,7 @@
     "eslint-plugin-better-tailwindcss": "^3.8.0",
     "eslint-plugin-import-x": "^4.16.2",
     "globals": "^16.5.0",
-    "postcss": "^8.5.12",
+    "postcss": "^8.5.13",
     "postcss-cli": "^11.0.1",
     "postcss-load-config": "^6.0.1",
     "postcss-loader": "^8.2.1",
@@ -63,7 +63,7 @@
     "react-router-dom": "^6.30.3",
     "toastr": "^2.1.4",
     "yaml": "^2.8.3",
-    "zod": "^4.3.6",
+    "zod": "^4.4.1",
     "zustand": "^5.0.12"
   },
   "pnpm": {
