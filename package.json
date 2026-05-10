@@ -11,7 +11,7 @@
   ],
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@tailwindcss/postcss": "^4.2.4",
+    "@tailwindcss/postcss": "^4.3.0",
     "@types/jquery": "^3.5.34",
     "@types/jqueryui": "^1.12.24",
     "@types/lodash": "^4.17.24",
@@ -35,13 +35,13 @@
     "postcss-minify": "^1.2.0",
     "prettier": "^3.8.3",
     "sass": "^1.99.0",
-    "tailwindcss": "^4.2.4",
-    "terser": "^5.46.2",
+    "tailwindcss": "^4.3.0",
+    "terser": "^5.47.1",
     "tslib": "^2.8.1",
     "type-fest": "^4.41.0",
     "typescript": "6.0.0-dev.20250807",
     "typescript-eslint": "^8.59.2",
-    "vite": "^7.3.2",
+    "vite": "^7.3.3",
     "vite-plugin-singlefile": "^2.3.3"
   },
   "dependencies": {
