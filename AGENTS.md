@@ -2,6 +2,8 @@
 
 本仓库所有与 Agent 相关的约束、上下文和操作指南，统一收束在 `agents` 目录。
 
+注意：进行编译时请直接使用 `pnpm build` 进行生产构建即可。
+
 ## 1. 总索引
 
 - [agents/INDEX.md](agents/INDEX.md)

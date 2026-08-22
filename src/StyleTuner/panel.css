@@ -1,0 +1,55 @@
+.styletuner-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+  color: var(--SmartThemeBodyColor, #d8d8d8);
+}
+
+.styletuner-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #d8d8d8) 76%, transparent);
+}
+
+.styletuner-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.styletuner-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, #555555) 45%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #222222) 55%, transparent);
+}
+
+.styletuner-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.styletuner-switch input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--SmartThemeQuoteColor, #2563eb);
+  cursor: pointer;
+}
+
+.styletuner-switch-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.styletuner-item-description {
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #d8d8d8) 68%, transparent);
+}
