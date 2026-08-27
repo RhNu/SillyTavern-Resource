@@ -1,5 +1,5 @@
 import { createLogger } from '@util/common';
-import { getInteractionDocuments } from '@util/host';
+import { getHostDomContext, getInteractionDocuments } from '@util/host';
 import { SCRIPT_BUTTON_START, SCRIPT_BUTTON_STOP, SCRIPT_DISPLAY_NAME, SILENT_AUDIO_URL } from './constants';
 
 const logger = createLogger(SCRIPT_DISPLAY_NAME);
@@ -20,6 +20,7 @@ function isAbortError(error: unknown) {
 function createInteractionGate(onUnlocked: () => void) {
   let unlocked = false;
   let armed = false;
+  const interactionEvents = ['pointerdown', 'touchstart', 'keydown'] as const;
 
   const handleUnlock = () => {
     if (unlocked) {
@@ -40,8 +41,9 @@ function createInteractionGate(onUnlocked: () => void) {
     armed = true;
     logger.debug('已挂载用户交互监听，等待解锁后台常驻。');
     for (const targetDocument of getInteractionDocuments()) {
-      targetDocument.addEventListener('click', handleUnlock, { once: true, capture: true });
-      targetDocument.addEventListener('touchstart', handleUnlock, { once: true, capture: true });
+      for (const eventName of interactionEvents) {
+        targetDocument.addEventListener(eventName, handleUnlock, { once: true, capture: true });
+      }
     }
   };
 
@@ -53,8 +55,9 @@ function createInteractionGate(onUnlocked: () => void) {
     armed = false;
     logger.debug('已移除用户交互监听。');
     for (const targetDocument of getInteractionDocuments()) {
-      targetDocument.removeEventListener('click', handleUnlock, true);
-      targetDocument.removeEventListener('touchstart', handleUnlock, true);
+      for (const eventName of interactionEvents) {
+        targetDocument.removeEventListener(eventName, handleUnlock, true);
+      }
     }
   };
 
@@ -69,48 +72,12 @@ function createInteractionGate(onUnlocked: () => void) {
       unlocked = true;
       disarm();
     },
+    waitForInteraction() {
+      unlocked = false;
+      arm();
+    },
     isUnlocked() {
       return unlocked;
-    },
-  };
-}
-
-function createWebLockLease() {
-  let abortController: AbortController | null = null;
-
-  return {
-    acquire() {
-      if (!('locks' in navigator)) {
-        logger.debug('Web Lock API 不可用，跳过保持。');
-        return;
-      }
-
-      if (abortController) {
-        return;
-      }
-
-      abortController = new AbortController();
-      logger.debug('开始申请 Web Lock 保持。');
-      navigator.locks
-        .request(
-          `${getScriptId()}-presence`,
-          {
-            signal: abortController.signal,
-          },
-          () => new Promise<void>(() => {}),
-        )
-        .catch(error => {
-          if (error instanceof DOMException && error.name === 'AbortError') {
-            return;
-          }
-          logger.warn('Web Lock 保持失败', error);
-        });
-    },
-
-    release() {
-      abortController?.abort();
-      abortController = null;
-      logger.debug('Web Lock 保持已释放。');
     },
   };
 }
@@ -125,13 +92,13 @@ function createHeartbeatWorker(onPulse: () => void) {
         return;
       }
 
-      logger.debug('启动心跳 Worker。');
+      logger.debug('启动低频播放状态探测 Worker。');
 
       const source = `
         let timer = null;
         self.onmessage = event => {
           if (event.data === 'start' && !timer) {
-            timer = setInterval(() => self.postMessage('pulse'), 15000);
+            timer = setInterval(() => self.postMessage('pulse'), 30000);
           }
           if (event.data === 'stop' && timer) {
             clearInterval(timer);
@@ -140,14 +107,19 @@ function createHeartbeatWorker(onPulse: () => void) {
         };
       `;
 
-      workerUrl = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
-      worker = new Worker(workerUrl);
-      worker.onmessage = () => onPulse();
-      worker.onerror = error => {
-        logger.warn('心跳线程意外中断', error);
+      try {
+        workerUrl = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
+        worker = new Worker(workerUrl);
+        worker.onmessage = () => onPulse();
+        worker.onerror = error => {
+          logger.warn('播放状态探测 Worker 意外中断', error);
+          this.stop();
+        };
+        worker.postMessage('start');
+      } catch (error) {
+        logger.warn('当前环境无法创建播放状态探测 Worker', error);
         this.stop();
-      };
-      worker.postMessage('start');
+      }
     },
 
     stop() {
@@ -159,41 +131,6 @@ function createHeartbeatWorker(onPulse: () => void) {
         URL.revokeObjectURL(workerUrl);
         workerUrl = null;
       }
-    },
-  };
-}
-
-function createBroadcastPulse(onPulse: () => void) {
-  let channel: BroadcastChannel | null = null;
-  let timer: ReturnType<typeof setInterval> | null = null;
-
-  return {
-    start() {
-      if (channel) {
-        return;
-      }
-
-      try {
-        logger.debug('启动 BroadcastChannel 心跳。');
-        channel = new BroadcastChannel(`${getScriptId()}-presence`);
-        channel.onmessage = () => onPulse();
-        timer = setInterval(() => {
-          channel?.postMessage({ type: 'pulse', at: Date.now() });
-        }, 30000);
-      } catch (error) {
-        logger.warn('BroadcastChannel 不可用', error);
-        this.stop();
-      }
-    },
-
-    stop() {
-      logger.debug('停止 BroadcastChannel 心跳。');
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
-      }
-      channel?.close();
-      channel = null;
     },
   };
 }
@@ -325,7 +262,8 @@ function createAudioPresence(onPlaybackStateChange: (active: boolean) => void) {
       logger.debug('尝试恢复常驻音频。');
       shouldKeepPlaying = true;
 
-      if (context?.state === 'suspended') {
+      // iOS Safari 可能使用非标准的 interrupted 状态；只要不是 running/closed 都尝试恢复。
+      if (context && context.state !== 'running' && context.state !== 'closed') {
         void context.resume().catch(error => {
           logger.warn('恢复音频上下文失败', error);
         });
@@ -433,9 +371,6 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
     options.onStartingChange(starting);
   };
 
-  const audioPresence = createAudioPresence(active => {
-    setTransportActive(enabled && active);
-  });
   const interactionGate = createInteractionGate(() => {
     if (!enabled) {
       return;
@@ -443,14 +378,20 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
 
     void startTransport();
   });
-  const webLock = createWebLockLease();
+  const audioPresence = createAudioPresence(active => {
+    setTransportActive(enabled && active);
+    if (enabled && !active) {
+      interactionGate.waitForInteraction();
+    }
+  });
   const heartbeatWorker = createHeartbeatWorker(() => {
-    void resumeTransport();
+    if (enabled && interactionGate.isUnlocked() && !audioPresence.isPlaying()) {
+      void resumeTransport();
+    }
   });
-  const broadcastPulse = createBroadcastPulse(() => {
-    heartbeatWorker.start();
-    void resumeTransport();
-  });
+  const { doc: hostDocument, win: hostWindow } = getHostDomContext();
+  const lifecycleDocuments = [...new Set([document, hostDocument])];
+  const lifecycleWindows = [...new Set([window, hostWindow])];
 
   const stopTransport = () => {
     logger.debug('停止后台常驻传输。');
@@ -497,7 +438,8 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
           interactionGate.unlock();
           logger.info('后台常驻启动成功。');
         } else {
-          logger.warn('后台常驻启动失败。');
+          interactionGate.waitForInteraction();
+          logger.warn('后台常驻尚未启动，等待下一次用户交互后重试。');
         }
         setTransportActive(started);
         return started;
@@ -530,7 +472,8 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
           interactionGate.unlock();
           logger.info('后台常驻恢复成功。');
         } else {
-          logger.warn('后台常驻恢复失败。');
+          interactionGate.waitForInteraction();
+          logger.warn('后台常驻尚未恢复，等待下一次用户交互后重试。');
         }
         setTransportActive(started);
         return started;
@@ -547,16 +490,14 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
     }
 
     logger.debug('收到恢复信号，准备恢复后台常驻。');
-    webLock.acquire();
     heartbeatWorker.start();
-    broadcastPulse.start();
     if (interactionGate.isUnlocked()) {
       void resumeTransport();
     }
   };
 
   const handleVisibilityChange = () => {
-    if (document.visibilityState === 'visible') {
+    if (lifecycleDocuments.some(targetDocument => targetDocument.visibilityState === 'visible')) {
       logger.debug('页面回到前台，触发恢复流程。');
       handleResume();
     }
@@ -585,16 +526,23 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
         logger.info('收到用户手动启动请求。');
       }
 
-      webLock.acquire();
       heartbeatWorker.start();
-      broadcastPulse.start();
       if (!wasEnabled) {
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        document.addEventListener('resume', handleResume as EventListener);
+        for (const targetDocument of lifecycleDocuments) {
+          targetDocument.addEventListener('visibilitychange', handleVisibilityChange);
+          targetDocument.addEventListener('resume', handleResume as EventListener);
+        }
+        for (const targetWindow of lifecycleWindows) {
+          targetWindow.addEventListener('pageshow', handleResume);
+          targetWindow.addEventListener('focus', handleResume);
+        }
       }
 
       if (startOptions.userInitiated) {
         interactionGate.unlock();
+      } else {
+        // 脚本可能在页面加载很久后才注入；预先监听下一次手势，避免错过自动播放解锁机会。
+        interactionGate.waitForInteraction();
       }
 
       if (!wasEnabled) {
@@ -615,11 +563,15 @@ export function createKeepAliveController(options: KeepAliveControllerOptions) {
 
       enabled = false;
       interactionGate.disarm();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('resume', handleResume as EventListener);
+      for (const targetDocument of lifecycleDocuments) {
+        targetDocument.removeEventListener('visibilitychange', handleVisibilityChange);
+        targetDocument.removeEventListener('resume', handleResume as EventListener);
+      }
+      for (const targetWindow of lifecycleWindows) {
+        targetWindow.removeEventListener('pageshow', handleResume);
+        targetWindow.removeEventListener('focus', handleResume);
+      }
       heartbeatWorker.stop();
-      broadcastPulse.stop();
-      webLock.release();
       stopTransport();
       logger.info('后台常驻已停止');
     },

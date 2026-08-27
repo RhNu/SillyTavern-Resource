@@ -25,13 +25,17 @@ function getPermissionLabel(permission: string) {
   return '未授权';
 }
 
-function getKeepAliveSummary(runtimeActive: boolean, keepAlivePending: boolean) {
+function getKeepAliveSummary(runtimeActive: boolean, keepAlivePending: boolean, keepAliveEnabled: boolean) {
   if (runtimeActive) {
     return '当前静音音频正在播放。';
   }
 
   if (keepAlivePending) {
     return '正在确认浏览器是否允许后台常驻。';
+  }
+
+  if (keepAliveEnabled) {
+    return '等待下一次点击、触摸或按键以恢复静音音频。';
   }
 
   return '当前未运行。';
@@ -73,16 +77,18 @@ export default function SettingsPanel({ runtime }: Props) {
                   title="后台常驻说明"
                   text={[
                     '后台常驻会尝试播放静音音频，让脚本在切出页面后更稳定地保持活跃。',
-                    '启动时会立即检测音频是否真的开始播放；如果浏览器拦截了自动播放，本次启动会直接回退到未运行状态。',
-                    '手动点击启动按钮时，会重新发起一次播放尝试。',
+                    '如果脚本载入较晚或浏览器拦截了自动播放，会保留启用状态，并在下一次点击、触摸或按键时自动重试。',
+                    '桌面与 Android 通常可在切到后台后继续一段时间；iOS 仍可能按系统策略冻结网页，无法由普通网页脚本完全规避。',
                   ].join('\n\n')}
                 />
               </div>
-              <p className="notifier-copy">{getKeepAliveSummary(runtimeActive, keepAlivePending)}</p>
+              <p className="notifier-copy">{getKeepAliveSummary(runtimeActive, keepAlivePending, keepAliveEnabled)}</p>
             </div>
             <span className={`notifier-state ${runtimeActive ? 'is-active' : keepAlivePending ? 'is-pending' : ''}`}>
               <span className="notifier-state-dot"></span>
-              <span>{runtimeActive ? '运行中' : keepAlivePending ? '启动中' : '已停止'}</span>
+              <span>
+                {runtimeActive ? '运行中' : keepAlivePending ? '启动中' : keepAliveEnabled ? '等待唤醒' : '已停止'}
+              </span>
             </span>
           </div>
 

@@ -33,19 +33,6 @@ export function createNotifierRuntime() {
     }
   };
 
-  const finalizeKeepAliveAttempt = (active: boolean) => {
-    if (active) {
-      logger.info('Keep-alive attempt succeeded.');
-      syncKeepAliveEnabled(true);
-      return true;
-    }
-
-    logger.warn('Keep-alive attempt failed, rolling back to disabled state.');
-    keepAlive.stop();
-    syncKeepAliveEnabled(false);
-    return false;
-  };
-
   const restoreKeepAlive = async () => {
     if (!useNotifierStore.getState().settings.keepAliveEnabled) {
       logger.info('Keep-alive is disabled in settings, only probing playback.');
@@ -55,7 +42,11 @@ export function createNotifierRuntime() {
 
     logger.info('Restoring keep-alive from persisted settings.');
     const started = await keepAlive.start();
-    return finalizeKeepAliveAttempt(keepAlive.probePlayback() || started);
+    const active = keepAlive.probePlayback() || started;
+    if (!active) {
+      logger.info('Keep-alive restore is waiting for the next user interaction.');
+    }
+    return active;
   };
 
   const scriptButtonSyncStop = useNotifierStore.subscribe(
@@ -103,7 +94,7 @@ export function createNotifierRuntime() {
       logger.info('Start keep-alive requested.');
       syncKeepAliveEnabled(true);
       const started = await keepAlive.start({ userInitiated: true });
-      return finalizeKeepAliveAttempt(keepAlive.probePlayback() || started);
+      return keepAlive.probePlayback() || started;
     },
 
     stopKeepAlive() {

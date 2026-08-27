@@ -33,7 +33,16 @@ function initialize() {
 
   activeDestroy = destroy;
 
-  $(window).off('pagehide.notifier').on('pagehide.notifier', destroy);
+  $(window)
+    .off('pagehide.notifier')
+    .on('pagehide.notifier', event => {
+      const pageTransitionEvent = event.originalEvent as PageTransitionEvent | undefined;
+      if (pageTransitionEvent?.persisted) {
+        logger.info('Page entered back/forward cache; preserving runtime for pageshow recovery.');
+        return;
+      }
+      destroy();
+    });
   logger.info('Lifecycle handlers attached.');
 }
 
