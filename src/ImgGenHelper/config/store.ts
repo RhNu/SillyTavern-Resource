@@ -17,12 +17,14 @@ import {
 } from '@/ImgGenHelper/config/named-items';
 import { loadInitialConfig, persistConfig } from '@/ImgGenHelper/config/persistence';
 import {
+  IMAGE_BACKEND_OPTIONS,
   NOVELAI_MODEL_OPTIONS,
   NOVELAI_SAMPLER_OPTIONS,
   NOVELAI_SCHEDULER_OPTIONS,
   createNextConfig,
   normalizeNovelAIImageConfig,
   type ApiConfig,
+  type ImageBackend,
   type NovelAIImageConfig,
   type PromptPreset,
   type ScriptConfig,
@@ -33,6 +35,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
 export {
+  IMAGE_BACKEND_OPTIONS,
   NOVELAI_MODEL_OPTIONS,
   NOVELAI_SAMPLER_OPTIONS,
   NOVELAI_SCHEDULER_OPTIONS,
@@ -40,6 +43,7 @@ export {
   type BindingContext,
   type BindingRef,
   type CharacterBindings,
+  type ImageBackend,
   type NovelAIImageConfig,
   type PromptCharacter,
   type PromptPreset,

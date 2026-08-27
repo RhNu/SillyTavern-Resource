@@ -1,13 +1,20 @@
 import {
+  getNekoaiPluginStatus,
+  probeNekoaiPlugin,
+  type NekoaiPluginStatus,
+} from '@/ImgGenHelper/adapters/ai/plugin-backend-probe';
+import {
+  IMAGE_BACKEND_OPTIONS,
   NOVELAI_MODEL_OPTIONS,
   NOVELAI_SAMPLER_OPTIONS,
   NOVELAI_SCHEDULER_OPTIONS,
   useImageGenerationStore,
+  type ImageBackend,
   type NovelAIImageConfig,
 } from '@/ImgGenHelper/config/store';
 import HelpMarker from '@/ImgGenHelper/features/settings-panel/view/components/HelpMarker';
 import { HELP_TEXT } from '@/ImgGenHelper/features/settings-panel/view/meta';
-import { useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 
 const SIZE_PRESETS = [
   { value: 'portrait', label: 'Portrait (832x1216)', width: 832, height: 1216 },
@@ -31,17 +38,45 @@ function resolveSizePresetValue(image: NovelAIImageConfig): SizePresetValue {
   return matchedPreset?.value ?? 'custom';
 }
 
+const BACKEND_STATUS_TEXT: Record<NekoaiPluginStatus, string> = {
+  unknown: '正在探测后端插件…',
+  available: '后端插件已连接',
+  unavailable: '未检测到后端插件',
+};
+
 export default function ImageGenerationTab() {
   const config = useImageGenerationStore(state => state.config);
   const updateConfig = useImageGenerationStore(state => state.updateConfig);
   const [imageSettingsExpanded, setImageSettingsExpanded] = useState(false);
+  const [pluginStatus, setPluginStatus] = useState<NekoaiPluginStatus>(getNekoaiPluginStatus);
+  const [probing, setProbing] = useState(false);
+
+  const refreshPluginStatus = useCallback(async () => {
+    setProbing(true);
+    try {
+      setPluginStatus(await probeNekoaiPlugin());
+    } finally {
+      setProbing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (getNekoaiPluginStatus() === 'unknown') {
+      void refreshPluginStatus();
+    }
+  }, [refreshPluginStatus]);
 
   const selectedSizePreset = resolveSizePresetValue(config.image);
   const modelText =
     NOVELAI_MODEL_OPTIONS.find(option => option.value === config.image.model)?.text ?? config.image.model;
-  const imageSettingsSummary = [modelText, config.image.sampler, `${config.image.width}x${config.image.height}`].join(
-    ' · ',
-  );
+  const backendText =
+    IMAGE_BACKEND_OPTIONS.find(option => option.value === config.image.backend)?.text ?? config.image.backend;
+  const imageSettingsSummary = [
+    backendText,
+    modelText,
+    config.image.sampler,
+    `${config.image.width}x${config.image.height}`,
+  ].join(' · ');
 
   return (
     <>
@@ -126,6 +161,39 @@ export default function ImageGenerationTab() {
         {imageSettingsExpanded ? (
           <div className="imggen-collapse-body">
             <div className="imggen-grid">
+              <div className="imggen-field">
+                <span className="imggen-label-line">
+                  <span>生成后端</span>
+                  <HelpMarker text={HELP_TEXT.imageBackend} />
+                </span>
+                <select
+                  className="text_pole"
+                  value={config.image.backend}
+                  onChange={event => {
+                    const value = event.currentTarget.value as ImageBackend;
+                    updateConfig(draft => {
+                      draft.image.backend = value;
+                    });
+                  }}
+                >
+                  {IMAGE_BACKEND_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.text}
+                    </option>
+                  ))}
+                </select>
+                <div className="imggen-inline">
+                  <div className="imggen-inline-note">{BACKEND_STATUS_TEXT[pluginStatus]}</div>
+                  <button
+                    className="imggen-button"
+                    disabled={probing}
+                    type="button"
+                    onClick={() => void refreshPluginStatus()}
+                  >
+                    {probing ? '探测中…' : '重新探测'}
+                  </button>
+                </div>
+              </div>
               <label className="imggen-field">
                 <span className="imggen-label-line">
                   <span>模型</span>

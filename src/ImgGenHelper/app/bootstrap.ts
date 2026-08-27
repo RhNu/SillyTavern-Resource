@@ -1,3 +1,4 @@
+import { probeNekoaiPlugin } from '@/ImgGenHelper/adapters/ai/plugin-backend-probe';
 import { BUTTON_MANUAL_PROMPT_GENERATION, SCRIPT_DISPLAY_NAME } from '@/ImgGenHelper/app/ids';
 import { clearActiveDestroy, replaceActiveDestroy } from '@/ImgGenHelper/app/lifecycle';
 import { initializeImageGenerationNotifier } from '@/ImgGenHelper/app/notifier';
@@ -50,6 +51,9 @@ export function bootstrapImageGenerationHelperV2() {
 
     const settingsPanel = initializeSettingsPanelLauncher();
     cleanups.push(settingsPanel.destroy);
+
+    // 探测 NekoAI Bridge 后端插件, 供设置面板“生成后端”选项展示可用状态
+    void probeNekoaiPlugin();
 
     const notifier = initializeImageGenerationNotifier();
     cleanups.push(notifier.destroy);

@@ -78,6 +78,13 @@ async function readErrorText(response: Response): Promise<string> {
   return text.trim() || `请求失败 (${response.status})`;
 }
 
+const PLUGIN_GENERATE_URL = '/api/plugins/nekoai/generate';
+
+type PluginGenerateResponse = {
+  images?: Array<{ data?: string; mime?: string }>;
+  error?: string;
+};
+
 export function createNovelAiImageGateway(options: {
   getImageConfig: () => NovelAIImageConfig;
   getBindingContext: () => BindingContext;
@@ -89,27 +96,63 @@ export function createNovelAiImageGateway(options: {
   ): Promise<GenerateNovelImageResult> => {
     const config = options.getImageConfig();
     const { steps, width, height, sm, smDyn, scheduler } = buildNovelParams(config);
+    const requestBody = {
+      prompt,
+      model: config.model,
+      sampler: config.sampler,
+      scheduler,
+      steps,
+      scale: config.scale,
+      width,
+      height,
+      negative_prompt: negativePrompt,
+      upscale_ratio: config.upscaleRatio,
+      decrisper: config.decrisper,
+      variety_boost: config.varietyBoost,
+      sm,
+      sm_dyn: smDyn,
+      seed: config.seed >= 0 ? config.seed : undefined,
+    };
+
+    if (config.backend === 'plugin') {
+      const response = await fetch(PLUGIN_GENERATE_URL, {
+        method: 'POST',
+        headers: SillyTavern.getRequestHeaders(),
+        signal,
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorText(response));
+      }
+
+      let payload: PluginGenerateResponse;
+      try {
+        payload = (await response.json()) as PluginGenerateResponse;
+      } catch {
+        throw new Error('后端插件返回了无法解析的响应');
+      }
+
+      if (!payload.images?.length) {
+        throw new Error(payload.error?.trim() || '后端插件未返回图片数据');
+      }
+
+      const data = normalizeBase64Image(payload.images[0]?.data ?? '');
+      if (!data) {
+        throw new Error('后端插件未返回图片数据');
+      }
+
+      return {
+        format: 'png',
+        data,
+      };
+    }
+
     const response = await fetch('/api/novelai/generate-image', {
       method: 'POST',
       headers: SillyTavern.getRequestHeaders(),
       signal,
-      body: JSON.stringify({
-        prompt,
-        model: config.model,
-        sampler: config.sampler,
-        scheduler,
-        steps,
-        scale: config.scale,
-        width,
-        height,
-        negative_prompt: negativePrompt,
-        upscale_ratio: config.upscaleRatio,
-        decrisper: config.decrisper,
-        variety_boost: config.varietyBoost,
-        sm,
-        sm_dyn: smDyn,
-        seed: config.seed >= 0 ? config.seed : undefined,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

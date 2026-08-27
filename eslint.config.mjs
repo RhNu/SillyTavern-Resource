@@ -74,9 +74,24 @@ export default [
       'import-x/no-nodejs-modules': 'off',
     },
   },
+  {
+    // 后端插件运行在 SillyTavern 的 Node 进程中, 使用 Node 全局对象与内置模块
+    files: ['src-plugins/**/*.{js,ts}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      'import-x/no-nodejs-modules': 'off',
+      'import-x/no-unresolved': [2, { ignore: ['^http', '^node:', '^nekoai-js$'] }],
+    },
+  },
   eslintConfigPrettier,
   globalIgnores([
     'dist/**',
+    'dist-plugins/**',
+    '.cache/**',
     'node_modules/**',
     '示例/**',
     '初始模板/**',

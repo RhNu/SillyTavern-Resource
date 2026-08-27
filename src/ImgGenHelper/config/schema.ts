@@ -36,6 +36,13 @@ export const NOVELAI_SAMPLER_OPTIONS = [
 
 export const NOVELAI_SCHEDULER_OPTIONS = ['karras', 'native', 'exponential', 'polyexponential'] as const;
 
+export type ImageBackend = 'tavern' | 'plugin';
+
+export const IMAGE_BACKEND_OPTIONS = [
+  { value: 'tavern', text: '酒馆内置 NovelAI API' },
+  { value: 'plugin', text: '后端插件 (NekoAI Bridge)' },
+] as const;
+
 export type PromptPreset = {
   prefix: string;
   suffix: string;
@@ -44,6 +51,7 @@ export type PromptPreset = {
 };
 
 export type NovelAIImageConfig = {
+  backend: ImageBackend;
   model: (typeof NOVELAI_MODEL_OPTIONS)[number]['value'];
   sampler: (typeof NOVELAI_SAMPLER_OPTIONS)[number];
   scheduler: (typeof NOVELAI_SCHEDULER_OPTIONS)[number];
@@ -138,6 +146,7 @@ const ApiConfigSchema = z
 
 const NovelAIImageConfigSchema = z
   .object({
+    backend: z.enum(['tavern', 'plugin']).default('tavern'),
     model: z
       .enum(
         NOVELAI_MODEL_OPTIONS.map(option => option.value) as [
