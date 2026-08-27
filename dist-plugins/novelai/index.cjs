@@ -1,1 +1,825 @@
-"use strict";var K=Object.defineProperty;var _n=Object.getOwnPropertyDescriptor;var Cn=Object.getOwnPropertyNames;var Fn=Object.prototype.hasOwnProperty;var Bn=(n,r)=>{for(var t in r)K(n,t,{get:r[t],enumerable:!0})},Nn=(n,r,t,e)=>{if(r&&typeof r=="object"||typeof r=="function")for(let i of Cn(r))!Fn.call(n,i)&&i!==t&&K(n,i,{get:()=>r[i],enumerable:!(e=_n(r,i))||e.enumerable});return n};var Dn=n=>Nn(K({},"__esModule",{value:!0}),n);var Mr={};Bn(Mr,{exit:()=>kr,info:()=>kn,init:()=>Sr});module.exports=Dn(Mr);var pn=require("module"),On=(0,pn.createRequire)("/"),C,Rn,qn;try{C=On("worker_threads"),Rn=C.Worker,qn=C.isMarkedAsUntransferable}catch{}var m=Uint8Array,_=Uint16Array,Gn=Int32Array,gn=new m([0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0,0,0,0]),mn=new m([0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13,0,0]),Ln=new m([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]),wn=function(n,r){for(var t=new _(31),e=0;e<31;++e)t[e]=r+=1<<n[e-1];for(var i=new Gn(t[30]),e=1;e<30;++e)for(var f=t[e];f<t[e+1];++f)i[f]=f-t[e]<<5|e;return{b:t,r:i}},C=wn(gn,2),yn=C.b,Zn=C.r;yn[28]=258,Zn[258]=28;var xn=wn(mn,0),Vn=xn.b,Tr=xn.r,b=new _(32768);for(s=0;s<32768;++s)M=(s&43690)>>1|(s&21845)<<1,M=(M&52428)>>2|(M&13107)<<2,M=(M&61680)>>4|(M&3855)<<4,b[s]=((M&65280)>>8|(M&255)<<8)>>1;var M,s,O=(function(n,r,t){for(var e=n.length,i=0,f=new _(r);i<e;++i)n[i]&&++f[n[i]-1];var h=new _(r);for(i=1;i<r;++i)h[i]=h[i-1]+f[i-1]<<1;var o;if(t){o=new _(1<<r);var v=15-r;for(i=0;i<e;++i)if(n[i])for(var c=i<<4|n[i],u=r-n[i],a=h[n[i]-1]++<<u,l=a|(1<<u)-1;a<=l;++a)o[b[a]>>v]=c}else for(o=new _(e),i=0;i<e;++i)n[i]&&(o[i]=b[h[n[i]-1]++]>>15-n[i]);return o}),R=new m(288);for(s=0;s<144;++s)R[s]=8;var s;for(s=144;s<256;++s)R[s]=9;var s;for(s=256;s<280;++s)R[s]=7;var s;for(s=280;s<288;++s)R[s]=8;var s,dn=new m(32);for(s=0;s<32;++s)dn[s]=5;var s;var jn=O(R,9,1);var $n=O(dn,5,1),J=function(n){for(var r=n[0],t=1;t<n.length;++t)n[t]>r&&(r=n[t]);return r},d=function(n,r,t){var e=r/8|0;return(n[e]|n[e+1]<<8)>>(r&7)&t},X=function(n,r){var t=r/8|0;return(n[t]|n[t+1]<<8|n[t+2]<<16)>>(r&7)},Wn=function(n){return(n+7)/8|0},rn=function(n,r,t){return(r==null||r<0)&&(r=0),(t==null||t>n.length)&&(t=n.length),new m(n.subarray(r,t))};var Hn=["unexpected EOF","invalid block type","invalid length/literal","invalid distance","stream finished","no stream handler",,"no callback","invalid UTF-8 data","extra field too long","date not in range 1980-2099","filename too long","stream finishing","invalid zip data"],g=function(n,r,t){var e=new Error(r||Hn[n]);if(e.code=n,Error.captureStackTrace&&Error.captureStackTrace(e,g),!t)throw e;return e},Yn=function(n,r,t,e){var i=n.length,f=e?e.length:0;if(!i||r.f&&!r.l)return t||new m(0);var h=!t,o=h||r.i!=2,v=r.i;h&&(t=new m(i*3));var c=function(hn){var vn=t.length;if(hn>vn){var cn=new m(Math.max(vn*2,hn));cn.set(t),t=cn}},u=r.f||0,a=r.p||0,l=r.b||0,p=r.l,w=r.d,S=r.m,k=r.n,E=i*8;do{if(!p){u=d(n,a,1);var L=d(n,a+1,3);if(a+=3,L)if(L==1)p=jn,w=$n,S=9,k=5;else if(L==2){var j=d(n,a,31)+257,tn=d(n,a+10,15)+4,en=j+d(n,a+5,31)+1;a+=14;for(var N=new m(en),$=new m(19),y=0;y<tn;++y)$[Ln[y]]=d(n,a+y*3,7);a+=tn*3;for(var an=J($),Mn=(1<<an)-1,En=O($,an,1),y=0;y<en;){var on=En[d(n,a,Mn)];a+=on&15;var z=on>>4;if(z<16)N[y++]=z;else{var P=0,G=0;for(z==16?(G=3+d(n,a,3),a+=2,P=N[y-1]):z==17?(G=3+d(n,a,7),a+=3):z==18&&(G=11+d(n,a,127),a+=7);G--;)N[y++]=P}}var sn=N.subarray(0,j),T=N.subarray(j);S=J(sn),k=J(T),p=O(sn,S,1),w=O(T,k,1)}else g(1);else{var z=Wn(a)+4,Z=n[z-4]|n[z-3]<<8,V=z+Z;if(V>i){v&&g(0);break}o&&c(l+Z),t.set(n.subarray(z,V),l),r.b=l+=Z,r.p=a=V*8,r.f=u;continue}if(a>E){v&&g(0);break}}o&&c(l+131072);for(var Tn=(1<<S)-1,Pn=(1<<k)-1,W=a;;W=a){var P=p[X(n,a)&Tn],U=P>>4;if(a+=P&15,a>E){v&&g(0);break}if(P||g(2),U<256)t[l++]=U;else if(U==256){W=a,p=null;break}else{var fn=U-254;if(U>264){var y=U-257,D=gn[y];fn=d(n,a,(1<<D)-1)+yn[y],a+=D}var H=w[X(n,a)&Pn],Y=H>>4;H||g(3),a+=H&15;var T=Vn[Y];if(Y>3){var D=mn[Y];T+=X(n,a)&(1<<D)-1,a+=D}if(a>E){v&&g(0);break}o&&c(l+131072);var un=l+fn;if(l<T){var ln=f-T,Un=Math.min(T,un);for(ln+l<0&&g(3);l<Un;++l)t[l]=e[ln+l]}for(;l<un;++l)t[l]=t[l-T]}}r.l=p,r.p=W,r.b=l,r.f=u,p&&(u=1,r.m=S,r.d=w,r.n=k)}while(!u);return l!=t.length&&h?rn(t,0,l):t.subarray(0,l)};var Kn=new m(0);var A=function(n,r){return n[r]|n[r+1]<<8},x=function(n,r){return(n[r]|n[r+1]<<8|n[r+2]<<16|n[r+3]<<24)>>>0},Q=function(n,r){return x(n,r)+x(n,r+4)*4294967296};function Jn(n,r){return Yn(n,{i:2},r&&r.out,r&&r.dictionary)}var nn=typeof TextDecoder<"u"&&new TextDecoder,Xn=0;try{nn.decode(Kn,{stream:!0}),Xn=1}catch{}var Qn=function(n){for(var r="",t=0;;){var e=n[t++],i=(e>127)+(e>223)+(e>239);if(t+i>n.length)return{s:r,r:rn(n,t-1)};i?i==3?(e=((e&15)<<18|(n[t++]&63)<<12|(n[t++]&63)<<6|n[t++]&63)-65536,r+=String.fromCharCode(55296|e>>10,56320|e&1023)):i&1?r+=String.fromCharCode((e&31)<<6|n[t++]&63):r+=String.fromCharCode((e&15)<<12|(n[t++]&63)<<6|n[t++]&63):r+=String.fromCharCode(e)}};function bn(n,r){if(r){for(var t="",e=0;e<n.length;e+=16384)t+=String.fromCharCode.apply(null,n.subarray(e,e+16384));return t}else{if(nn)return nn.decode(n);var i=Qn(n),f=i.s,t=i.r;return t.length&&g(8),f}}var nr=function(n,r){return r+30+A(n,r+26)+A(n,r+28)},rr=function(n,r,t){var e=A(n,r+28),i=A(n,r+30),f=bn(n.subarray(r+46,r+46+e),!(A(n,r+8)&2048)),h=r+46+e,o=tr(n,h,i,t,x(n,r+20),x(n,r+24),x(n,r+42)),v=o[0],c=o[1],u=o[2];return[A(n,r+10),v,c,f,h+i+A(n,r+32),u]},tr=function(n,r,t,e,i,f,h){var o=i==4294967295,v=f==4294967295,c=h==4294967295,u=r+t,a=o+v+c;if(e&&a){for(;r+4<u;r+=4+A(n,r+2))if(A(n,r)==1)return[o?Q(n,r+4+8*v):i,v?Q(n,r+4):f,c?Q(n,r+4+8*(v+o)):h,1];e<2&&g(13)}return[i,f,h,0]};function zn(n,r){for(var t={},e=n.length-22;x(n,e)!=101010256;--e)(!e||n.length-e>65558)&&g(13);var i=A(n,e+8);if(!i)return{};var f=x(n,e+16),h=x(n,e-20)==117853008;if(h){var o=x(n,e-12);h=x(n,o)==101075792,h&&(i=x(n,o+32),f=x(n,o+48))}for(var v=r&&r.filter,c=0;c<i;++c){var u=rr(n,f,h),a=u[0],l=u[1],p=u[2],w=u[3],S=u[4],k=u[5],E=nr(n,k);f=S,(!v||v({name:w,size:l,originalSize:p,compression:a}))&&(a?a==8?t[w]=Jn(n.subarray(E,E+l),{out:new m(p)}):g(14,"unknown compression type "+a):t[w]=rn(n,E,E+l))}return t}var kn={id:"novelai",name:"NovelAI Bridge (Thin)",description:"\u8F7B\u91CF NovelAI text2image \u540E\u7AEF\u7AEF\u70B9 (\u4EC5 V4.5 / V5 \u6A21\u578B), \u4E0D\u4F9D\u8D56 nekoai-js, \u8BF7\u6C42\u534F\u8BAE\u53C2\u8003 novelai-bridge\u3002Token \u6765\u81EA\u73AF\u5883\u53D8\u91CF NOVELAI_TOKEN, \u4E5F\u53EF\u5728\u8BF7\u6C42\u4F53\u4E2D\u4F20\u5165 token \u8986\u76D6\u3002"},er="1.0.0",ir=12e4,ar="https://image.novelai.net/ai/generate-image",An=new Set(["nai-diffusion-4-5-full","nai-diffusion-4-5-curated","nai-diffusion-5-full","nai-diffusion-5-curated"]),or=new Set(["k_euler","k_euler_ancestral","k_dpm_2","k_dpm_2_ancestral","k_dpmpp_2m","k_dpmpp_2m_sde","k_dpmpp_2s_ancestral","k_dpmpp_sde","ddim","ddim_v3"]),In={native:"karras",karras:"karras",exponential:"exponential",polyexponential:"polyexponential"},sr=", very aesthetic, masterpiece, no text",fr="nsfw, lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page",ur=58,lr=832*1216,q=class extends Error{constructor(t,e){super(e);this.statusCode=t}statusCode};function I(n){return typeof n=="string"&&n.trim()?n.trim():void 0}function F(n){return typeof n=="number"&&Number.isFinite(n)?n:void 0}function hr(n){return typeof n=="boolean"?n:void 0}function vr(n){let r={...n},t=I(r.prompt);if(!t)throw new q(400,"\u7F3A\u5C11\u5FC5\u586B\u53C2\u6570 prompt");r.prompt=t;let e=I(r.model);if(e&&!An.has(e))throw new q(400,`\u4E0D\u652F\u6301\u7684\u6A21\u578B "${e}": \u672C\u63D2\u4EF6\u4EC5\u652F\u6301 NovelAI V4.5 / V5 (${[...An].join(", ")})`);return r}function cr(n,r){if(r instanceof q){n.status(r.statusCode).json({error:r.message});return}if(r instanceof B){n.status(r.statusCode).json({error:r.message});return}n.status(500).json({error:r instanceof Error?r.message:String(r)})}var B=class extends Error{constructor(t,e){super(e);this.statusCode=t}statusCode};function pr(n){let r=I(n);return r||I(process.env.NOVELAI_TOKEN)}function gr(){let n=Date.now()%1e10;return n===0?1:n}function mr(n,r){let t=I(n.prompt)??"",e=I(n.model),i=e?.startsWith("nai-diffusion-5")??!1,f=I(n.sampler),h=I(n.scheduler),o=F(n.steps),v=F(n.scale),c=F(n.width),u=F(n.height),a=F(n.n_samples),l=hr(n.variety_boost)??!1,p=I(n.negative_prompt)??fr,w;if(!i&&l&&c&&u){let k=c*u/lr;w=ur*Math.sqrt(k)}let S={params_version:i?4:3,...c&&c>0?{width:Math.floor(c)}:{},...u&&u>0?{height:Math.floor(u)}:{},...o&&o>0?{steps:Math.min(Math.floor(o),50)}:{},...v&&v>=0?{scale:v}:{},...f&&or.has(f)?{sampler:f}:{},seed:r,n_samples:a!==void 0&&a>0?Math.min(Math.floor(a),4):1,negative_prompt:p,ucPreset:1,qualityToggle:!0,v4_prompt:{caption:{base_caption:`${t}${sr}`,char_captions:[]},use_coords:!1,use_order:!0},v4_negative_prompt:{caption:{base_caption:p,char_captions:[]}},cfg_rescale:0,noise_schedule:h&&In[h]?In[h]:"karras",characterPrompts:[],legacy:!1,legacy_v3_extend:!1,deliberate_euler_ancestral_bug:!1,prefer_brownian:!0,auto_smea:!1,add_original_image:!0,inpaintImg2ImgStrength:1,use_coords:!1,...w!==void 0?{skip_cfg_above_sigma:Number(w.toFixed(6))}:{},...i?{legacy_uc:!1,tag_hint_transparent_background:!1}:{}};return{action:"generate",input:t,...e?{model:e}:{},use_new_shared_trial:!0,parameters:S}}var wr=/\.(png|jpe?g|webp)$/i;function yr(n){let r=n.toLowerCase();return r.endsWith(".png")?"image/png":r.endsWith(".webp")?"image/webp":"image/jpeg"}function xr(n){if(n.length>=8&&n[0]===137&&n[1]===80&&n[2]===78&&n[3]===71)return"image/png";if(n.length>=3&&n[0]===255&&n[1]===216&&n[2]===255)return"image/jpeg";if(n.length>=12&&n[0]===82&&n[1]===73&&n[2]===70&&n[3]===70&&n[8]===87&&n[9]===69&&n[10]===66&&n[11]===80)return"image/webp"}function Sn(n){return Buffer.from(n.buffer,n.byteOffset,n.byteLength).toString("base64")}function dr(n){try{let t=zn(n),e=Object.entries(t).filter(([i])=>wr.test(i));if(e.length>0)return e.map(([i,f])=>({data:Sn(f),mime:yr(i)}))}catch{}let r=xr(n);return[{data:Sn(n),mime:r??"image/png"}]}async function zr(n){let r=await n.text();if(!r.trim())return`NovelAI API \u8BF7\u6C42\u5931\u8D25 (${n.status})`;try{let t=JSON.parse(r),e=I(t.message);if(e)return e}catch{}return r.trim()}async function Ar(n,r){try{let t=vr(n.body),e=pr(t.token);if(!e){r.status(400).json({error:"\u672A\u914D\u7F6E NovelAI token: \u8BF7\u8BBE\u7F6E\u73AF\u5883\u53D8\u91CF NOVELAI_TOKEN, \u6216\u5728\u8BF7\u6C42\u4F53\u4E2D\u4F20\u5165 token"});return}let i=F(t.seed),f=i!==void 0&&i>0?Math.floor(i):gr(),h=mr(t,f),o;try{o=await fetch(ar,{method:"POST",headers:{Authorization:`Bearer ${e}`,"Content-Type":"application/json"},body:JSON.stringify(h),signal:AbortSignal.timeout(ir)})}catch(u){throw new B(502,`\u65E0\u6CD5\u8FDE\u63A5 NovelAI API: ${u instanceof Error?u.message:String(u)}`)}if(!o.ok)throw new B(o.status,await zr(o));let v=new Uint8Array(await o.arrayBuffer()),c=dr(v);if(c.length===0)throw new B(502,"NovelAI API \u8FD4\u56DE\u4E86\u65E0\u6CD5\u89E3\u6790\u7684\u56FE\u7247\u6570\u636E");r.json({images:c})}catch(t){cr(r,t)}}function Ir(n,r){r.json({ok:!0,plugin:kn.id,version:er})}var Sr=async n=>{n.get("/probe",Ir),n.post("/generate",Ar)},kr=async()=>{};0&&(module.exports={exit,info,init});
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src-plugins/novelai/index.ts
+var index_exports = {};
+__export(index_exports, {
+  exit: () => exit,
+  info: () => info,
+  init: () => init
+});
+module.exports = __toCommonJS(index_exports);
+
+// node_modules/.pnpm/fflate@0.8.3/node_modules/fflate/esm/index.mjs
+var import_module = require("module");
+var require2 = (0, import_module.createRequire)("/");
+var _a;
+var Worker;
+var isMarkedAsUntransferable;
+try {
+  _a = require2("worker_threads"), Worker = _a.Worker, isMarkedAsUntransferable = _a.isMarkedAsUntransferable;
+} catch (e) {
+}
+var u8 = Uint8Array;
+var u16 = Uint16Array;
+var i32 = Int32Array;
+var fleb = new u8([
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  1,
+  1,
+  2,
+  2,
+  2,
+  2,
+  3,
+  3,
+  3,
+  3,
+  4,
+  4,
+  4,
+  4,
+  5,
+  5,
+  5,
+  5,
+  0,
+  /* unused */
+  0,
+  0,
+  /* impossible */
+  0
+]);
+var fdeb = new u8([
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  2,
+  2,
+  3,
+  3,
+  4,
+  4,
+  5,
+  5,
+  6,
+  6,
+  7,
+  7,
+  8,
+  8,
+  9,
+  9,
+  10,
+  10,
+  11,
+  11,
+  12,
+  12,
+  13,
+  13,
+  /* unused */
+  0,
+  0
+]);
+var clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
+var freb = function(eb, start) {
+  var b = new u16(31);
+  for (var i2 = 0; i2 < 31; ++i2) {
+    b[i2] = start += 1 << eb[i2 - 1];
+  }
+  var r = new i32(b[30]);
+  for (var i2 = 1; i2 < 30; ++i2) {
+    for (var j = b[i2]; j < b[i2 + 1]; ++j) {
+      r[j] = j - b[i2] << 5 | i2;
+    }
+  }
+  return { b, r };
+};
+var _a = freb(fleb, 2);
+var fl = _a.b;
+var revfl = _a.r;
+fl[28] = 258, revfl[258] = 28;
+var _b = freb(fdeb, 0);
+var fd = _b.b;
+var revfd = _b.r;
+var rev = new u16(32768);
+for (i = 0; i < 32768; ++i) {
+  x = (i & 43690) >> 1 | (i & 21845) << 1;
+  x = (x & 52428) >> 2 | (x & 13107) << 2;
+  x = (x & 61680) >> 4 | (x & 3855) << 4;
+  rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
+}
+var x;
+var i;
+var hMap = (function(cd, mb, r) {
+  var s = cd.length;
+  var i2 = 0;
+  var l = new u16(mb);
+  for (; i2 < s; ++i2) {
+    if (cd[i2])
+      ++l[cd[i2] - 1];
+  }
+  var le = new u16(mb);
+  for (i2 = 1; i2 < mb; ++i2) {
+    le[i2] = le[i2 - 1] + l[i2 - 1] << 1;
+  }
+  var co;
+  if (r) {
+    co = new u16(1 << mb);
+    var rvb = 15 - mb;
+    for (i2 = 0; i2 < s; ++i2) {
+      if (cd[i2]) {
+        var sv = i2 << 4 | cd[i2];
+        var r_1 = mb - cd[i2];
+        var v = le[cd[i2] - 1]++ << r_1;
+        for (var m = v | (1 << r_1) - 1; v <= m; ++v) {
+          co[rev[v] >> rvb] = sv;
+        }
+      }
+    }
+  } else {
+    co = new u16(s);
+    for (i2 = 0; i2 < s; ++i2) {
+      if (cd[i2]) {
+        co[i2] = rev[le[cd[i2] - 1]++] >> 15 - cd[i2];
+      }
+    }
+  }
+  return co;
+});
+var flt = new u8(288);
+for (i = 0; i < 144; ++i)
+  flt[i] = 8;
+var i;
+for (i = 144; i < 256; ++i)
+  flt[i] = 9;
+var i;
+for (i = 256; i < 280; ++i)
+  flt[i] = 7;
+var i;
+for (i = 280; i < 288; ++i)
+  flt[i] = 8;
+var i;
+var fdt = new u8(32);
+for (i = 0; i < 32; ++i)
+  fdt[i] = 5;
+var i;
+var flrm = /* @__PURE__ */ hMap(flt, 9, 1);
+var fdrm = /* @__PURE__ */ hMap(fdt, 5, 1);
+var max = function(a) {
+  var m = a[0];
+  for (var i2 = 1; i2 < a.length; ++i2) {
+    if (a[i2] > m)
+      m = a[i2];
+  }
+  return m;
+};
+var bits = function(d, p, m) {
+  var o = p / 8 | 0;
+  return (d[o] | d[o + 1] << 8) >> (p & 7) & m;
+};
+var bits16 = function(d, p) {
+  var o = p / 8 | 0;
+  return (d[o] | d[o + 1] << 8 | d[o + 2] << 16) >> (p & 7);
+};
+var shft = function(p) {
+  return (p + 7) / 8 | 0;
+};
+var slc = function(v, s, e) {
+  if (s == null || s < 0)
+    s = 0;
+  if (e == null || e > v.length)
+    e = v.length;
+  return new u8(v.subarray(s, e));
+};
+var ec = [
+  "unexpected EOF",
+  "invalid block type",
+  "invalid length/literal",
+  "invalid distance",
+  "stream finished",
+  "no stream handler",
+  ,
+  // determined by compression function
+  "no callback",
+  "invalid UTF-8 data",
+  "extra field too long",
+  "date not in range 1980-2099",
+  "filename too long",
+  "stream finishing",
+  "invalid zip data"
+  // determined by unknown compression method
+];
+var err = function(ind, msg, nt) {
+  var e = new Error(msg || ec[ind]);
+  e.code = ind;
+  if (Error.captureStackTrace)
+    Error.captureStackTrace(e, err);
+  if (!nt)
+    throw e;
+  return e;
+};
+var inflt = function(dat, st, buf, dict) {
+  var sl = dat.length, dl = dict ? dict.length : 0;
+  if (!sl || st.f && !st.l)
+    return buf || new u8(0);
+  var noBuf = !buf;
+  var resize = noBuf || st.i != 2;
+  var noSt = st.i;
+  if (noBuf)
+    buf = new u8(sl * 3);
+  var cbuf = function(l2) {
+    var bl = buf.length;
+    if (l2 > bl) {
+      var nbuf = new u8(Math.max(bl * 2, l2));
+      nbuf.set(buf);
+      buf = nbuf;
+    }
+  };
+  var final = st.f || 0, pos = st.p || 0, bt = st.b || 0, lm = st.l, dm = st.d, lbt = st.m, dbt = st.n;
+  var tbts = sl * 8;
+  do {
+    if (!lm) {
+      final = bits(dat, pos, 1);
+      var type = bits(dat, pos + 1, 3);
+      pos += 3;
+      if (!type) {
+        var s = shft(pos) + 4, l = dat[s - 4] | dat[s - 3] << 8, t = s + l;
+        if (t > sl) {
+          if (noSt)
+            err(0);
+          break;
+        }
+        if (resize)
+          cbuf(bt + l);
+        buf.set(dat.subarray(s, t), bt);
+        st.b = bt += l, st.p = pos = t * 8, st.f = final;
+        continue;
+      } else if (type == 1)
+        lm = flrm, dm = fdrm, lbt = 9, dbt = 5;
+      else if (type == 2) {
+        var hLit = bits(dat, pos, 31) + 257, hcLen = bits(dat, pos + 10, 15) + 4;
+        var tl = hLit + bits(dat, pos + 5, 31) + 1;
+        pos += 14;
+        var ldt = new u8(tl);
+        var clt = new u8(19);
+        for (var i2 = 0; i2 < hcLen; ++i2) {
+          clt[clim[i2]] = bits(dat, pos + i2 * 3, 7);
+        }
+        pos += hcLen * 3;
+        var clb = max(clt), clbmsk = (1 << clb) - 1;
+        var clm = hMap(clt, clb, 1);
+        for (var i2 = 0; i2 < tl; ) {
+          var r = clm[bits(dat, pos, clbmsk)];
+          pos += r & 15;
+          var s = r >> 4;
+          if (s < 16) {
+            ldt[i2++] = s;
+          } else {
+            var c = 0, n = 0;
+            if (s == 16)
+              n = 3 + bits(dat, pos, 3), pos += 2, c = ldt[i2 - 1];
+            else if (s == 17)
+              n = 3 + bits(dat, pos, 7), pos += 3;
+            else if (s == 18)
+              n = 11 + bits(dat, pos, 127), pos += 7;
+            while (n--)
+              ldt[i2++] = c;
+          }
+        }
+        var lt = ldt.subarray(0, hLit), dt = ldt.subarray(hLit);
+        lbt = max(lt);
+        dbt = max(dt);
+        lm = hMap(lt, lbt, 1);
+        dm = hMap(dt, dbt, 1);
+      } else
+        err(1);
+      if (pos > tbts) {
+        if (noSt)
+          err(0);
+        break;
+      }
+    }
+    if (resize)
+      cbuf(bt + 131072);
+    var lms = (1 << lbt) - 1, dms = (1 << dbt) - 1;
+    var lpos = pos;
+    for (; ; lpos = pos) {
+      var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
+      pos += c & 15;
+      if (pos > tbts) {
+        if (noSt)
+          err(0);
+        break;
+      }
+      if (!c)
+        err(2);
+      if (sym < 256)
+        buf[bt++] = sym;
+      else if (sym == 256) {
+        lpos = pos, lm = null;
+        break;
+      } else {
+        var add = sym - 254;
+        if (sym > 264) {
+          var i2 = sym - 257, b = fleb[i2];
+          add = bits(dat, pos, (1 << b) - 1) + fl[i2];
+          pos += b;
+        }
+        var d = dm[bits16(dat, pos) & dms], dsym = d >> 4;
+        if (!d)
+          err(3);
+        pos += d & 15;
+        var dt = fd[dsym];
+        if (dsym > 3) {
+          var b = fdeb[dsym];
+          dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
+        }
+        if (pos > tbts) {
+          if (noSt)
+            err(0);
+          break;
+        }
+        if (resize)
+          cbuf(bt + 131072);
+        var end = bt + add;
+        if (bt < dt) {
+          var shift = dl - dt, dend = Math.min(dt, end);
+          if (shift + bt < 0)
+            err(3);
+          for (; bt < dend; ++bt)
+            buf[bt] = dict[shift + bt];
+        }
+        for (; bt < end; ++bt)
+          buf[bt] = buf[bt - dt];
+      }
+    }
+    st.l = lm, st.p = lpos, st.b = bt, st.f = final;
+    if (lm)
+      final = 1, st.m = lbt, st.d = dm, st.n = dbt;
+  } while (!final);
+  return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
+};
+var et = /* @__PURE__ */ new u8(0);
+var b2 = function(d, b) {
+  return d[b] | d[b + 1] << 8;
+};
+var b4 = function(d, b) {
+  return (d[b] | d[b + 1] << 8 | d[b + 2] << 16 | d[b + 3] << 24) >>> 0;
+};
+var b8 = function(d, b) {
+  return b4(d, b) + b4(d, b + 4) * 4294967296;
+};
+function inflateSync(data, opts) {
+  return inflt(data, { i: 2 }, opts && opts.out, opts && opts.dictionary);
+}
+var td = typeof TextDecoder != "undefined" && /* @__PURE__ */ new TextDecoder();
+var tds = 0;
+try {
+  td.decode(et, { stream: true });
+  tds = 1;
+} catch (e) {
+}
+var dutf8 = function(d) {
+  for (var r = "", i2 = 0; ; ) {
+    var c = d[i2++];
+    var eb = (c > 127) + (c > 223) + (c > 239);
+    if (i2 + eb > d.length)
+      return { s: r, r: slc(d, i2 - 1) };
+    if (!eb)
+      r += String.fromCharCode(c);
+    else if (eb == 3) {
+      c = ((c & 15) << 18 | (d[i2++] & 63) << 12 | (d[i2++] & 63) << 6 | d[i2++] & 63) - 65536, r += String.fromCharCode(55296 | c >> 10, 56320 | c & 1023);
+    } else if (eb & 1)
+      r += String.fromCharCode((c & 31) << 6 | d[i2++] & 63);
+    else
+      r += String.fromCharCode((c & 15) << 12 | (d[i2++] & 63) << 6 | d[i2++] & 63);
+  }
+};
+function strFromU8(dat, latin1) {
+  if (latin1) {
+    var r = "";
+    for (var i2 = 0; i2 < dat.length; i2 += 16384)
+      r += String.fromCharCode.apply(null, dat.subarray(i2, i2 + 16384));
+    return r;
+  } else if (td) {
+    return td.decode(dat);
+  } else {
+    var _a2 = dutf8(dat), s = _a2.s, r = _a2.r;
+    if (r.length)
+      err(8);
+    return s;
+  }
+}
+var slzh = function(d, b) {
+  return b + 30 + b2(d, b + 26) + b2(d, b + 28);
+};
+var zh = function(d, b, z) {
+  var fnl = b2(d, b + 28), efl = b2(d, b + 30), fn = strFromU8(d.subarray(b + 46, b + 46 + fnl), !(b2(d, b + 8) & 2048)), es = b + 46 + fnl;
+  var _a2 = z64hs(d, es, efl, z, b4(d, b + 20), b4(d, b + 24), b4(d, b + 42)), sc = _a2[0], su = _a2[1], off = _a2[2];
+  return [b2(d, b + 10), sc, su, fn, es + efl + b2(d, b + 32), off];
+};
+var z64hs = function(d, b, l, z, sc, su, off) {
+  var nsc = sc == 4294967295, nsu = su == 4294967295, noff = off == 4294967295, e = b + l;
+  var nf = nsc + nsu + noff;
+  if (z && nf) {
+    for (; b + 4 < e; b += 4 + b2(d, b + 2)) {
+      if (b2(d, b) == 1) {
+        return [
+          nsc ? b8(d, b + 4 + 8 * nsu) : sc,
+          nsu ? b8(d, b + 4) : su,
+          noff ? b8(d, b + 4 + 8 * (nsu + nsc)) : off,
+          1
+        ];
+      }
+    }
+    if (z < 2)
+      err(13);
+  }
+  return [sc, su, off, 0];
+};
+function unzipSync(data, opts) {
+  var files = {};
+  var e = data.length - 22;
+  for (; b4(data, e) != 101010256; --e) {
+    if (!e || data.length - e > 65558)
+      err(13);
+  }
+  ;
+  var c = b2(data, e + 8);
+  if (!c)
+    return {};
+  var o = b4(data, e + 16);
+  var z = b4(data, e - 20) == 117853008;
+  if (z) {
+    var ze = b4(data, e - 12);
+    z = b4(data, ze) == 101075792;
+    if (z) {
+      c = b4(data, ze + 32);
+      o = b4(data, ze + 48);
+    }
+  }
+  var fltr = opts && opts.filter;
+  for (var i2 = 0; i2 < c; ++i2) {
+    var _a2 = zh(data, o, z), c_2 = _a2[0], sc = _a2[1], su = _a2[2], fn = _a2[3], no = _a2[4], off = _a2[5], b = slzh(data, off);
+    o = no;
+    if (!fltr || fltr({
+      name: fn,
+      size: sc,
+      originalSize: su,
+      compression: c_2
+    })) {
+      if (!c_2)
+        files[fn] = slc(data, b, b + sc);
+      else if (c_2 == 8)
+        files[fn] = inflateSync(data.subarray(b, b + sc), { out: new u8(su) });
+      else
+        err(14, "unknown compression type " + c_2);
+    }
+  }
+  return files;
+}
+
+// src-plugins/novelai/index.ts
+var info = {
+  id: "novelai",
+  name: "NovelAI Bridge (Thin)",
+  description: "\u8F7B\u91CF NovelAI text2image \u540E\u7AEF\u7AEF\u70B9 (\u4EC5 V4.5 / V5 \u6A21\u578B), \u4E0D\u4F9D\u8D56 nekoai-js, \u8BF7\u6C42\u534F\u8BAE\u53C2\u8003 novelai-bridge\u3002Token \u6765\u81EA\u73AF\u5883\u53D8\u91CF NOVELAI_TOKEN, \u4E5F\u53EF\u5728\u8BF7\u6C42\u4F53\u4E2D\u4F20\u5165 token \u8986\u76D6\u3002"
+};
+var PLUGIN_VERSION = "1.0.0";
+var DEFAULT_TIMEOUT_MS = 12e4;
+var NOVELAI_IMAGE_API_URL = "https://image.novelai.net/ai/generate-image";
+var SUPPORTED_MODELS = /* @__PURE__ */ new Set([
+  "nai-diffusion-4-5-full",
+  "nai-diffusion-4-5-curated",
+  "nai-diffusion-5-full",
+  "nai-diffusion-5-curated"
+]);
+var MAX_IMAGE_PIXELS = 3145728;
+var IMAGE_DIMENSION_MIN = 64;
+var IMAGE_DIMENSION_MAX = 1600;
+var IMAGE_DIMENSION_MULTIPLE = 64;
+var SAMPLER_WHITELIST = /* @__PURE__ */ new Set([
+  "k_euler",
+  "k_euler_ancestral",
+  "k_dpm_2",
+  "k_dpm_2_ancestral",
+  "k_dpmpp_2m",
+  "k_dpmpp_2m_sde",
+  "k_dpmpp_2s_ancestral",
+  "k_dpmpp_sde",
+  "ddim",
+  "ddim_v3"
+]);
+var NOISE_SCHEDULE_MAP = {
+  native: "karras",
+  karras: "karras",
+  exponential: "exponential",
+  polyexponential: "polyexponential"
+};
+var QUALITY_TAGS = ", very aesthetic, masterpiece, no text";
+var UC_PRESET_LIGHT = "nsfw, lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page";
+var VARIETY_SIGMA_COEFFICIENT = 58;
+var VARIETY_REFERENCE_PIXELS = 832 * 1216;
+var HttpError = class extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+  statusCode;
+};
+function asString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function asFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : void 0;
+}
+function asBoolean(value) {
+  return typeof value === "boolean" ? value : void 0;
+}
+function normalizeImageDimension(value) {
+  const clamped = Math.min(Math.max(Math.floor(value), IMAGE_DIMENSION_MIN), IMAGE_DIMENSION_MAX);
+  const snapped = Math.round(clamped / IMAGE_DIMENSION_MULTIPLE) * IMAGE_DIMENSION_MULTIPLE;
+  return Math.min(Math.max(snapped, IMAGE_DIMENSION_MIN), IMAGE_DIMENSION_MAX);
+}
+function normalizeCanvasArea(width, height) {
+  let w = width;
+  let h = height;
+  while (w * h > MAX_IMAGE_PIXELS) {
+    if (w >= h && w > IMAGE_DIMENSION_MIN || h === IMAGE_DIMENSION_MIN) {
+      w -= IMAGE_DIMENSION_MULTIPLE;
+    } else {
+      h -= IMAGE_DIMENSION_MULTIPLE;
+    }
+  }
+  return { width: w, height: h };
+}
+function parseGenerateBody(raw) {
+  const body = { ...raw };
+  const prompt = asString(body.prompt);
+  if (!prompt) {
+    throw new HttpError(400, "\u7F3A\u5C11\u5FC5\u586B\u53C2\u6570 prompt");
+  }
+  body.prompt = prompt;
+  const model = asString(body.model);
+  if (model && !SUPPORTED_MODELS.has(model)) {
+    throw new HttpError(
+      400,
+      `\u4E0D\u652F\u6301\u7684\u6A21\u578B "${model}": \u672C\u63D2\u4EF6\u4EC5\u652F\u6301 NovelAI V4.5 / V5 (${[...SUPPORTED_MODELS].join(", ")})`
+    );
+  }
+  return body;
+}
+function sendError(res, error) {
+  if (error instanceof HttpError) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+  if (error instanceof NovelAiApiError) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+  res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+}
+var NovelAiApiError = class extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+  statusCode;
+};
+function resolveToken(bodyToken) {
+  const requestToken = asString(bodyToken);
+  if (requestToken) {
+    return requestToken;
+  }
+  return asString(process.env.NOVELAI_TOKEN);
+}
+function defaultSeed() {
+  const seed = Date.now() % 1e10;
+  return seed === 0 ? 1 : seed;
+}
+function buildRequestBody(body, resolvedSeed) {
+  const prompt = asString(body.prompt) ?? "";
+  const model = asString(body.model);
+  const isV5 = model?.startsWith("nai-diffusion-5") ?? false;
+  const sampler = asString(body.sampler);
+  const scheduler = asString(body.scheduler);
+  const steps = asFiniteNumber(body.steps);
+  const scale = asFiniteNumber(body.scale);
+  const width = asFiniteNumber(body.width);
+  const height = asFiniteNumber(body.height);
+  const nSamples = asFiniteNumber(body.n_samples);
+  const varietyBoost = asBoolean(body.variety_boost) ?? false;
+  const rawWidth = width !== void 0 && width > 0 ? Math.floor(width) : void 0;
+  const rawHeight = height !== void 0 && height > 0 ? Math.floor(height) : void 0;
+  let resolvedWidth = rawWidth !== void 0 ? normalizeImageDimension(rawWidth) : void 0;
+  let resolvedHeight = rawHeight !== void 0 ? normalizeImageDimension(rawHeight) : void 0;
+  if (resolvedWidth !== void 0 && resolvedHeight !== void 0) {
+    const fitted = normalizeCanvasArea(resolvedWidth, resolvedHeight);
+    resolvedWidth = fitted.width;
+    resolvedHeight = fitted.height;
+  }
+  const negativePrompt = asString(body.negative_prompt) ?? UC_PRESET_LIGHT;
+  let varietySigma;
+  if (!isV5 && varietyBoost && resolvedWidth !== void 0 && resolvedHeight !== void 0) {
+    const ratio = resolvedWidth * resolvedHeight / VARIETY_REFERENCE_PIXELS;
+    varietySigma = VARIETY_SIGMA_COEFFICIENT * Math.sqrt(ratio);
+  }
+  const parameters = {
+    params_version: isV5 ? 4 : 3,
+    ...resolvedWidth !== void 0 ? { width: resolvedWidth } : {},
+    ...resolvedHeight !== void 0 ? { height: resolvedHeight } : {},
+    // steps/scale 范围与 novelai-bridge 的 normalize_base_fields 一致 (1~50 / 0~10)
+    ...steps !== void 0 && steps >= 1 ? { steps: Math.min(Math.floor(steps), 50) } : {},
+    ...scale !== void 0 && scale >= 0 ? { scale: Math.min(scale, 10) } : {},
+    ...sampler && SAMPLER_WHITELIST.has(sampler) ? { sampler } : {},
+    seed: resolvedSeed,
+    n_samples: nSamples !== void 0 && nSamples > 0 ? Math.min(Math.floor(nSamples), 4) : 1,
+    negative_prompt: negativePrompt,
+    ucPreset: 1,
+    qualityToggle: true,
+    v4_prompt: {
+      caption: {
+        base_caption: `${prompt}${QUALITY_TAGS}`,
+        char_captions: []
+      },
+      use_coords: false,
+      use_order: true
+    },
+    v4_negative_prompt: {
+      caption: {
+        base_caption: negativePrompt,
+        char_captions: []
+      }
+    },
+    cfg_rescale: 0,
+    noise_schedule: scheduler && NOISE_SCHEDULE_MAP[scheduler] ? NOISE_SCHEDULE_MAP[scheduler] : "karras",
+    characterPrompts: [],
+    legacy: false,
+    legacy_v3_extend: false,
+    deliberate_euler_ancestral_bug: false,
+    prefer_brownian: true,
+    auto_smea: false,
+    add_original_image: true,
+    inpaintImg2ImgStrength: 1,
+    use_coords: false,
+    ...varietySigma !== void 0 ? { skip_cfg_above_sigma: Number(varietySigma.toFixed(6)) } : {},
+    ...isV5 ? {
+      legacy_uc: false,
+      tag_hint_transparent_background: false
+    } : {}
+  };
+  return {
+    action: "generate",
+    input: prompt,
+    ...model ? { model } : {},
+    use_new_shared_trial: true,
+    parameters
+  };
+}
+var IMAGE_EXTENSION_PATTERN = /\.(png|jpe?g|webp)$/i;
+function mimeFromName(name) {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".png")) {
+    return "image/png";
+  }
+  if (lower.endsWith(".webp")) {
+    return "image/webp";
+  }
+  return "image/jpeg";
+}
+function mimeFromBytes(bytes) {
+  if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) {
+    return "image/jpeg";
+  }
+  if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) {
+    return "image/webp";
+  }
+  return void 0;
+}
+function toBase64(bytes) {
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64");
+}
+function extractImages(payload) {
+  try {
+    const archive = unzipSync(payload);
+    const entries = Object.entries(archive).filter(([name]) => IMAGE_EXTENSION_PATTERN.test(name));
+    if (entries.length > 0) {
+      return entries.map(([name, data]) => ({
+        data: toBase64(data),
+        mime: mimeFromName(name)
+      }));
+    }
+  } catch {
+  }
+  const mime = mimeFromBytes(payload);
+  return [
+    {
+      data: toBase64(payload),
+      mime: mime ?? "image/png"
+    }
+  ];
+}
+async function readErrorText(response) {
+  const text = await response.text();
+  if (!text.trim()) {
+    return `NovelAI API \u8BF7\u6C42\u5931\u8D25 (${response.status})`;
+  }
+  try {
+    const payload = JSON.parse(text);
+    const message = asString(payload.message);
+    if (message) {
+      return message;
+    }
+  } catch {
+  }
+  return text.trim();
+}
+async function handleGenerate(req, res) {
+  try {
+    const body = parseGenerateBody(req.body);
+    const token = resolveToken(body.token);
+    if (!token) {
+      res.status(400).json({
+        error: "\u672A\u914D\u7F6E NovelAI token: \u8BF7\u8BBE\u7F6E\u73AF\u5883\u53D8\u91CF NOVELAI_TOKEN, \u6216\u5728\u8BF7\u6C42\u4F53\u4E2D\u4F20\u5165 token"
+      });
+      return;
+    }
+    const rawSeed = asFiniteNumber(body.seed);
+    const resolvedSeed = rawSeed !== void 0 && rawSeed > 0 ? Math.floor(rawSeed) : defaultSeed();
+    const requestBody = buildRequestBody(body, resolvedSeed);
+    let response;
+    try {
+      response = await fetch(NOVELAI_IMAGE_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS)
+      });
+    } catch (error) {
+      throw new NovelAiApiError(502, `\u65E0\u6CD5\u8FDE\u63A5 NovelAI API: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!response.ok) {
+      throw new NovelAiApiError(response.status, await readErrorText(response));
+    }
+    const payload = new Uint8Array(await response.arrayBuffer());
+    const images = extractImages(payload);
+    if (images.length === 0) {
+      throw new NovelAiApiError(502, "NovelAI API \u8FD4\u56DE\u4E86\u65E0\u6CD5\u89E3\u6790\u7684\u56FE\u7247\u6570\u636E");
+    }
+    res.json({ images });
+  } catch (error) {
+    sendError(res, error);
+  }
+}
+function handleProbe(_req, res) {
+  res.json({ ok: true, plugin: info.id, version: PLUGIN_VERSION });
+}
+var init = async (router) => {
+  router.get("/probe", handleProbe);
+  router.post("/generate", handleGenerate);
+};
+var exit = async () => {
+};
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  exit,
+  info,
+  init
+});

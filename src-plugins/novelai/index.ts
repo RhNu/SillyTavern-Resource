@@ -40,6 +40,13 @@ const SUPPORTED_MODELS = new Set([
   'nai-diffusion-5-curated',
 ]);
 
+// 上游 NovelAI API 的画布约束 (与 novelai-bridge 的 generate.rs 一致):
+// 每边 64~1600 且为 64 的倍数, 总面积 ≤ 3MP, 超出会以 400 Bad Request 拒绝
+const MAX_IMAGE_PIXELS = 3_145_728;
+const IMAGE_DIMENSION_MIN = 64;
+const IMAGE_DIMENSION_MAX = 1600;
+const IMAGE_DIMENSION_MULTIPLE = 64;
+
 /** 可透传给 API 的 sampler (与 novelai-bridge 的 Sampler 枚举一致; k_dpm_fast 在 4.5/5 下不存在) */
 const SAMPLER_WHITELIST = new Set([
   'k_euler',
@@ -114,6 +121,27 @@ function asBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
 }
 
+/** 单边尺寸规整: clamp 到 [64, 1600] 并四舍五入到 64 的倍数 (novelai-bridge normalize_image_dimension) */
+function normalizeImageDimension(value: number): number {
+  const clamped = Math.min(Math.max(Math.floor(value), IMAGE_DIMENSION_MIN), IMAGE_DIMENSION_MAX);
+  const snapped = Math.round(clamped / IMAGE_DIMENSION_MULTIPLE) * IMAGE_DIMENSION_MULTIPLE;
+  return Math.min(Math.max(snapped, IMAGE_DIMENSION_MIN), IMAGE_DIMENSION_MAX);
+}
+
+/** 画布面积超限时逐步缩减边长 (每次减 64), 保持 64 倍数网格 (novelai-bridge normalize_canvas_area) */
+function normalizeCanvasArea(width: number, height: number): { width: number; height: number } {
+  let w = width;
+  let h = height;
+  while (w * h > MAX_IMAGE_PIXELS) {
+    if ((w >= h && w > IMAGE_DIMENSION_MIN) || h === IMAGE_DIMENSION_MIN) {
+      w -= IMAGE_DIMENSION_MULTIPLE;
+    } else {
+      h -= IMAGE_DIMENSION_MULTIPLE;
+    }
+  }
+  return { width: w, height: h };
+}
+
 function parseGenerateBody(raw: Record<string, unknown>): GenerateBody {
   const body: GenerateBody = { ...raw };
   const prompt = asString(body.prompt);
@@ -185,22 +213,35 @@ function buildRequestBody(body: GenerateBody, resolvedSeed: number): Record<stri
   const nSamples = asFiniteNumber(body.n_samples);
   const varietyBoost = asBoolean(body.variety_boost) ?? false;
 
+  // 尺寸规整: 每边 clamp [64,1600] + 对齐 64 倍数, 总面积 ≤ 3MP (novelai-bridge 同款),
+  // 否则上游直接 400 Bad Request
+  const rawWidth = width !== undefined && width > 0 ? Math.floor(width) : undefined;
+  const rawHeight = height !== undefined && height > 0 ? Math.floor(height) : undefined;
+  let resolvedWidth = rawWidth !== undefined ? normalizeImageDimension(rawWidth) : undefined;
+  let resolvedHeight = rawHeight !== undefined ? normalizeImageDimension(rawHeight) : undefined;
+  if (resolvedWidth !== undefined && resolvedHeight !== undefined) {
+    const fitted = normalizeCanvasArea(resolvedWidth, resolvedHeight);
+    resolvedWidth = fitted.width;
+    resolvedHeight = fitted.height;
+  }
+
   // V4.5/V5 均不支持 SMEA 与 dynamic thresholding → sm/sm_dyn/decrisper 一律不发送
   const negativePrompt = asString(body.negative_prompt) ?? UC_PRESET_LIGHT;
 
   // variety boost: 仅 V4.5 支持 (skip_cfg_above_sigma = 系数 * sqrt(画布/参考画布)); V5 忽略
   let varietySigma: number | undefined;
-  if (!isV5 && varietyBoost && width && height) {
-    const ratio = (width * height) / VARIETY_REFERENCE_PIXELS;
+  if (!isV5 && varietyBoost && resolvedWidth !== undefined && resolvedHeight !== undefined) {
+    const ratio = (resolvedWidth * resolvedHeight) / VARIETY_REFERENCE_PIXELS;
     varietySigma = VARIETY_SIGMA_COEFFICIENT * Math.sqrt(ratio);
   }
 
   const parameters: Record<string, unknown> = {
     params_version: isV5 ? 4 : 3,
-    ...(width && width > 0 ? { width: Math.floor(width) } : {}),
-    ...(height && height > 0 ? { height: Math.floor(height) } : {}),
-    ...(steps && steps > 0 ? { steps: Math.min(Math.floor(steps), 50) } : {}),
-    ...(scale && scale >= 0 ? { scale } : {}),
+    ...(resolvedWidth !== undefined ? { width: resolvedWidth } : {}),
+    ...(resolvedHeight !== undefined ? { height: resolvedHeight } : {}),
+    // steps/scale 范围与 novelai-bridge 的 normalize_base_fields 一致 (1~50 / 0~10)
+    ...(steps !== undefined && steps >= 1 ? { steps: Math.min(Math.floor(steps), 50) } : {}),
+    ...(scale !== undefined && scale >= 0 ? { scale: Math.min(scale, 10) } : {}),
     ...(sampler && SAMPLER_WHITELIST.has(sampler) ? { sampler } : {}),
     seed: resolvedSeed,
     n_samples: nSamples !== undefined && nSamples > 0 ? Math.min(Math.floor(nSamples), 4) : 1,
