@@ -15,6 +15,8 @@ export const info: PluginInfo = {
     '通过 NekoAI-JS 将 NovelAI text2image 封装为后端 API 端点, 供酒馆前端脚本调用。Token 来自环境变量 NOVELAI_TOKEN, 也可在请求体中传入 token 覆盖。',
 };
 
+const PLUGIN_VERSION = '1.0.0';
+
 const DEFAULT_TIMEOUT_MS = 120_000;
 
 /** ImageGenerationHelper 的 sampler 值到 NekoAI-JS Sampler 的映射; 不支持的 sampler 不传 (由 API 使用默认值) */
@@ -199,7 +201,7 @@ async function handleGenerate(req: PluginRequest, res: PluginResponse) {
 }
 
 function handleProbe(_req: PluginRequest, res: PluginResponse) {
-  res.json({ ok: true, plugin: info.id });
+  res.json({ ok: true, plugin: info.id, version: PLUGIN_VERSION });
 }
 
 export const init: PluginInit = async (router: PluginRouter) => {

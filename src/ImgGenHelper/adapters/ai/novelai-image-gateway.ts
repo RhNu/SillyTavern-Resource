@@ -27,17 +27,23 @@ function buildNovelParams(config: NovelAIImageConfig) {
   let height = config.height;
   let sm = config.sm;
   let smDyn = config.smDyn;
+  let varietyBoost = config.varietyBoost;
   const scheduler = ['karras', 'native', 'exponential', 'polyexponential'].includes(config.scheduler)
     ? config.scheduler
     : 'karras';
 
-  if (config.sampler === 'ddim' || ['nai-diffusion-4-curated-preview', 'nai-diffusion-4-full'].includes(config.model)) {
+  // V5 不支持 SMEA 与 variety boost; V4 与 ddim 不支持 SMEA
+  const isV5 = config.model === 'nai-diffusion-5-full' || config.model === 'nai-diffusion-5-curated';
+  if (isV5 || config.sampler === 'ddim' || ['nai-diffusion-4-curated-preview', 'nai-diffusion-4-full'].includes(config.model)) {
     sm = false;
     smDyn = false;
   }
+  if (isV5) {
+    varietyBoost = false;
+  }
 
   if (!config.anlasGuard) {
-    return { steps, width, height, sm, smDyn, scheduler };
+    return { steps, width, height, sm, smDyn, scheduler, varietyBoost };
   }
 
   if (width * height > NOVELAI_MAX_PIXELS) {
@@ -70,7 +76,7 @@ function buildNovelParams(config: NovelAIImageConfig) {
     steps = NOVELAI_MAX_STEPS;
   }
 
-  return { steps, width, height, sm, smDyn, scheduler };
+  return { steps, width, height, sm, smDyn, scheduler, varietyBoost };
 }
 
 async function readErrorText(response: Response): Promise<string> {
@@ -78,7 +84,10 @@ async function readErrorText(response: Response): Promise<string> {
   return text.trim() || `请求失败 (${response.status})`;
 }
 
-const PLUGIN_GENERATE_URL = '/api/plugins/nekoai/generate';
+const PLUGIN_GENERATE_URL_BY_BACKEND: Record<'plugin-nekojs' | 'plugin-novelai', string> = {
+  'plugin-nekojs': '/api/plugins/nekoai/generate',
+  'plugin-novelai': '/api/plugins/novelai/generate',
+};
 
 type PluginGenerateResponse = {
   images?: Array<{ data?: string; mime?: string }>;
@@ -95,7 +104,7 @@ export function createNovelAiImageGateway(options: {
     signal?: AbortSignal,
   ): Promise<GenerateNovelImageResult> => {
     const config = options.getImageConfig();
-    const { steps, width, height, sm, smDyn, scheduler } = buildNovelParams(config);
+    const { steps, width, height, sm, smDyn, scheduler, varietyBoost } = buildNovelParams(config);
     const requestBody = {
       prompt,
       model: config.model,
@@ -108,14 +117,14 @@ export function createNovelAiImageGateway(options: {
       negative_prompt: negativePrompt,
       upscale_ratio: config.upscaleRatio,
       decrisper: config.decrisper,
-      variety_boost: config.varietyBoost,
+      variety_boost: varietyBoost,
       sm,
       sm_dyn: smDyn,
       seed: config.seed >= 0 ? config.seed : undefined,
     };
 
-    if (config.backend === 'plugin') {
-      const response = await fetch(PLUGIN_GENERATE_URL, {
+    if (config.backend === 'plugin-nekojs' || config.backend === 'plugin-novelai') {
+      const response = await fetch(PLUGIN_GENERATE_URL_BY_BACKEND[config.backend], {
         method: 'POST',
         headers: SillyTavern.getRequestHeaders(),
         signal,

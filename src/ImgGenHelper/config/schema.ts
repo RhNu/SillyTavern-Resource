@@ -14,15 +14,41 @@ import {
 import { normalizeNamedItems, type NamedItems } from '@/ImgGenHelper/config/named-items';
 import { z } from 'zod';
 
-export const NOVELAI_MODEL_OPTIONS = [
+const V45_MODEL_OPTIONS = [
   { value: 'nai-diffusion-4-5-full', text: 'NAI Diffusion Anime V4.5 (Full)' },
   { value: 'nai-diffusion-4-5-curated', text: 'NAI Diffusion Anime V4.5 (Curated)' },
+] as const;
+
+const V5_MODEL_OPTIONS = [
+  { value: 'nai-diffusion-5-full', text: 'NAI Diffusion Anime V5 (Full)' },
+  { value: 'nai-diffusion-5-curated', text: 'NAI Diffusion Anime V5 (Curated)' },
+] as const;
+
+/** 旧后端 (酒馆内置 / NekoJS 插件) 可用模型: V4.5 及更早 */
+export const LEGACY_MODEL_OPTIONS = [
+  ...V45_MODEL_OPTIONS,
   { value: 'nai-diffusion-4-full', text: 'NAI Diffusion Anime V4 (Full)' },
   { value: 'nai-diffusion-4-curated-preview', text: 'NAI Diffusion Anime V4 (Curated)' },
   { value: 'nai-diffusion-3', text: 'NAI Diffusion Anime V3' },
   { value: 'nai-diffusion-2', text: 'NAI Diffusion Anime V2' },
   { value: 'nai-diffusion-furry-3', text: 'NAI Diffusion Furry V3' },
 ] as const;
+
+/** NovelAI Bridge (Thin) 插件后端可用模型: V4.5 / V5 */
+export const NOVELAI_V45_V5_MODEL_OPTIONS = [...V45_MODEL_OPTIONS, ...V5_MODEL_OPTIONS] as const;
+
+/** 全部模型选项 (union, 供 schema 校验与兼容导出) */
+export const NOVELAI_MODEL_OPTIONS = [...LEGACY_MODEL_OPTIONS, ...V5_MODEL_OPTIONS] as const;
+
+/** 各生成后端允许的模型列表 */
+export const MODEL_OPTIONS_BY_BACKEND: Record<
+  ImageBackend,
+  readonly (typeof NOVELAI_MODEL_OPTIONS)[number][]
+> = {
+  tavern: LEGACY_MODEL_OPTIONS,
+  'plugin-nekojs': LEGACY_MODEL_OPTIONS,
+  'plugin-novelai': NOVELAI_V45_V5_MODEL_OPTIONS,
+};
 
 export const NOVELAI_SAMPLER_OPTIONS = [
   'k_euler_ancestral',
@@ -36,11 +62,12 @@ export const NOVELAI_SAMPLER_OPTIONS = [
 
 export const NOVELAI_SCHEDULER_OPTIONS = ['karras', 'native', 'exponential', 'polyexponential'] as const;
 
-export type ImageBackend = 'tavern' | 'plugin';
+export type ImageBackend = 'tavern' | 'plugin-nekojs' | 'plugin-novelai';
 
 export const IMAGE_BACKEND_OPTIONS = [
   { value: 'tavern', text: '酒馆内置 NovelAI API' },
-  { value: 'plugin', text: '后端插件 (NekoAI Bridge)' },
+  { value: 'plugin-nekojs', text: '后端插件 (NekoJS Bridge)' },
+  { value: 'plugin-novelai', text: '后端插件 (NovelAI Bridge)' },
 ] as const;
 
 export type PromptPreset = {
@@ -146,7 +173,7 @@ const ApiConfigSchema = z
 
 const NovelAIImageConfigSchema = z
   .object({
-    backend: z.enum(['tavern', 'plugin']).default('tavern'),
+    backend: z.enum(['tavern', 'plugin-nekojs', 'plugin-novelai']).default('tavern'),
     model: z
       .enum(
         NOVELAI_MODEL_OPTIONS.map(option => option.value) as [
@@ -295,21 +322,37 @@ function normalizeUpscaleRatio(value: number): number {
   return Math.min(4, Math.max(1, Number(value.toFixed(2))));
 }
 
+export const DEFAULT_IMAGE_MODEL = 'nai-diffusion-4-5-curated';
+
 export function normalizeNovelAIImageConfig(value: unknown): NovelAIImageConfig {
-  const parsed = NovelAIImageConfigSchema.parse(value);
+  // 旧配置迁移: 'plugin' → 'plugin-nekojs'
+  const source = isRecord(value) ? value : {};
+  const migrated = source.backend === 'plugin' ? { ...source, backend: 'plugin-nekojs' } : source;
+  const parsed = NovelAIImageConfigSchema.parse(migrated);
+
+  // model 必须属于当前后端支持的列表, 否则重置为默认模型
+  const supportedModels = MODEL_OPTIONS_BY_BACKEND[parsed.backend];
+  const model = supportedModels.some(option => option.value === parsed.model)
+    ? parsed.model
+    : DEFAULT_IMAGE_MODEL;
+
+  // V5 不支持 SMEA 与 variety boost
+  const isV5 = model === 'nai-diffusion-5-full' || model === 'nai-diffusion-5-curated';
   const sm =
-    parsed.sampler === 'ddim' || ['nai-diffusion-4-curated-preview', 'nai-diffusion-4-full'].includes(parsed.model)
+    isV5 || parsed.sampler === 'ddim' || ['nai-diffusion-4-curated-preview', 'nai-diffusion-4-full'].includes(model)
       ? false
       : parsed.sm;
 
   return {
     ...parsed,
+    model,
     steps: Math.min(50, Math.max(1, parsed.steps)),
     scale: normalizeImageScale(parsed.scale),
     width: normalizeImageDimension(parsed.width),
     height: normalizeImageDimension(parsed.height),
     seed: Number.isInteger(parsed.seed) ? parsed.seed : -1,
     upscaleRatio: normalizeUpscaleRatio(parsed.upscaleRatio),
+    varietyBoost: isV5 ? false : parsed.varietyBoost,
     sm,
     smDyn: sm ? parsed.smDyn : false,
   };

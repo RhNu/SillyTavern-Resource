@@ -1,11 +1,13 @@
 import {
-  getNekoaiPluginStatus,
-  probeNekoaiPlugin,
-  type NekoaiPluginStatus,
+  getPluginBackendStatus,
+  probeAllPluginBackends,
+  type PluginBackend,
+  type PluginProbeResult,
 } from '@/ImgGenHelper/adapters/ai/plugin-backend-probe';
+import { DEFAULT_IMAGE_MODEL } from '@/ImgGenHelper/config/schema';
 import {
   IMAGE_BACKEND_OPTIONS,
-  NOVELAI_MODEL_OPTIONS,
+  MODEL_OPTIONS_BY_BACKEND,
   NOVELAI_SAMPLER_OPTIONS,
   NOVELAI_SCHEDULER_OPTIONS,
   useImageGenerationStore,
@@ -38,37 +40,52 @@ function resolveSizePresetValue(image: NovelAIImageConfig): SizePresetValue {
   return matchedPreset?.value ?? 'custom';
 }
 
-const BACKEND_STATUS_TEXT: Record<NekoaiPluginStatus, string> = {
-  unknown: '正在探测后端插件…',
-  available: '后端插件已连接',
-  unavailable: '未检测到后端插件',
-};
+function formatBackendStatus(result: PluginProbeResult): string {
+  switch (result.status) {
+    case 'available':
+      return result.version ? `后端插件已连接 (v${result.version})` : '后端插件已连接';
+    case 'unavailable':
+      return '未检测到后端插件';
+    case 'unknown':
+      return '正在探测后端插件…';
+  }
+}
 
 export default function ImageGenerationTab() {
   const config = useImageGenerationStore(state => state.config);
   const updateConfig = useImageGenerationStore(state => state.updateConfig);
   const [imageSettingsExpanded, setImageSettingsExpanded] = useState(false);
-  const [pluginStatus, setPluginStatus] = useState<NekoaiPluginStatus>(getNekoaiPluginStatus);
+  const [probeResults, setProbeResults] = useState<Record<PluginBackend, PluginProbeResult>>(() => ({
+    'plugin-nekojs': getPluginBackendStatus('plugin-nekojs'),
+    'plugin-novelai': getPluginBackendStatus('plugin-novelai'),
+  }));
   const [probing, setProbing] = useState(false);
 
   const refreshPluginStatus = useCallback(async () => {
     setProbing(true);
     try {
-      setPluginStatus(await probeNekoaiPlugin());
+      setProbeResults(await probeAllPluginBackends());
     } finally {
       setProbing(false);
     }
   }, []);
 
   useEffect(() => {
-    if (getNekoaiPluginStatus() === 'unknown') {
+    const anyUnknown = (['plugin-nekojs', 'plugin-novelai'] as const).some(
+      backend => getPluginBackendStatus(backend).status === 'unknown',
+    );
+    if (anyUnknown) {
       void refreshPluginStatus();
     }
   }, [refreshPluginStatus]);
 
   const selectedSizePreset = resolveSizePresetValue(config.image);
+  const backendModelOptions = MODEL_OPTIONS_BY_BACKEND[config.image.backend];
   const modelText =
-    NOVELAI_MODEL_OPTIONS.find(option => option.value === config.image.model)?.text ?? config.image.model;
+    backendModelOptions.find(option => option.value === config.image.model)?.text ?? config.image.model;
+  const isPluginBackend =
+    config.image.backend === 'plugin-nekojs' || config.image.backend === 'plugin-novelai';
+  const pluginBackend = isPluginBackend ? (config.image.backend as PluginBackend) : undefined;
   const backendText =
     IMAGE_BACKEND_OPTIONS.find(option => option.value === config.image.backend)?.text ?? config.image.backend;
   const imageSettingsSummary = [
@@ -173,6 +190,10 @@ export default function ImageGenerationTab() {
                     const value = event.currentTarget.value as ImageBackend;
                     updateConfig(draft => {
                       draft.image.backend = value;
+                      // 切换后端后 model 可能不在新后端支持列表, 重置为默认模型
+                      if (!MODEL_OPTIONS_BY_BACKEND[value].some(option => option.value === draft.image.model)) {
+                        draft.image.model = DEFAULT_IMAGE_MODEL;
+                      }
                     });
                   }}
                 >
@@ -182,17 +203,21 @@ export default function ImageGenerationTab() {
                     </option>
                   ))}
                 </select>
-                <div className="imggen-inline">
-                  <div className="imggen-inline-note">{BACKEND_STATUS_TEXT[pluginStatus]}</div>
-                  <button
-                    className="imggen-button"
-                    disabled={probing}
-                    type="button"
-                    onClick={() => void refreshPluginStatus()}
-                  >
-                    {probing ? '探测中…' : '重新探测'}
-                  </button>
-                </div>
+                {pluginBackend ? (
+                  <div className="imggen-inline">
+                    <div className="imggen-inline-note">{formatBackendStatus(probeResults[pluginBackend])}</div>
+                    <button
+                      className="imggen-button"
+                      disabled={probing}
+                      type="button"
+                      onClick={() => void refreshPluginStatus()}
+                    >
+                      {probing ? '探测中…' : '重新探测'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="imggen-inline-note">酒馆内置通道，无需插件</div>
+                )}
               </div>
               <label className="imggen-field">
                 <span className="imggen-label-line">
@@ -209,7 +234,7 @@ export default function ImageGenerationTab() {
                     });
                   }}
                 >
-                  {NOVELAI_MODEL_OPTIONS.map(option => (
+                  {backendModelOptions.map(option => (
                     <option key={option.value} value={option.value}>
                       {option.text}
                     </option>

@@ -18,6 +18,7 @@ import {
 import { loadInitialConfig, persistConfig } from '@/ImgGenHelper/config/persistence';
 import {
   IMAGE_BACKEND_OPTIONS,
+  MODEL_OPTIONS_BY_BACKEND,
   NOVELAI_MODEL_OPTIONS,
   NOVELAI_SAMPLER_OPTIONS,
   NOVELAI_SCHEDULER_OPTIONS,
@@ -36,6 +37,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 
 export {
   IMAGE_BACKEND_OPTIONS,
+  MODEL_OPTIONS_BY_BACKEND,
   NOVELAI_MODEL_OPTIONS,
   NOVELAI_SAMPLER_OPTIONS,
   NOVELAI_SCHEDULER_OPTIONS,

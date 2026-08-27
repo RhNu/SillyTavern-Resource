@@ -27,7 +27,7 @@ export const HELP_TEXT = {
   renderLatestRefMessagesCount: '开启渲染范围限制后，实际保留图片卡片的最近楼层数量。',
   imageModel: '脚本内置 NovelAI 生图模型，不再读取官方 stable-diffusion 插件当前模型。',
   imageBackend:
-    '图片请求的后端通道。酒馆内置 NovelAI API 使用酒馆 API 连接里配置的 NovelAI 密钥；后端插件 (NekoAI Bridge) 需要 SillyTavern 加载对应的服务端插件（plugins 目录 + enableServerPlugins），Token 由插件环境变量 NOVELAI_TOKEN 提供，也可在插件请求中单独传入。',
+    '图片请求的后端通道。酒馆内置 NovelAI API 使用酒馆 API 连接里配置的 NovelAI 密钥；NekoJS Bridge 与 NovelAI Bridge 插件后端需要 SillyTavern 加载对应的服务端插件（plugins 目录 + enableServerPlugins），Token 由插件环境变量 NOVELAI_TOKEN 提供，也可在插件请求中单独传入。NovelAI Bridge 插件仅支持 V4.5 / V5 模型，其余通道支持 V4.5 及更早模型。',
   imageSampler: 'NovelAI sampler 参数。',
   imageScheduler: 'NovelAI scheduler 参数。若旧配置无效，会自动回退到 karras。',
   imageSteps: 'NovelAI 步数。启用 Avoid spending Anlas 时，请求阶段还会进一步压到免费上限。',
