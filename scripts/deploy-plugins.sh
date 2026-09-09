@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ============================================================================
-# deploy-plugins.sh — 在服务器上直接执行, 从 GitHub 同步 dist-plugins 到 SillyTavern plugins/ 目录。
+# deploy-plugins.sh — 在服务器上直接执行, 从 GitHub 同步 dist/plugins 到 SillyTavern plugins/ 目录。
 #
 # 原理:
-#   1. git 浅克隆 (--depth 1) + sparse-checkout, 只下载 dist-plugins/ 目录, 不拉整个仓库
+#   1. git 浅克隆 (--depth 1) + sparse-checkout, 只下载 dist/plugins/ 目录, 不拉整个仓库
 #   2. 逐插件覆盖同步到目标目录 (先删旧目录保证与发布一致)
 #   3. 清理临时文件
 #
@@ -68,19 +68,19 @@ log "目标目录: $TARGET (branch: $BRANCH)"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/st-deploy.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
-# 1. 浅克隆 + sparse-checkout, 只拉 dist-plugins
+# 1. 浅克隆 + sparse-checkout, 只拉 dist/plugins
 if ! git clone --depth 1 --branch "$BRANCH" --single-branch \
      --filter=blob:none --sparse "$REPO" "$TMP/repo" 2>/dev/null; then
   warn "partial clone 不可用 (git 版本过老?), 退化为普通浅克隆..."
   git clone --depth 1 --branch "$BRANCH" --single-branch "$REPO" "$TMP/repo"
 fi
-git -C "$TMP/repo" sparse-checkout set dist-plugins
-log "已从 GitHub 拉取 dist-plugins (branch: $BRANCH)"
+git -C "$TMP/repo" sparse-checkout set dist/plugins
+log "已从 GitHub 拉取 dist/plugins (branch: $BRANCH)"
 
 # 2. 校验产物存在
-SRC="$TMP/repo/dist-plugins"
+SRC="$TMP/repo/dist/plugins"
 if [ ! -d "$SRC" ] || ! compgen -G "$SRC/*/" >/dev/null; then
-  die "仓库中未找到 dist-plugins/ 下的插件目录, 请检查分支 '$BRANCH' 是否包含构建产物"
+  die "仓库中未找到 dist/plugins/ 下的插件目录, 请检查分支 '$BRANCH' 是否包含构建产物"
 fi
 
 # 3. 列出并部署每个插件

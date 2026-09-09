@@ -16,11 +16,15 @@ export type SlashCommandBooleanString = 'true' | 'false' | 'on' | 'off' | 'toggl
 
 type SlashCommandDefaultValueInput = SlashCommandArgumentDefaultValue | boolean | number;
 
-type LiteralStringFromEnumItem<T> =
-  T extends string ? T : T extends { value: infer Value extends string } ? Value : string;
+type LiteralStringFromEnumItem<T> = T extends string
+  ? T
+  : T extends { value: infer Value extends string }
+    ? Value
+    : string;
 
-type LiteralStringFromEnumList<T> =
-  T extends readonly (infer Item)[] ? LiteralStringFromEnumItem<Item> : LiteralStringFromEnumItem<T>;
+type LiteralStringFromEnumList<T> = T extends readonly (infer Item)[]
+  ? LiteralStringFromEnumItem<Item>
+  : LiteralStringFromEnumItem<T>;
 
 type SlashCommandArgumentTypeListItem<TTypeList> = TTypeList extends readonly (infer Item)[] ? Item : TTypeList;
 
@@ -32,17 +36,15 @@ type SlashCommandArgumentTypeListIsOnly<TTypeList, TType extends SlashCommandArg
     : true
   : false;
 
-type SlashCommandNamedArgumentSingleValue<TTypeList, TOptions> =
-  TOptions extends { enumList: infer EnumList }
-    ? LiteralStringFromEnumList<EnumList> | SlashCommandClosure
-    : SlashCommandArgumentTypeListIsOnly<TTypeList, 'bool'> extends true
-      ? SlashCommandBooleanString | SlashCommandClosure
+type SlashCommandNamedArgumentSingleValue<TTypeList, TOptions> = TOptions extends { enumList: infer EnumList }
+  ? LiteralStringFromEnumList<EnumList> | SlashCommandClosure
+  : SlashCommandArgumentTypeListIsOnly<TTypeList, 'bool'> extends true
+    ? SlashCommandBooleanString | SlashCommandClosure
     : SlashCommandArgumentValue;
 
-type SlashCommandNamedArgumentInferredValue<TTypeList, TOptions> =
-  TOptions extends { acceptsMultiple: true }
-    ? SlashCommandNamedArgumentSingleValue<TTypeList, TOptions>[]
-    : SlashCommandNamedArgumentSingleValue<TTypeList, TOptions>;
+type SlashCommandNamedArgumentInferredValue<TTypeList, TOptions> = TOptions extends { acceptsMultiple: true }
+  ? SlashCommandNamedArgumentSingleValue<TTypeList, TOptions>[]
+  : SlashCommandNamedArgumentSingleValue<TTypeList, TOptions>;
 
 type SlashCommandNamedArgumentInference<TName extends string, TTypeList, TOptions> = string extends TName
   ? AnyNamedArguments
@@ -51,14 +53,17 @@ type SlashCommandNamedArgumentInference<TName extends string, TTypeList, TOption
     : { [Key in TName]?: SlashCommandNamedArgumentInferredValue<TTypeList, TOptions> | undefined };
 
 type SlashCommandNamedArgumentPropsInference<TProps> = TProps extends { name: infer Name extends string }
-  ? SlashCommandNamedArgumentInference<Name, TProps extends { typeList?: infer TypeList } ? TypeList : undefined, TProps>
+  ? SlashCommandNamedArgumentInference<
+      Name,
+      TProps extends { typeList?: infer TypeList } ? TypeList : undefined,
+      TProps
+    >
   : AnyNamedArguments;
 
-export type SlashCommandTypedCallback<TNamedArguments extends object = SlashCommandNamedArgumentsCapture> =
-  (
-    namedArguments: SlashCommandNamedArguments<TNamedArguments>,
-    unnamedArguments: SlashCommandUnnamedArguments,
-  ) => SlashCommandReturnValue | Promise<SlashCommandReturnValue>;
+export type SlashCommandTypedCallback<TNamedArguments extends object = SlashCommandNamedArgumentsCapture> = (
+  namedArguments: SlashCommandNamedArguments<TNamedArguments>,
+  unnamedArguments: SlashCommandUnnamedArguments,
+) => SlashCommandReturnValue | Promise<SlashCommandReturnValue>;
 
 export type SlashCommandCallback = SlashCommandTypedCallback;
 
@@ -104,7 +109,9 @@ export function isSlashCommandArgumentTrue(value: SlashCommandNamedArgumentValue
   return normalized === 'true' || normalized === 'on' || normalized === '1' || normalized === 'yes';
 }
 
-function normalizeDefaultValue(value: SlashCommandDefaultValueInput | undefined): SlashCommandArgumentDefaultValue | undefined {
+function normalizeDefaultValue(
+  value: SlashCommandDefaultValueInput | undefined,
+): SlashCommandArgumentDefaultValue | undefined {
   if (typeof value === 'boolean' || typeof value === 'number') {
     return String(value);
   }

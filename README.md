@@ -1,6 +1,6 @@
 # tavern_helper_template
 
-酒馆助手编写前端界面或脚本的模板.
+酒馆助手编写前端界面或脚本的模板，采用了 Vite 系工具链，采用 React 作为前端首选，支持后端插件构建，扩展了一些辅助功能。
 
 ## 使用方法
 
@@ -26,10 +26,23 @@
 
 - 你将不能利用 jsdelivr 实现前端界面或脚本的自动更新;
 - 也不能享受本模板提供的自动打包、自动更新功能:
-  - 上传代码后, 自动打包 `src` 文件夹中的代码到 `dist` 文件夹中;
+  - 上传代码后, 自动打包 `src/scripts` 和 `src/plugins` 到 `dist` 对应子目录;
   - 自动更新成最新的编写模板, 自动更新酒馆和酒馆助手的参考文件……
 
 但你本地依旧能很方便地使用这个模板.
+
+### 本地工具链
+
+本模板要求 Node.js 24.12 或更新版本, 并通过 `packageManager` 固定 pnpm 12。常用命令:
+
+```bash
+pnpm install
+pnpm build          # 构建浏览器端项目和服务端插件
+pnpm build:scripts  # 仅构建浏览器端项目
+pnpm build:plugins  # 仅构建服务端插件
+pnpm watch          # 监听源码并按需重建
+pnpm check          # 格式、lint、类型和构建契约测试
+```
 
 ## 如果创建为新仓库
 
@@ -48,7 +61,11 @@ git update-index --skip-worktree .vscode/launch.json
 
 `示例` 与 `初始模板` 已迁移为 React + Zustand 写法, 可直接作为参考复制.
 
-当前自动构建的项目发现范围仍限定在 `src/**/index.{ts,tsx,js,jsx}`, 因此这些目录默认不会被自动打包到 `dist`.
+当前自动构建的浏览器端项目发现范围限定在 `src/scripts/**/index.{ts,tsx,js,jsx}`, 因此这些目录默认不会被自动打包到
+`dist/scripts`.
+
+如需开发 SillyTavern 服务端插件, 使用 `src/plugins/<插件名>/index.ts` 目录约定, 并运行 `pnpm build:plugins` 生成
+`dist/plugins/<插件名>/index.cjs`. 具体的插件类型、检查和部署约定见 [后端插件开发规则](agents/rules/后端插件.md).
 
 #### 利用 jsdelivr 实现前端界面或脚本的自动更新
 
@@ -59,7 +76,7 @@ git update-index --skip-worktree .vscode/launch.json
 ```html
 <body>
   <script>
-    $('body').load('https://testingcf.jsdelivr.net/gh/lolo-desu/lolocard/dist/日记络络/界面/介绍页/index.html');
+    $('body').load('https://testingcf.jsdelivr.net/gh/lolo-desu/lolocard/dist/scripts/日记络络/界面/介绍页/index.html');
   </script>
 </body>
 ```
@@ -67,11 +84,11 @@ git update-index --skip-worktree .vscode/launch.json
 或一个自动更新的脚本:
 
 ```typescript
-import 'https://testingcf.jsdelivr.net/gh/StageDog/tavern_resource/dist/酒馆助手/场景感/index.js';
+import 'https://testingcf.jsdelivr.net/gh/StageDog/tavern_resource/dist/scripts/酒馆助手/场景感/index.js';
 ```
 
 脚本构建会将“裸包导入”自动改写为 jsdelivr 的 ESM URL (例如 `lodash` ->
-`https://testingcf.jsdelivr.net/npm/lodash/+esm`), 本地相对导入和 `@/`、`@util/` 导入仍会被打包进单文件产物.
+`https://testingcf.jsdelivr.net/npm/lodash/+esm`), 本地相对导入和 `@/`、`@scripts/`、`@util/` 导入仍会被打包进单文件产物.
 
 更多请见于[文档](https://stagedog.github.io/青空莉/工具经验/实时编写前端界面或脚本/进阶技巧).
 
@@ -82,8 +99,9 @@ import 'https://testingcf.jsdelivr.net/gh/StageDog/tavern_resource/dist/酒馆�
 
 **`bundle.yaml`**
 
-- 自动打包 `src` 文件夹中的代码到 `dist` 文件夹中, 并自动递增版本号从而让 jsdelivr 更快更新缓存.
-- 如果配置了 Cloudflare R2 所需的仓库 Secrets 和变量, 还会将整个 `dist/` 目录同步到你指定的 R2 路径前缀下.
+- 自动打包 `src/scripts` 中的浏览器端项目到 `dist/scripts`, 并打包 `src/plugins` 中的服务端插件到
+  `dist/plugins`, 再自动递增版本号从而让 jsdelivr 更快更新缓存.
+- 如果配置了 Cloudflare R2 所需的仓库 Secrets 和变量, 会同步 `dist/` 但明确排除 `dist/plugins/`.
 
 启用 Cloudflare R2 同步时, 需要在仓库 `Settings -> Secrets and variables -> Actions` 中添加以下 Secrets:
 

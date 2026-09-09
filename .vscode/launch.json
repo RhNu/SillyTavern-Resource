@@ -14,7 +14,6 @@
       "timeout": 100000,
       "sourceMapPathOverrides": {
         "src://tavern_helper_template/*": "${workspaceFolder}/*",
-        "webpack://tavern_helper_template/*": "${workspaceFolder}/*",
       },
       "skipFiles": [
         "**/jquery*.min.js",
@@ -34,7 +33,6 @@
       "timeout": 100000,
       "sourceMapPathOverrides": {
         "src://tavern_helper_template/*": "${workspaceFolder}/*",
-        "webpack://tavern_helper_template/*": "${workspaceFolder}/*",
       },
       "skipFiles": [
         "**/jquery*.min.js",
@@ -52,7 +50,6 @@
       "timeout": 100000,
       "sourceMapPathOverrides": {
         "src://tavern_helper_template/*": "${workspaceFolder}/*",
-        "webpack://tavern_helper_template/*": "${workspaceFolder}/*",
       },
       "skipFiles": [
         "**/jquery*.min.js",
@@ -70,7 +67,6 @@
       "timeout": 100000,
       "sourceMapPathOverrides": {
         "src://tavern_helper_template/*": "${workspaceFolder}/*",
-        "webpack://tavern_helper_template/*": "${workspaceFolder}/*",
       },
       "skipFiles": [
         "**/jquery*.min.js",

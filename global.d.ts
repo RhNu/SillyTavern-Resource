@@ -2,6 +2,7 @@ declare module '*?raw' {
   const content: string;
   export default content;
 }
+declare module 'https://*';
 declare module '*?url' {
   const content: string;
   export default content;
@@ -33,6 +34,16 @@ type LiteralUnion<
   BaseType extends string | number | bigint | boolean | null | undefined = string,
 > = import('type-fest').LiteralUnion<LiteralType, BaseType>;
 type SetRequired<BaseType, Keys extends keyof BaseType> = import('type-fest').SetRequired<BaseType, Keys>;
+
+/** 酒馆助手声明文件仍使用 type-fest 旧版的全局命名空间写法。 */
+declare namespace TypeFest {
+  type PartialDeep<T> = import('type-fest').PartialDeep<T>;
+  type LiteralUnion<
+    LiteralType,
+    BaseType extends string | number | bigint | boolean | null | undefined = string,
+  > = import('type-fest').LiteralUnion<LiteralType, BaseType>;
+  type SetRequired<BaseType, Keys extends keyof BaseType> = import('type-fest').SetRequired<BaseType, Keys>;
+}
 
 declare const YAML: typeof import('yaml');
 

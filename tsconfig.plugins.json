@@ -1,12 +1,8 @@
 {
   "compilerOptions": {
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "target": "ES2022",
-    "lib": [
-      "ES2022"
-    ],
+    "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "moduleDetection": "auto",
@@ -21,8 +17,5 @@
     "noEmit": true,
     "allowJs": false
   },
-  "include": [
-    "src-plugins/**/*.ts",
-    "src-plugins/**/*.d.ts"
-  ]
+  "include": ["src/plugins/**/*.ts", "src/plugins/**/*.d.ts"]
 }

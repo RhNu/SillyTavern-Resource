@@ -4,7 +4,9 @@ import { createRoot } from 'react-dom/client';
 
 type ExtensionSettingSection = 'auto' | null | 2;
 
-function getExtensionSettingSelector(section: Exclude<ExtensionSettingSection, 'auto'>): '#extensions_settings' | '#extensions_settings2' {
+function getExtensionSettingSelector(
+  section: Exclude<ExtensionSettingSection, 'auto'>,
+): '#extensions_settings' | '#extensions_settings2' {
   return section === null ? '#extensions_settings' : '#extensions_settings2';
 }
 
