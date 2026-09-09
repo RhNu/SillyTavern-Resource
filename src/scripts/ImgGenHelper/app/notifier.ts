@@ -1,7 +1,7 @@
 import type { AutomaticQueueCompletionSummary } from '@/ImgGenHelper/features/image-generation/controller';
 import { logError, logInfo } from '@/ImgGenHelper/shared/log';
-import type { NotifierBus, NotifierSourceHandle } from '@/Notifier/bus';
-import { NOTIFIER_BUS_GLOBAL_KEY } from '@/Notifier/constants';
+import type { NotifierBus, NotifierSourceHandle } from '@/notifier/bus';
+import { NOTIFIER_BUS_GLOBAL_KEY } from '@/notifier/constants';
 
 const IMAGE_GENERATION_NOTIFIER_SOURCE = 'image-generation-helper-v2:auto-image';
 
