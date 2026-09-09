@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import test from 'node:test';
+import { expect, test } from 'vitest';
 import { buildBrowserProject } from './browser.ts';
 import { rootDir } from './config.ts';
 import { removeEmptyDirectories } from './discovery.ts';
@@ -36,30 +35,30 @@ test('Vite and tsdown preserve the template output contracts', async () => {
     fs.mkdirSync(frontend.stagingOutputDir, { recursive: true });
     await buildBrowserProject(frontend, context);
     const html = fs.readFileSync(path.join(frontend.stagingOutputDir, 'index.html'), 'utf8');
-    assert.match(html, /frontend-ready/);
-    assert.deepEqual(fs.readdirSync(frontend.stagingOutputDir), ['index.html']);
+    expect(html).toMatch(/frontend-ready/);
+    expect(fs.readdirSync(frontend.stagingOutputDir)).toEqual(['index.html']);
 
     const script = project('script', 'script', 'index.ts');
     fs.mkdirSync(script.stagingOutputDir, { recursive: true });
     await buildBrowserProject(script, context);
     removeEmptyDirectories(script.stagingOutputDir);
     const javascript = fs.readFileSync(path.join(script.stagingOutputDir, 'index.js'), 'utf8');
-    assert.match(javascript, /https:\/\/testingcf\.jsdelivr\.net\/npm\/lodash\/\+esm/);
-    assert.match(javascript, /data-bundled-style/);
-    assert.deepEqual(fs.readdirSync(script.stagingOutputDir), ['index.js']);
+    expect(javascript).toMatch(/https:\/\/testingcf\.jsdelivr\.net\/npm\/lodash\/\+esm/);
+    expect(javascript).toMatch(/data-bundled-style/);
+    expect(fs.readdirSync(script.stagingOutputDir)).toEqual(['index.js']);
 
     const plugin = project('plugin', 'plugin', 'index.ts');
     fs.mkdirSync(plugin.stagingOutputDir, { recursive: true });
     await buildPluginProject(plugin, context);
-    assert.deepEqual(fs.readdirSync(plugin.stagingOutputDir), ['index.cjs']);
+    expect(fs.readdirSync(plugin.stagingOutputDir)).toEqual(['index.cjs']);
     const pluginCode = fs.readFileSync(path.join(plugin.stagingOutputDir, 'index.cjs'), 'utf8');
-    assert.match(pluginCode, /canvas/);
+    expect(pluginCode).toMatch(/canvas/);
     const exports = createRequire(import.meta.url)(path.join(plugin.stagingOutputDir, 'index.cjs')) as {
       info: { id: string };
       hasHttpClient: () => boolean;
     };
-    assert.equal(exports.info.id, 'build-fixture');
-    assert.equal(exports.hasHttpClient(), true);
+    expect(exports.info.id).toBe('build-fixture');
+    expect(exports.hasHttpClient()).toBe(true);
   } finally {
     fs.rmSync(outputRoot, { recursive: true, force: true });
   }

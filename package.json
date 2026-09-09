@@ -9,15 +9,18 @@
     "build:plugins": "node tools/build.ts --mode=production --kind=plugins",
     "watch": "node tools/build.ts --watch",
     "watch:plugins": "node tools/build.ts --watch --kind=plugins",
-    "format": "oxfmt tools src util package.json tsconfig.json tsconfig.plugins.json tsconfig.tools.json postcss.config.ts oxlint.config.ts",
-    "format:check": "oxfmt --check tools src util package.json tsconfig.json tsconfig.plugins.json tsconfig.tools.json postcss.config.ts oxlint.config.ts",
+    "format": "oxfmt tools src util package.json tsconfig.json tsconfig.plugins.json tsconfig.tools.json postcss.config.ts oxlint.config.ts vitest.config.ts",
+    "format:check": "oxfmt --check tools src util package.json tsconfig.json tsconfig.plugins.json tsconfig.tools.json postcss.config.ts oxlint.config.ts vitest.config.ts",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "typecheck": "pnpm typecheck:scripts && pnpm typecheck:plugins && pnpm typecheck:tools",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.json",
     "typecheck:plugins": "tsc --noEmit -p tsconfig.plugins.json",
     "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
-    "test": "node --test tools/build/*.test.ts tools/novelai-image-helper.test.ts src/plugins/imggen-novelai/*.test.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
   },
   "dependencies": {
@@ -75,7 +78,8 @@
     "type-fest": "^4.41.0",
     "typescript": "7.0.2",
     "vite": "^8.2.2",
-    "vite-plugin-singlefile": "^2.3.3"
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "4.1.6"
   },
   "browserslist": [
     "defaults and partially supports es6-module"

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import { describe, expect, test } from 'vitest';
 import { parseManifest } from './cache.ts';
 
 const validManifest = {
@@ -17,12 +16,14 @@ const validManifest = {
   },
 } as const;
 
-test('accepts a complete cache manifest', () => {
-  assert.deepEqual(parseManifest(JSON.stringify(validManifest)), validManifest);
-});
+describe('parseManifest', () => {
+  test('accepts a complete cache manifest', () => {
+    expect(parseManifest(JSON.stringify(validManifest))).toEqual(validManifest);
+  });
 
-test('rejects malformed or incomplete cache manifests', () => {
-  assert.throws(() => parseManifest('{'), /Invalid cache manifest/);
-  assert.throws(() => parseManifest(JSON.stringify({ version: 2, projects: [] })), /Invalid cache manifest/);
-  assert.throws(() => parseManifest(JSON.stringify({ ...validManifest, version: 1 })), /Invalid cache manifest/);
+  test('rejects malformed or incomplete cache manifests', () => {
+    expect(() => parseManifest('{')).toThrow(/Invalid cache manifest/);
+    expect(() => parseManifest(JSON.stringify({ version: 2, projects: [] }))).toThrow(/Invalid cache manifest/);
+    expect(() => parseManifest(JSON.stringify({ ...validManifest, version: 1 }))).toThrow(/Invalid cache manifest/);
+  });
 });

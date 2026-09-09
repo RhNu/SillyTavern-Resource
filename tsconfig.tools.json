@@ -16,6 +16,6 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["tools/**/*.ts", "postcss.config.ts", "oxlint.config.ts"],
+  "include": ["tools/**/*.ts", "postcss.config.ts", "oxlint.config.ts", "vitest.config.ts"],
   "exclude": ["tools/fixtures/**"]
 }
