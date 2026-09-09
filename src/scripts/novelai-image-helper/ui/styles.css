@@ -1,0 +1,107 @@
+.nai-image-card,
+.nai-settings,
+.nai-image-editor {
+  color: var(--SmartThemeBodyColor, inherit);
+}
+
+.nai-image-card {
+  margin: 0.75rem 0;
+  overflow: hidden;
+  border: 1px solid var(--SmartThemeBorderColor);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 82%, transparent);
+}
+
+.nai-image-card__image {
+  display: block;
+  width: 100%;
+  max-height: 42rem;
+  object-fit: contain;
+  background: color-mix(in srgb, var(--SmartThemeShadowColor) 35%, transparent);
+}
+
+.nai-image-card__placeholder {
+  display: grid;
+  min-height: 8rem;
+  place-items: center;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 72%, transparent);
+}
+
+.nai-image-card__body {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.7rem;
+}
+
+.nai-image-card__title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nai-image-card__meta,
+.nai-settings__hint {
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
+  font-size: 0.86em;
+}
+
+.nai-image-card__error,
+.nai-settings__status.is-error {
+  color: var(--SmartThemeEmColor, #d66);
+  white-space: pre-wrap;
+}
+
+.nai-image-card__actions,
+.nai-settings__actions,
+.nai-image-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.nai-image-card__actions .menu_button,
+.nai-settings__actions .menu_button,
+.nai-image-editor__actions .menu_button {
+  width: auto;
+  min-width: 7rem;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
+}
+
+.nai-settings,
+.nai-image-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.nai-settings section {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border: 1px solid var(--SmartThemeBorderColor);
+  border-radius: 0.6rem;
+}
+
+.nai-settings h3,
+.nai-settings h4,
+.nai-settings p {
+  margin: 0;
+}
+
+.nai-settings__field,
+.nai-image-editor label {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.nai-settings__field:has(input[type='checkbox']) {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.nai-settings textarea,
+.nai-image-editor textarea {
+  width: 100%;
+  resize: vertical;
+}

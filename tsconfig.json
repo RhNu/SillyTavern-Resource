@@ -12,6 +12,7 @@
     },
     "moduleDetection": "auto",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "allowUmdGlobalAccess": true,
     "allowSyntheticDefaultImports": true,
     "strictBindCallApply": true,

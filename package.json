@@ -17,7 +17,7 @@
     "typecheck:scripts": "tsc --noEmit -p tsconfig.json",
     "typecheck:plugins": "tsc --noEmit -p tsconfig.plugins.json",
     "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
-    "test": "node --test tools/build/*.test.ts",
+    "test": "node --test tools/build/*.test.ts tools/novelai-image-helper.test.ts src/plugins/imggen-novelai/*.test.ts",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
   },
   "dependencies": {
