@@ -1,6 +1,7 @@
 # tavern_helper_template
 
-酒馆助手编写前端界面或脚本的模板，采用了 Vite 系工具链，采用 React 作为前端首选，支持后端插件构建，扩展了一些辅助功能。
+酒馆助手编写前端界面或脚本的模板，从 [源模板](https://github.com/StageDog/tavern_helper_template)
+更新而来，采用了 Vite 系工具链，采用 React 作为前端首选，支持后端插件构建，扩展了一些辅助功能。
 
 ## 使用方法
 
@@ -84,11 +85,11 @@ git update-index --skip-worktree .vscode/launch.json
 或一个自动更新的脚本:
 
 ```typescript
-import 'https://testingcf.jsdelivr.net/gh/StageDog/tavern_resource/dist/scripts/酒馆助手/场景感/index.js';
+import 'https://testingcf.jsdelivr.net/gh/StageDog/tavern_resource/dist/酒馆助手/场景感/index.js';
 ```
 
 脚本构建会将“裸包导入”自动改写为 jsdelivr 的 ESM URL (例如 `lodash` ->
-`https://testingcf.jsdelivr.net/npm/lodash/+esm`), 本地相对导入和 `@/`、`@scripts/`、`@util/` 导入仍会被打包进单文件产物.
+`https://testingcf.jsdelivr.net/npm/lodash/+esm`), 本地相对导入和 `@scripts/`、`@util/` 导入仍会被打包进单文件产物.
 
 更多请见于[文档](https://stagedog.github.io/青空莉/工具经验/实时编写前端界面或脚本/进阶技巧).
 
@@ -101,24 +102,31 @@ import 'https://testingcf.jsdelivr.net/gh/StageDog/tavern_resource/dist/scripts/
 
 - 自动打包 `src/scripts` 中的浏览器端项目到 `dist/scripts`, 并打包 `src/plugins` 中的服务端插件到
   `dist/plugins`, 再自动递增版本号从而让 jsdelivr 更快更新缓存.
-- 如果配置了 Cloudflare R2 所需的仓库 Secrets 和变量, 会同步 `dist/` 但明确排除 `dist/plugins/`.
+- 如果配置了 S3 兼容对象存储所需的仓库 Secrets 和变量, 会以 `dist/scripts/` 为根目录同步浏览器端产物, 不会上传
+  `dist/plugins/`.
 
-启用 Cloudflare R2 同步时, 需要在仓库 `Settings -> Secrets and variables -> Actions` 中添加以下 Secrets:
+启用对象存储同步时, 需要在仓库 `Settings -> Secrets and variables -> Actions` 中添加以下 Secrets:
 
-- `CLOUDFLARE_R2_ENDPOINT`: R2 的 S3 API 端点, 例如 `https://<accountid>.r2.cloudflarestorage.com`
-- `CLOUDFLARE_R2_BUCKET`: 目标存储桶名称
-- `CLOUDFLARE_R2_ACCESS_KEY_ID`: R2 API Token 对应的 Access Key ID
-- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`: R2 API Token 对应的 Secret Access Key
+- `S3_ACCESS_KEY_ID`: 对象存储的 Access Key ID
+- `S3_SECRET_ACCESS_KEY`: 对象存储的 Secret Access Key
 
-并添加以下仓库 Variable:
+并添加以下仓库 Variables:
 
-- `CLOUDFLARE_R2_PREFIX`: R2 内的目标前缀, 例如 `sillytavern-resource/prod`
+- `S3_BUCKET`: 目标存储桶名称
+- `S3_PREFIX`: 存储桶内的目标前缀, 例如 `my-resource/prod`
+- `S3_REGION`: 对象存储使用的区域; Cloudflare R2 填写 `auto`, 其他服务按服务商要求填写
+- `S3_ENDPOINT`: 自定义 S3 API 端点. 使用 Amazon S3 默认端点时可以留空, 使用 R2 等 S3 兼容服务时填写服务商提供的端点
 
-配置完成后, CI 会执行等价于以下命令的同步:
+例如, 使用 Cloudflare R2 时可以这样配置:
 
-```bash
-aws s3 sync dist s3://你的存储桶/你指定的前缀/ --delete --endpoint-url https://你的-account-id.r2.cloudflarestorage.com
-```
+- `S3_ENDPOINT`: `https://<accountid>.r2.cloudflarestorage.com`
+- `S3_BUCKET`: R2 存储桶名称
+- `S3_PREFIX`: `my-resource/prod`
+- `S3_REGION`: `auto`
+- `S3_ACCESS_KEY_ID`: R2 API Token 对应的 Access Key ID
+- `S3_SECRET_ACCESS_KEY`: R2 API Token 对应的 Secret Access Key
+
+未配置完整对象存储信息时, 工作流会跳过上传而继续完成构建.
 
 **`bump_deps.yaml`**
 
