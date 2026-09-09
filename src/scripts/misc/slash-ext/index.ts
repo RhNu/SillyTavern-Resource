@@ -1,5 +1,11 @@
 import { isSlashCommandArgumentTrue, slashCommand, slashCommandArgumentTypes } from '@util/slash-command';
 
+/**
+ * Hides messages in the current chat from the specified start ID to the end ID.
+ * @param start start inclusive message ID
+ * @param end end inclusive message ID
+ * @returns A promise that resolves when the hide command is executed.
+ */
 function hideRange(start: number, end: number) {
   return triggerSlash(`/hide ${start}-${end}`);
 }
@@ -19,6 +25,7 @@ function init() {
       }
     })
     .register();
+
   console.info('Slash command "hide-all" registered.');
 
   // Hide-except-last command: Hides all messages except the last one in the current chat.
@@ -35,9 +42,8 @@ function init() {
       await hideRange(0, lastMessageId - 1);
     })
     .register();
+
   console.info('Slash command "hide-except-last" registered.');
 }
 
-$(() => {
-  errorCatched(init)();
-});
+$(errorCatched(init));
