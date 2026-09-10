@@ -6,12 +6,13 @@
 ## 工作流
 
 1. 使用 Tavern Helper `generateRaw` 独立调用提示词模型。
-2. 通过 JSON Schema 直接获得主提示词和逐角色提示词。
+2. 根据生图模型选择 V4.5 Danbooru 或 V5 自然语言模板，通过 JSON Schema 获得主提示词和逐角色提示词。
 3. 将完整结构写入消息变量，再向消息正文提交稳定锚点。
 4. 以单消费者队列调用 `/api/plugins/imggen-novelai/v1/generate`。
 5. 上传返回的 PNG，并在楼层中渲染图片卡片。
 
-配置保存在脚本变量 `novelaiImageHelper.settings`，图片块保存在消息变量 `novelaiImageHelper`。
+配置保存在脚本变量 `novelaiImageHelper.settings`，图片块保存在消息变量 `novelaiImageHelper`。设置 schema
+v2 是断代设计，不读取或迁移旧版设置。人物库内容只作为模型参考，并可绑定到角色卡、聊天和用户人设。
 
 ## 前置条件
 

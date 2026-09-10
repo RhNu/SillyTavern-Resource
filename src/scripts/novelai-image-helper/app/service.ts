@@ -71,18 +71,10 @@ export class NovelAiImageService {
       );
       if (response.insertions.length === 0) return [];
 
-      const allowedRefs = new Set(
-        settings.characters.filter(character => character.enabled).map(character => character.id),
-      );
       response.insertions.forEach(insertion => {
         if (insertion.after_paragraph > paragraphs.length) {
           throw new Error(`模型返回的段落 P${insertion.after_paragraph} 不存在`);
         }
-        insertion.prompt.characters.forEach(character => {
-          if (character.character_ref && !allowedRefs.has(character.character_ref)) {
-            throw new Error(`模型返回了未知人物引用: ${character.character_ref}`);
-          }
-        });
       });
 
       const blocks = await commitAnalysis({

@@ -10,6 +10,11 @@ import {
   type PromptInsertion,
 } from '../src/scripts/novelai-image-helper/domain/prompt.ts';
 import { buildGenerateRequest } from '../src/scripts/novelai-image-helper/image-generation/build-request.ts';
+import { characterMatchesContext } from '../src/scripts/novelai-image-helper/domain/binding.ts';
+import {
+  imageModelFamily,
+  resolveSelectedTemplate,
+} from '../src/scripts/novelai-image-helper/prompt-analysis/template-selection.ts';
 import { DEFAULT_SETTINGS } from '../src/scripts/novelai-image-helper/settings/schema.ts';
 
 const insertion: PromptInsertion = {
@@ -18,8 +23,8 @@ const insertion: PromptInsertion = {
   prompt: {
     main: { positive: '2girls, ruins', negative: 'text' },
     characters: [
-      { character_ref: 'alice', label: 'Alice', positive: 'female, red_hair', negative: 'blue_hair' },
-      { character_ref: null, label: 'Stranger', positive: 'female, black_hair', negative: '' },
+      { label: 'Alice', positive: 'female, red_hair', negative: 'blue_hair' },
+      { label: 'Stranger', positive: 'female, black_hair', negative: '' },
     ],
   },
 };
@@ -57,5 +62,33 @@ describe('NovelAI image helper domain', () => {
       { prompt: 'female, black_hair', uc: '' },
     ]);
     expect(request.prompt).not.toContain('|');
+  });
+
+  test('selects model-specific prompt rules', () => {
+    expect(imageModelFamily('nai-diffusion-4-5-full')).toBe('v45');
+    expect(imageModelFamily('nai-diffusion-5-curated')).toBe('v5');
+    expect(resolveSelectedTemplate(DEFAULT_SETTINGS)).toContain('Chinese is allowed');
+  });
+
+  test('requires every configured character binding to match', () => {
+    const bindings = {
+      character: { key: 'card-a', label: 'Card A' },
+      chat: { key: 'chat-a', label: 'Chat A' },
+      persona: null,
+    };
+    expect(
+      characterMatchesContext(bindings, {
+        character: { key: 'card-a', label: 'Card A' },
+        chat: { key: 'chat-a', label: 'Chat A' },
+        persona: null,
+      }),
+    ).toBe(true);
+    expect(
+      characterMatchesContext(bindings, {
+        character: { key: 'card-a', label: 'Card A' },
+        chat: { key: 'chat-b', label: 'Chat B' },
+        persona: null,
+      }),
+    ).toBe(false);
   });
 });

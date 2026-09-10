@@ -1,15 +1,14 @@
 import { z } from 'zod';
 
 export const PromptTextSchema = z.strictObject({
-  positive: z.string().trim().min(1).max(100_000),
-  negative: z.string().trim().max(100_000),
+  positive: z.string().trim().min(1).max(100_000).describe('Main scene prompt using the selected model rules.'),
+  negative: z.string().trim().max(100_000).describe('Undesired scene-level content; empty when unnecessary.'),
 });
 
 export const CharacterPromptSchema = z.strictObject({
-  character_ref: z.string().trim().min(1).nullable(),
-  label: z.string().trim().min(1).max(120),
-  positive: z.string().trim().min(1).max(50_000),
-  negative: z.string().trim().max(50_000),
+  label: z.string().trim().min(1).max(120).describe('Human-readable character label for editing.'),
+  positive: z.string().trim().min(1).max(50_000).describe('Prompt for this character only.'),
+  negative: z.string().trim().max(50_000).describe('Undesired features for this character; empty when unnecessary.'),
 });
 
 export const PromptBundleSchema = z.strictObject({
@@ -18,8 +17,8 @@ export const PromptBundleSchema = z.strictObject({
 });
 
 export const PromptInsertionSchema = z.strictObject({
-  after_paragraph: z.number().int().positive(),
-  summary: z.string().trim().max(500),
+  after_paragraph: z.number().int().positive().describe('Latest-story paragraph number after which to insert.'),
+  summary: z.string().trim().max(500).describe('Short scene-selection rationale.'),
   prompt: PromptBundleSchema,
 });
 
