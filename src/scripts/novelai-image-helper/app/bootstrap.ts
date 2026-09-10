@@ -11,6 +11,10 @@ const SETTINGS_BUTTON = 'NovelAI 图片设置';
 const PROMPT_REGEX_NAME = '[NOVELAI_IMAGE_HELPER] 隐藏图片锚点';
 const PROMPT_REGEX = String.raw`/\[\[NovelAIImage\s+id=(?:"[^"\]]+"|'[^'\]]+')\s*\]\]/gsi`;
 
+/**
+ * This is only the persisted-anchor display/prompt filter. User-configured context cleanup
+ * rules are compiled and applied inside prompt-analysis/context-cleaner.ts instead.
+ */
 function ensurePromptFilter(): void {
   const regexes = getTavernRegexes({ type: 'global' });
   const existing = regexes.find(regex => regex.script_name === PROMPT_REGEX_NAME);

@@ -50,6 +50,12 @@ const PromptTemplateSchema = z.strictObject({
   v5: z.string().trim().min(1),
 });
 
+const ContextCleanupSchema = z.strictObject({
+  /** One rule per line in the settings UI. These rules are local to this script. */
+  extractRules: z.array(z.string().max(2_000)).max(64).default([]),
+  filterRules: z.array(z.string().max(2_000)).max(128).default([]),
+});
+
 const GenerationPromptPresetSchema = z.strictObject({
   prefix: z.string(),
   suffix: z.string(),
@@ -71,7 +77,7 @@ const GenerationPromptPresetCollectionSchema = z
   });
 
 export const SettingsSchema = z.strictObject({
-  schemaVersion: z.literal(5),
+  schemaVersion: z.literal(6),
   enabled: z.boolean(),
   analysis: z.strictObject({
     auto: z.boolean(),
@@ -88,6 +94,7 @@ export const SettingsSchema = z.strictObject({
     model: z.string(),
     maxTokens: z.number().int().min(256).max(32_000),
     templates: PromptTemplateSchema,
+    cleanup: ContextCleanupSchema,
   }),
   generation: z.strictObject({
     model: ModelSchema,
@@ -110,6 +117,7 @@ export type GenerationPromptPreset = z.infer<typeof GenerationPromptPresetSchema
 export type CharacterLibraryEntry = z.infer<typeof CharacterLibraryEntrySchema>;
 export type CharacterBindings = z.infer<typeof CharacterBindingsSchema>;
 export type BindingRef = z.infer<typeof BindingRefSchema>;
+export type ContextCleanup = z.infer<typeof ContextCleanupSchema>;
 
 export const DEFAULT_GENERATION_PROMPT_PRESET_NAME = 'NovelAI 默认';
 
@@ -167,7 +175,7 @@ export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   enabled: true,
   analysis: {
     auto: false,
@@ -180,6 +188,10 @@ export const DEFAULT_SETTINGS: Settings = {
     model: '',
     maxTokens: 4_096,
     templates: DEFAULT_PROMPT_TEMPLATE,
+    cleanup: {
+      extractRules: [],
+      filterRules: [],
+    },
   },
   generation: {
     model: 'nai-diffusion-5-curated',
@@ -292,7 +304,31 @@ function migrateV4Settings(value: unknown): unknown {
   };
 }
 
+/** Add the script-local context cleanup rules without importing any legacy ImgGenHelper settings. */
+function migrateV5Settings(value: unknown): unknown {
+  if (!isRecord(value) || value.schemaVersion !== 5) return value;
+  const sourceAnalysis = isRecord(value.analysis) ? value.analysis : {};
+  const sourceCleanup = isRecord(sourceAnalysis.cleanup) ? sourceAnalysis.cleanup : {};
+  return {
+    ...value,
+    schemaVersion: 6,
+    analysis: {
+      ...sourceAnalysis,
+      cleanup: {
+        extractRules: Array.isArray(sourceCleanup.extractRules)
+          ? sourceCleanup.extractRules.filter((rule): rule is string => typeof rule === 'string')
+          : [],
+        filterRules: Array.isArray(sourceCleanup.filterRules)
+          ? sourceCleanup.filterRules.filter((rule): rule is string => typeof rule === 'string')
+          : [],
+      },
+    },
+  };
+}
+
 export function normalizeSettings(value: unknown): Settings {
-  const parsed = SettingsSchema.safeParse(migrateV4Settings(migrateV3Settings(migrateV2Settings(value))));
+  const parsed = SettingsSchema.safeParse(
+    migrateV5Settings(migrateV4Settings(migrateV3Settings(migrateV2Settings(value)))),
+  );
   return parsed.success ? parsed.data : structuredClone(DEFAULT_SETTINGS);
 }

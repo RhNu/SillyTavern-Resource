@@ -1,9 +1,10 @@
-import { collectStoryParagraphs, matchAnchors } from '../domain/anchor';
+import { matchAnchors } from '../domain/anchor';
 import type { ImageBlock } from '../domain/block';
 import { GenerationQueue } from '../image-generation/queue';
 import { commitAnalysis } from '../message-blocks/commit-analysis';
 import { MessageBlockRepository } from '../message-blocks/repository';
 import { buildHistory, buildWorldbook, paragraphTexts } from '../prompt-analysis/context';
+import { collectCleanedStoryParagraphs } from '../prompt-analysis/context-cleaner';
 import { PromptModelClient } from '../prompt-analysis/model-client';
 import { NovelAiClient } from '../platform/imggen-novelai/client';
 import { SettingsStore } from '../settings/store';
@@ -56,7 +57,15 @@ export class NovelAiImageService {
     if (!message || message.role !== 'assistant') throw new Error('只能分析 AI 消息');
     if (matchAnchors(message.message).length > 0) throw new Error('这条消息已经包含 NovelAI 图片块');
 
-    const paragraphs = collectStoryParagraphs(message.message, settings.analysis.minimumParagraphLength);
+    const cleanedStory = collectCleanedStoryParagraphs(
+      message.message,
+      settings.analysis.minimumParagraphLength,
+      settings.analysis.cleanup,
+    );
+    const paragraphs = cleanedStory.paragraphs;
+    if (cleanedStory.diagnostics.length > 0) {
+      console.warn('[NovelAI Image Helper] 忽略无效正文清洗规则', cleanedStory.diagnostics);
+    }
     if (paragraphs.length === 0) throw new Error('没有找到达到最小长度的剧情段落');
 
     const generationId = `nai-analysis-${crypto.randomUUID()}`;
@@ -65,7 +74,7 @@ export class NovelAiImageService {
       const response = await this.promptModel.analyze(
         {
           paragraphs: paragraphTexts(paragraphs),
-          history: buildHistory(messageId, settings.analysis.historyCount),
+          history: buildHistory(messageId, settings.analysis.historyCount, settings.analysis.cleanup),
           worldbook: await buildWorldbook(),
         },
         settings,

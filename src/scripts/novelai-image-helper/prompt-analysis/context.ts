@@ -1,17 +1,22 @@
-import { stripAnchors, type StoryParagraph } from '../domain/anchor';
+import type { StoryParagraph } from '../domain/anchor';
+import { cleanContextText, type ContextCleanupSettings } from './context-cleaner';
 
-function clean(text: string): string {
-  return stripAnchors(text.replace(/<!--([\s\S]*?)-->/g, '').replace(/```[\s\S]*?```/g, '[CODE_BLOCK]')).trim();
-}
+const NO_CONTEXT_CLEANUP: ContextCleanupSettings = { extractRules: [], filterRules: [] };
 
-export function buildHistory(messageId: number, count: number): string {
+export function buildHistory(
+  messageId: number,
+  count: number,
+  cleanup: ContextCleanupSettings = NO_CONTEXT_CLEANUP,
+): string {
   if (count <= 0 || messageId <= 0) return '';
   const start = Math.max(0, messageId - count);
   return getChatMessages(`${start}-${messageId - 1}`)
-    .map(
-      message =>
-        `${message.role === 'assistant' ? 'AI' : message.role === 'user' ? 'User' : 'System'}: ${clean(message.message)}`,
-    )
+    .map(message => {
+      const cleaned = cleanContextText(message.message, cleanup).text;
+      if (!cleaned) return '';
+      return `${message.role === 'assistant' ? 'AI' : message.role === 'user' ? 'User' : 'System'}: ${cleaned}`;
+    })
+    .filter(Boolean)
     .join('\n\n');
 }
 
@@ -27,8 +32,9 @@ export async function buildWorldbook(): Promise<string> {
     try {
       const entries = await getWorldbook(name);
       const content = entries
-        .filter(entry => entry.enabled && clean(entry.content))
-        .map(entry => `## ${entry.name || entry.uid}\n${clean(entry.content)}`)
+        // Worldbook text is intentionally opaque here. Cleanup rules belong only to story context.
+        .filter(entry => entry.enabled)
+        .map(entry => `## ${entry.name || entry.uid}\n${entry.content}`)
         .join('\n\n');
       if (content) sections.push(`# ${name}\n${content}`);
     } catch (error) {
@@ -39,5 +45,5 @@ export async function buildWorldbook(): Promise<string> {
 }
 
 export function paragraphTexts(paragraphs: StoryParagraph[]): string[] {
-  return paragraphs.map(paragraph => clean(paragraph.text));
+  return paragraphs.map(paragraph => paragraph.text);
 }

@@ -57,7 +57,7 @@ describe('settings migration', () => {
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(5);
+    expect(normalized.schemaVersion).toBe(6);
     expect(normalized.analysis.templates).toEqual({ v45: 'v45 custom', v5: 'v5 custom' });
     expect(normalized.generation.promptPresets.selected).toBe('NovelAI 默认');
     expect(normalized.generation.promptPresets.items['NovelAI 默认']).toEqual({
@@ -82,7 +82,7 @@ describe('settings migration', () => {
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(5);
+    expect(normalized.schemaVersion).toBe(6);
     expect(normalized.analysis.connection).toEqual({
       providerId: 'custom',
       credentialId: '',
@@ -90,5 +90,16 @@ describe('settings migration', () => {
     });
     expect(normalized.analysis).not.toHaveProperty('proxyPreset');
     expect(normalized.analysis).not.toHaveProperty('apiKey');
+  });
+
+  test('adds empty script-local cleanup rules to the v5 settings shape', () => {
+    const legacy = structuredClone(DEFAULT_SETTINGS);
+    delete (legacy.analysis as unknown as Record<string, unknown>).cleanup;
+    (legacy as unknown as Record<string, unknown>).schemaVersion = 5;
+
+    const normalized = normalizeSettings(legacy);
+
+    expect(normalized.schemaVersion).toBe(6);
+    expect(normalized.analysis.cleanup).toEqual({ extractRules: [], filterRules: [] });
   });
 });

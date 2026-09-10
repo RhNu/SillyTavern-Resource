@@ -49,6 +49,7 @@ describe('imggen-novelai plugin protocol', () => {
     expect(parameters.v4_prompt.caption.base_caption).toBe('2girls, café');
     expect(parameters.v4_negative_prompt.caption.base_caption).toBe('lowres, bad anatomy');
     expect(parameters.negative_prompt).toBe('lowres, bad anatomy');
+    expect(parameters.n_samples).toBe(1);
     expect(parameters.autoSmea).toBe(false);
     expect(parameters.auto_smea).toBeUndefined();
     expect(parameters.legacy_uc).toBe(false);

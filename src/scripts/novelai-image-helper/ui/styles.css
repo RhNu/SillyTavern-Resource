@@ -27,6 +27,44 @@
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 72%, transparent);
 }
 
+.nai-image-card__gallery {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.45rem 0.55rem 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.nai-image-card__thumbnail {
+  flex: 0 0 4.5rem;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 0.15rem;
+  border: 1px solid var(--SmartThemeBorderColor);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--SmartThemeShadowColor) 25%, transparent);
+  cursor: pointer;
+  opacity: 0.72;
+}
+
+.nai-image-card__thumbnail:hover,
+.nai-image-card__thumbnail.is-active {
+  border-color: var(--SmartThemeQuoteColor);
+  opacity: 1;
+}
+
+.nai-image-card__thumbnail:focus-visible {
+  outline: 2px solid var(--SmartThemeQuoteColor);
+  outline-offset: 2px;
+}
+
+.nai-image-card__thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .nai-image-card__body {
   display: grid;
   gap: 0.4rem;
@@ -444,6 +482,25 @@
 .nai-settings__empty {
   margin: 0;
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
+}
+
+.nai-settings__cleanup {
+  align-content: start;
+}
+
+.nai-settings__cleanup-grid {
+  align-items: start;
+}
+
+.nai-settings__cleanup-errors {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.45rem 0.55rem;
+  border-left: 3px solid var(--SmartThemeEmColor, #d66);
+  color: var(--SmartThemeEmColor, #d66);
+  font-size: 0.86em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .nai-settings__context-badges {

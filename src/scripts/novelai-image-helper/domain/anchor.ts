@@ -1,11 +1,14 @@
 import type { PromptInsertion } from './prompt.ts';
 
 export const ANCHOR_NAME = 'NovelAIImage';
-const ANCHOR_SOURCE = String.raw`\[\[${ANCHOR_NAME}\s+id=(?:"([^"\]]+)"|'([^'\]]+)')\s*\]\]`;
+export const ANCHOR_SOURCE = String.raw`\[\[${ANCHOR_NAME}\s+id=(?:"([^"\]]+)"|'([^'\]]+)')\s*\]\]`;
 
 export type StoryParagraph = {
   number: number;
   text: string;
+  sourceStart: number;
+  sourceEnd: number;
+  /** Kept as a compatibility alias for insertion callers. */
   end: number;
 };
 
@@ -41,7 +44,10 @@ export function collectStoryParagraphs(text: string, minimumLength: number): Sto
     const raw = text.slice(start, end);
     const trimmed = raw.trim();
     if (trimmed.length >= minimumLength && !trimmed.startsWith('```')) {
-      paragraphs.push({ number: paragraphs.length + 1, text: trimmed, end });
+      const offset = raw.indexOf(trimmed);
+      const sourceStart = offset < 0 ? start : start + offset;
+      const sourceEnd = sourceStart + trimmed.length;
+      paragraphs.push({ number: paragraphs.length + 1, text: trimmed, sourceStart, sourceEnd, end: sourceEnd });
     }
   };
 
@@ -64,9 +70,9 @@ export function insertAnchors(
     if (!paragraph) {
       throw new Error(`提示词插入段落 P${entry.insertion.after_paragraph} 不存在`);
     }
-    const anchors = byPosition.get(paragraph.end) ?? [];
+    const anchors = byPosition.get(paragraph.sourceEnd) ?? [];
     anchors.push(buildAnchor(entry.blockId));
-    byPosition.set(paragraph.end, anchors);
+    byPosition.set(paragraph.sourceEnd, anchors);
   }
 
   let result = original;

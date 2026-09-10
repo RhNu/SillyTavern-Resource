@@ -5,6 +5,27 @@ import type { NovelAiImageService } from '../app/service';
 
 const CARD_CLASS = 'nai-image-card';
 const EVENT_NAMESPACE = '.novelaiImageHelper';
+type OutputViewState = { count: number; index: number };
+
+function outputStateKey(messageId: number, blockId: string): string {
+  return `${messageId}:${blockId}`;
+}
+
+function currentOutputIndex(
+  outputViews: Map<string, OutputViewState>,
+  messageId: number,
+  blockId: string,
+  outputCount: number,
+): number {
+  if (outputCount <= 0) return -1;
+  const key = outputStateKey(messageId, blockId);
+  const previous = outputViews.get(key);
+  // A changed count means a newly appended image; make the new image the active one.
+  const index =
+    !previous || previous.count !== outputCount ? outputCount - 1 : Math.min(previous.index, outputCount - 1);
+  outputViews.set(key, { count: outputCount, index });
+  return index;
+}
 
 function statusLabel(status: string): string {
   return (
@@ -42,14 +63,21 @@ function replaceAnchor(node: Text, anchor: string, card: HTMLElement): void {
   node.replaceWith(fragment);
 }
 
-function renderCard(service: NovelAiImageService, messageId: number, blockId: string, $card: JQuery<HTMLElement>) {
+function renderCard(
+  service: NovelAiImageService,
+  messageId: number,
+  blockId: string,
+  $card: JQuery<HTMLElement>,
+  outputViews: Map<string, OutputViewState>,
+) {
   const block = service.repository.find(messageId, blockId);
   if (!block) {
     $card.empty().append($('<div class="nai-image-card__error">').text('图片块数据缺失'));
     return;
   }
 
-  const output = block.outputs.at(-1);
+  const outputIndex = currentOutputIndex(outputViews, messageId, blockId, block.outputs.length);
+  const output = outputIndex >= 0 ? block.outputs[outputIndex] : undefined;
   const title = block.summary || block.prompt.main.positive;
   $card
     .attr('data-message-id', String(messageId))
@@ -62,12 +90,31 @@ function renderCard(service: NovelAiImageService, messageId: number, blockId: st
   } else {
     $card.append($('<div class="nai-image-card__placeholder">').text(statusLabel(block.status)));
   }
+  if (block.outputs.length > 1) {
+    const $gallery = $('<div class="nai-image-card__gallery" role="list" aria-label="已生成图片">');
+    block.outputs.forEach((item, index) => {
+      $gallery.append(
+        $('<button type="button" class="nai-image-card__thumbnail" data-action="output-select">')
+          .attr({
+            'data-output-index': String(index),
+            'aria-label': `查看第 ${index + 1} 张图片`,
+            'aria-pressed': String(index === outputIndex),
+            title: `第 ${index + 1} 张 · seed ${item.seed}`,
+          })
+          .toggleClass('is-active', index === outputIndex)
+          .append($('<img>').attr({ src: encodeURI(item.url), alt: `第 ${index + 1} 张图片` })),
+      );
+    });
+    $card.append($gallery);
+  }
   $card.append(
     $('<div class="nai-image-card__body">')
       .append($('<div class="nai-image-card__title">').text(title))
       .append(
         $('<div class="nai-image-card__meta">').text(
-          `${statusLabel(block.status)} · ${block.prompt.characters.length} 个角色${output ? ` · seed ${output.seed}` : ''}`,
+          `${statusLabel(block.status)} · ${block.prompt.characters.length} 个角色${
+            output ? ` · 图片 ${outputIndex + 1}/${block.outputs.length} · seed ${output.seed}` : ''
+          }`,
         ),
       )
       .append(block.error ? $('<div class="nai-image-card__error">').text(block.error.message) : $())
@@ -131,6 +178,7 @@ function openEditor(service: NovelAiImageService, messageId: number, blockId: st
 
 export function mountMessageCards(service: NovelAiImageService): { sync: () => void; destroy: () => void } {
   const mountedMessageIds = new Set<number>();
+  const outputViews = new Map<string, OutputViewState>();
   const sync = () => {
     $('#chat')
       .children(".mes[is_user='false'][is_system='false']")
@@ -140,7 +188,16 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
         if (!message) return;
         const $displayed = retrieveDisplayedMessage(messageId);
         if (!$displayed.length) return;
-        matchAnchors(message.message).forEach(anchor => {
+        const anchors = matchAnchors(message.message);
+        const anchorIds = new Set(anchors.map(anchor => anchor.id));
+        $displayed.find(`.${CARD_CLASS}`).each((_cardIndex, card) => {
+          const blockId = String($(card).attr('data-block-id'));
+          if (!anchorIds.has(blockId)) {
+            outputViews.delete(outputStateKey(messageId, blockId));
+            $(card).remove();
+          }
+        });
+        anchors.forEach(anchor => {
           let $card = $displayed
             .find(`.${CARD_CLASS}`)
             .filter((_cardIndex, card) => $(card).attr('data-block-id') === anchor.id)
@@ -151,7 +208,7 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
             $card = $(`<div class="${CARD_CLASS}">`) as JQuery<HTMLElement>;
             replaceAnchor(node, anchor.fullMatch, $card[0]);
           }
-          renderCard(service, messageId, anchor.id, $card);
+          renderCard(service, messageId, anchor.id, $card, outputViews);
           mountedMessageIds.add(messageId);
         });
       });
@@ -167,9 +224,22 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
     const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
     openEditor(service, Number($card.attr('data-message-id')), String($card.attr('data-block-id')));
   });
+  $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="output-select"]`, event => {
+    const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
+    const messageId = Number($card.attr('data-message-id'));
+    const blockId = String($card.attr('data-block-id'));
+    const outputIndex = Number($(event.currentTarget).attr('data-output-index'));
+    const block = service.repository.find(messageId, blockId);
+    if (!block || !Number.isInteger(outputIndex) || outputIndex < 0 || outputIndex >= block.outputs.length) return;
+    outputViews.set(outputStateKey(messageId, blockId), { count: block.outputs.length, index: outputIndex });
+    renderCard(service, messageId, blockId, $card, outputViews);
+  });
 
   const stops = [
+    eventOn('chatLoaded', sync).stop,
     eventOn(tavern_events.CHARACTER_MESSAGE_RENDERED, sync).stop,
+    eventOn(tavern_events.MESSAGE_EDITED, sync).stop,
+    eventOn(tavern_events.MESSAGE_DELETED, sync).stop,
     eventOn(tavern_events.MORE_MESSAGES_LOADED, sync).stop,
     eventOn(BLOCKS_CHANGED_EVENT, sync).stop,
   ];
@@ -181,6 +251,7 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
       $chat.off(EVENT_NAMESPACE);
       mountedMessageIds.forEach(messageId => void refreshOneMessage(messageId));
       mountedMessageIds.clear();
+      outputViews.clear();
     },
   };
 }

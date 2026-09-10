@@ -5,6 +5,7 @@ import type { NovelAiImageService } from '../app/service';
 import { MODEL_IDS, SAMPLERS, SCHEDULES, type CharacterBindings, type Settings } from '../settings/schema';
 import { requestPromptPresetName } from './prompt-preset-dialog';
 import CollapsibleSection from './CollapsibleSection';
+import { ContextCleanupFields } from './ContextCleanupFields';
 import {
   addCharacter,
   createSettingsEditorModel,
@@ -340,6 +341,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
                 />
               </div>
             </section>
+            <ContextCleanupFields
+              value={draft.analysis.cleanup}
+              onChange={cleanup => edit(next => void (next.analysis.cleanup = cleanup))}
+            />
             <CollapsibleSection
               title="提示词模型"
               contentId="nai-prompt-model-details"

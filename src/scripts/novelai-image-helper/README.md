@@ -12,9 +12,20 @@
 5. 上传返回的 PNG，并在楼层中渲染图片卡片。
 
 配置保存在脚本变量 `novelaiImageHelper.settings`，图片块保存在消息变量 `novelaiImageHelper`。设置 schema
-v5 保存 Provider ID、凭证 ID、Custom Base URL（仅 Custom 使用）和模型 ID；真实 API Key 不进入脚本设置。v4 中已填写 Base
+v6 保存 Provider ID、凭证 ID、Custom Base URL（仅 Custom 使用）和模型 ID；真实 API Key 不进入脚本设置。v4 中已填写 Base
 URL 的配置会迁移为 Custom Provider，旧版前端 API
 Key 不会被迁移。人物库内容只作为模型参考，并可绑定到角色卡、聊天和用户人设。
+
+## 正文清洗
+
+- 最新 AI 正文和历史消息使用同一组脚本内部规则；世界书条目不会经过这些规则处理。
+- 过滤规则每行一条：`block:<tag>`、`before:</tag>`、`after:<tag>`、`pair:前缀|后缀`、`text:字面量`。
+- 提取规则支持 `<tag>`、`[tag]`、`前缀|后缀`；也支持每行一个 `regex:/pattern/flags`，默认提取第一个捕获组。
+- 过滤正则同样写在本设置中，例如 `regex:/<think\b[\s\S]*?<\/think>/gi`；可用 `=>替换文本` 指定字面替换。
+- 这些正则只属于本脚本的上下文清洗器，不会读取、调用或修改 SillyTavern 的正则设置。
+
+每次 NovelAI 请求固定生成一张 PNG。再次生成会把新输出追加到同一个图片块，卡片会保留并显示所有历史输出的缩略图，可随时切换查看。不会迁移旧版
+`ImgGenHelper` 的设置或消息变量。
 
 ## 前置条件
 
