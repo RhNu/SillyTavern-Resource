@@ -71,7 +71,7 @@ const GenerationPromptPresetCollectionSchema = z
   });
 
 export const SettingsSchema = z.strictObject({
-  schemaVersion: z.literal(3),
+  schemaVersion: z.literal(4),
   enabled: z.boolean(),
   analysis: z.strictObject({
     auto: z.boolean(),
@@ -80,9 +80,7 @@ export const SettingsSchema = z.strictObject({
     minimumParagraphLength: z.number().int().min(1).max(2_000),
     historyCount: z.number().int().min(0).max(100),
     debounceMs: z.number().int().min(0).max(60_000),
-    proxyPreset: z.string(),
-    apiUrl: z.string(),
-    apiKey: z.string(),
+    baseUrl: z.string(),
     model: z.string(),
     maxTokens: z.number().int().min(256).max(32_000),
     templates: PromptTemplateSchema,
@@ -165,7 +163,7 @@ export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   enabled: true,
   analysis: {
     auto: false,
@@ -174,9 +172,7 @@ export const DEFAULT_SETTINGS: Settings = {
     minimumParagraphLength: 40,
     historyCount: 8,
     debounceMs: 1_500,
-    proxyPreset: '',
-    apiUrl: '',
-    apiKey: '',
+    baseUrl: '',
     model: '',
     maxTokens: 4_096,
     templates: DEFAULT_PROMPT_TEMPLATE,
@@ -259,7 +255,21 @@ function migrateV2Settings(value: unknown): unknown {
   };
 }
 
+/** Remove Tavern Helper connection fields while retaining the non-secret endpoint and model settings. */
+function migrateV3Settings(value: unknown): unknown {
+  if (!isRecord(value) || value.schemaVersion !== 3) return value;
+  const sourceAnalysis = isRecord(value.analysis) ? value.analysis : {};
+  return {
+    ...value,
+    schemaVersion: 4,
+    analysis: {
+      ...omitKeys(sourceAnalysis, ['proxyPreset', 'apiUrl', 'apiKey']),
+      baseUrl: readOptionalString(sourceAnalysis.baseUrl, readOptionalString(sourceAnalysis.apiUrl, '')),
+    },
+  };
+}
+
 export function normalizeSettings(value: unknown): Settings {
-  const parsed = SettingsSchema.safeParse(migrateV2Settings(value));
+  const parsed = SettingsSchema.safeParse(migrateV3Settings(migrateV2Settings(value)));
   return parsed.success ? parsed.data : structuredClone(DEFAULT_SETTINGS);
 }

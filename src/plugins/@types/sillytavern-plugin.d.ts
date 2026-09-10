@@ -13,6 +13,18 @@ export interface PluginRequest {
   body: Record<string, unknown>;
   query: Record<string, unknown>;
   params: Record<string, string>;
+  user: {
+    profile: { handle: string; admin: boolean };
+    directories: UserDirectoryList;
+  };
+  once(event: 'aborted', listener: () => void): this;
+  removeListener(event: 'aborted', listener: () => void): this;
+}
+
+export interface UserDirectoryList {
+  root: string;
+  backups: string;
+  [name: string]: string;
 }
 
 /** 插件响应对象 (Express Response 的子集) */

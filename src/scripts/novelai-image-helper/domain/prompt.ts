@@ -35,25 +35,6 @@ export function promptAnalysisJsonSchema(): Record<string, any> {
   return z.toJSONSchema(PromptAnalysisResponseSchema) as Record<string, any>;
 }
 
-export function parsePromptAnalysisResponse(raw: string): PromptAnalysisResponse {
-  if (!raw.trim()) {
-    throw new Error('提示词模型返回为空');
-  }
-
-  let value: unknown;
-  try {
-    value = JSON.parse(raw);
-  } catch (error) {
-    throw new Error(`提示词模型没有返回合法 JSON: ${error instanceof Error ? error.message : String(error)}`);
-  }
-
-  const parsed = PromptAnalysisResponseSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new Error(`提示词模型返回结构不合法: ${z.prettifyError(parsed.error)}`);
-  }
-  return parsed.data;
-}
-
 export function joinPromptParts(...parts: string[]): string {
   return parts
     .map(part =>

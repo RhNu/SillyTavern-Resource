@@ -33,7 +33,7 @@ describe('image prompt preset editing', () => {
   });
 });
 
-describe('settings v2 migration', () => {
+describe('settings migration', () => {
   test('keeps the selected model template and legacy generation prompt fields', () => {
     const legacy = {
       ...structuredClone(DEFAULT_SETTINGS),
@@ -57,7 +57,7 @@ describe('settings v2 migration', () => {
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(3);
+    expect(normalized.schemaVersion).toBe(4);
     expect(normalized.analysis.templates).toEqual({ v45: 'v45 custom', v5: 'v5 custom' });
     expect(normalized.generation.promptPresets.selected).toBe('NovelAI 默认');
     expect(normalized.generation.promptPresets.items['NovelAI 默认']).toEqual({
@@ -65,5 +65,26 @@ describe('settings v2 migration', () => {
       suffix: 'suffix custom',
       negative: 'negative custom',
     });
+  });
+
+  test('keeps the v3 API URL but removes Tavern Helper credentials', () => {
+    const legacy = {
+      ...structuredClone(DEFAULT_SETTINGS),
+      schemaVersion: 3,
+      analysis: {
+        ...structuredClone(DEFAULT_SETTINGS.analysis),
+        proxyPreset: 'legacy-proxy',
+        apiUrl: 'https://example.com/v1',
+        apiKey: 'must-not-survive',
+      },
+    };
+    delete (legacy.analysis as Partial<typeof legacy.analysis>).baseUrl;
+
+    const normalized = normalizeSettings(legacy);
+
+    expect(normalized.schemaVersion).toBe(4);
+    expect(normalized.analysis.baseUrl).toBe('https://example.com/v1');
+    expect(normalized.analysis).not.toHaveProperty('proxyPreset');
+    expect(normalized.analysis).not.toHaveProperty('apiKey');
   });
 });

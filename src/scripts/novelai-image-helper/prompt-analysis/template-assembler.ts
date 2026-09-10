@@ -2,14 +2,13 @@ import type { Settings } from '../settings/schema';
 import { resolveActiveCharacters } from '../domain/binding';
 import { getCurrentBindingContext } from '../platform/tavern/binding-context';
 import { imageModelFamily, resolveSelectedTemplate } from './template-selection';
+import type { LlmMessage } from '../../../../util/llm-requester/contract';
 
 type AnalysisInput = {
   paragraphs: string[];
   history: string;
   worldbook: string;
 };
-
-type OrderedPrompts = NonNullable<GenerateRawConfig['ordered_prompts']>;
 
 function characterGuidance(settings: Settings): string {
   const active = resolveActiveCharacters(settings.characters, getCurrentBindingContext());
@@ -25,7 +24,7 @@ function characterGuidance(settings: Settings): string {
  * Assemble the complete prompt-analysis conversation. Model-specific visual language lives in the
  * selected template, while this stable shell defines context boundaries and the output contract.
  */
-export function assemblePromptAnalysisMessages(input: AnalysisInput, settings: Settings): OrderedPrompts {
+export function assemblePromptAnalysisMessages(input: AnalysisInput, settings: Settings): LlmMessage[] {
   const family = imageModelFamily(settings.generation.model);
   return [
     {
@@ -36,7 +35,7 @@ export function assemblePromptAnalysisMessages(input: AnalysisInput, settings: S
 ${resolveSelectedTemplate(settings)}
 </model_prompt_rules>
 
-Return exactly the requested JSON schema. The summary is a short selection rationale, never chain-of-thought.`,
+Call the provided submit_image_analysis tool exactly once. The summary is a short selection rationale, never chain-of-thought.`,
     },
     {
       role: 'user',

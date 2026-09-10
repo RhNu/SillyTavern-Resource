@@ -238,34 +238,19 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
               open={promptModelOpen}
               onOpenChange={setPromptModelOpen}
             >
-              <Field label="代理预设">
+              <Field
+                label="OpenAI-compatible Base URL"
+                help={{
+                  title: '连接说明',
+                  text: 'API Key 读取自 SillyTavern 的 Custom API Key，不会保存在脚本设置中。',
+                }}
+              >
                 <input
                   className="text_pole"
-                  value={draft.analysis.proxyPreset}
+                  value={draft.analysis.baseUrl}
                   onChange={event => {
                     const value = event.currentTarget.value;
-                    edit(next => void (next.analysis.proxyPreset = value));
-                  }}
-                />
-              </Field>
-              <Field label="API URL">
-                <input
-                  className="text_pole"
-                  value={draft.analysis.apiUrl}
-                  onChange={event => {
-                    const value = event.currentTarget.value;
-                    edit(next => void (next.analysis.apiUrl = value));
-                  }}
-                />
-              </Field>
-              <Field label="API Key">
-                <input
-                  className="text_pole"
-                  type="password"
-                  value={draft.analysis.apiKey}
-                  onChange={event => {
-                    const value = event.currentTarget.value;
-                    edit(next => void (next.analysis.apiKey = value));
+                    edit(next => void (next.analysis.baseUrl = value));
                   }}
                 />
               </Field>
