@@ -4,7 +4,7 @@ import { PromptBundleSchema, type PromptBundle } from './prompt';
 export const BlockStatusSchema = z.enum(['prepared', 'draft', 'queued', 'generating', 'uploading', 'ready', 'failed']);
 
 /** 生图流水线的阶段。`INTERRUPTED` 这类系统级中断不带阶段。 */
-export const BlockFailureStageSchema = z.enum(['validate', 'generate', 'upload', 'commit']);
+export const BlockFailureStageSchema = z.enum(['validate', 'generate', 'upload', 'commit', 'associate']);
 
 export const ImageOutputSchema = z.strictObject({
   url: z.string().trim().min(1),

@@ -25,6 +25,7 @@ const STAGE_LABELS: Record<FailureStage, string> = {
   generate: '请求 NovelAI 生图',
   upload: '上传图片',
   commit: '写入楼层',
+  associate: '登记聊天背景',
 };
 
 function cloneItem(item: WorkProgressItem): WorkProgressItem {

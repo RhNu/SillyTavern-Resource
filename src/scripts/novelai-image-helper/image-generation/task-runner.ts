@@ -28,6 +28,9 @@ export type GenerationTaskDeps = {
   repository: MessageBlockRepository;
   client: NovelAiClient;
   upload: (blob: Blob, signal?: AbortSignal) => Promise<string>;
+  associate: (imagePath: string, signal?: AbortSignal) => Promise<void>;
+  /** 上次仅登记失败时直接重用已经提交的输出，不重新生成或上传。 */
+  resumeAssociationPath?: string;
   generation: Settings['generation'];
   policy: RetryPolicy;
   /** 一次阶段尝试开始前调用：等待节流闸门、写入块状态、记录尝试次数。 */
@@ -58,11 +61,12 @@ function stageTimeoutMs(stage: FailureStage, generation: Settings['generation'])
 }
 
 /**
- * 执行一个图片块的完整流水线：validate → generate → upload → commit。
+ * 执行一个图片块的完整流水线：validate → generate → upload → commit → associate。
  *
  * 3–5 秒节流与自动重试共用同一套等待：每次尝试结束后调用 `finishAttempt` 推进闸门，
  * 下一次尝试前由 `beginAttempt` 等待，因此「任务之间」与「重试之前」的间隔完全一致。
- * 上传阶段的自动重试复用已经生成好的图片，不会再次消耗 NovelAI 配额。
+ * 上传阶段的自动重试复用已经生成好的图片，不会再次消耗 NovelAI 配额；登记阶段在
+ * outputs 成为事实来源后单独重试，也不会重新生成或上传图片。
  *
  * 取消 / 暂停 / 销毁会以 abort reason 的形式直接抛出，不在这里转成失败。
  */
@@ -141,6 +145,24 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
         0,
       );
 
+    const resumeOutput = deps.resumeAssociationPath
+      ? block.outputs.find(output => output.url === deps.resumeAssociationPath)
+      : undefined;
+    if (resumeOutput) {
+      logger.info('恢复未完成的聊天背景登记', { messageId, blockId, imagePath: resumeOutput.url });
+      await runStage('associate', stageSignal => deps.associate(resumeOutput.url, stageSignal));
+      await runStage('commit', async () => {
+        const saved = repository.update(messageId, blockId, current => ({
+          ...current,
+          revision: current.revision + 1,
+          status: 'ready',
+          error: undefined,
+        }));
+        if (!saved) throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除，无法完成背景登记');
+      });
+      return { status: 'succeeded', output: resumeOutput };
+    }
+
     await runStage('validate', async stageSignal => {
       const capabilities = await deps.client.capabilities(stageSignal);
       logger.debug('图片后端能力已获取', {
@@ -195,6 +217,8 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
       }));
       if (!saved) throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除，生成结果无法写回');
     });
+
+    await runStage('associate', stageSignal => deps.associate(output.url, stageSignal));
 
     logger.info('图片任务流水线完成', {
       messageId,

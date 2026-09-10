@@ -3,6 +3,7 @@ import type { ImageBlock } from '../domain/block';
 import type { MessageBlockRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
 import { RequestError } from '../platform/request-error';
+import { registerGeneratedChatBackground } from '../platform/tavern/chat-background-registry';
 import { uploadGeneratedImage } from '../platform/tavern/image-upload';
 import { DEFAULT_SETTINGS, type Settings } from '../settings/schema';
 import type { SettingsStore } from '../settings/store';
@@ -10,6 +11,10 @@ import { GenerationQueue, type GenerationQueueCompletionSummary, type Generation
 
 vi.mock('../platform/tavern/image-upload', () => ({
   uploadGeneratedImage: vi.fn(),
+}));
+
+vi.mock('../platform/tavern/chat-background-registry', () => ({
+  registerGeneratedChatBackground: vi.fn(),
 }));
 
 type FakeRepository = {
@@ -124,6 +129,8 @@ beforeEach(() => {
   vi.stubGlobal('toastr', { success: vi.fn(), error: vi.fn(), info: vi.fn() });
   vi.mocked(uploadGeneratedImage).mockReset();
   vi.mocked(uploadGeneratedImage).mockResolvedValue('/uploads/one.png');
+  vi.mocked(registerGeneratedChatBackground).mockReset();
+  vi.mocked(registerGeneratedChatBackground).mockResolvedValue();
 });
 
 afterEach(() => {
@@ -303,6 +310,61 @@ describe('GenerationQueue retry policy', () => {
     expect(uploadGeneratedImage).toHaveBeenCalledTimes(2);
     expect(summary.succeededCount).toBe(1);
     expect(repository.find(7, 'one')?.outputs[0]?.url).toBe('/uploads/retried.png');
+  });
+
+  test('commits the output before registering it and retries only the registration step', async () => {
+    const repository = createRepository([createBlock(13, 'one')]);
+    const client = createClient();
+    vi.mocked(registerGeneratedChatBackground)
+      .mockImplementationOnce(async imagePath => {
+        expect(repository.find(13, 'one')?.outputs.map(output => output.url)).toEqual([imagePath]);
+        throw new RequestError('背景登记暂时失败', { code: 'ASSOCIATION_FAILED' });
+      })
+      .mockImplementationOnce(async imagePath => {
+        expect(repository.find(13, 'one')?.outputs.map(output => output.url)).toEqual([imagePath]);
+      });
+    const onQueueFinished = vi.fn();
+    const queue = createQueue(repository, client, onQueueFinished, {}, { retryCount: 1 });
+
+    queue.enqueue(13, 'one');
+    const summary = await waitForSummary(onQueueFinished);
+
+    expect(client.generate).toHaveBeenCalledTimes(1);
+    expect(uploadGeneratedImage).toHaveBeenCalledTimes(1);
+    expect(registerGeneratedChatBackground).toHaveBeenCalledTimes(2);
+    expect(repository.find(13, 'one')?.outputs).toHaveLength(1);
+    expect(summary).toMatchObject({ succeededCount: 1, failedCount: 0, retriedCount: 1 });
+  });
+
+  test('retries only registration after an association failure exhausted its budget', async () => {
+    const repository = createRepository([createBlock(14, 'one')]);
+    const client = createClient();
+    vi.mocked(registerGeneratedChatBackground).mockRejectedValueOnce(
+      new RequestError('背景登记暂时失败', { code: 'ASSOCIATION_FAILED' }),
+    );
+    const firstFinished = vi.fn();
+    const queue = createQueue(repository, client, firstFinished, {}, { retryCount: 0 });
+
+    queue.enqueue(14, 'one');
+    const firstSummary = await waitForSummary(firstFinished);
+    expect(firstSummary.failedCount).toBe(1);
+    expect(repository.find(14, 'one')).toMatchObject({
+      status: 'failed',
+      error: { stage: 'associate' },
+      outputs: [{ url: '/uploads/one.png' }],
+    });
+
+    const secondFinished = vi.fn();
+    const resumedQueue = createQueue(repository, client, secondFinished, {}, { retryCount: 0 });
+    resumedQueue.enqueue(14, 'one');
+    const secondSummary = await waitForSummary(secondFinished);
+
+    expect(secondSummary.succeededCount).toBe(1);
+    expect(client.generate).toHaveBeenCalledTimes(1);
+    expect(uploadGeneratedImage).toHaveBeenCalledTimes(1);
+    expect(registerGeneratedChatBackground).toHaveBeenCalledTimes(2);
+    expect(repository.find(14, 'one')).toMatchObject({ status: 'ready', error: undefined });
+    expect(repository.find(14, 'one')?.outputs).toHaveLength(1);
   });
 
   test('fails immediately without retrying when the backend token is not configured', async () => {

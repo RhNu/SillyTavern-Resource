@@ -71,6 +71,15 @@ describe('classifyFailure', () => {
     });
   });
 
+  test('treats SillyTavern background registration failures as retryable', () => {
+    expect(classifyFailure(new RequestError('图片背景登记失败', { code: 'ASSOCIATION_FAILED' }), 'associate')).toEqual({
+      code: 'ASSOCIATION_FAILED',
+      message: '图片背景登记失败',
+      retryable: true,
+      stage: 'associate',
+    });
+  });
+
   test('falls back to a non-retryable unknown failure for unexpected errors', () => {
     expect(classifyFailure(new Error('提示词解析失败'), 'generate')).toMatchObject({
       code: 'UNKNOWN',

@@ -7,7 +7,7 @@ export type FailureStage = BlockFailureStage;
 /**
  * 结构化失败码。展示与重试判定都以此为准，不再解析错误文本。
  *
- * - 可重试：TIMEOUT / NETWORK / RATE_LIMITED / UPSTREAM / INVALID_RESPONSE / UPLOAD_FAILED
+ * - 可重试：TIMEOUT / NETWORK / RATE_LIMITED / UPSTREAM / INVALID_RESPONSE / UPLOAD_FAILED / ASSOCIATION_FAILED
  * - 不可重试：凭证、参数、内容审核、模型与角色约束、块缺失
  */
 export type FailureCode =
@@ -22,6 +22,7 @@ export type FailureCode =
   | 'MODEL_UNSUPPORTED'
   | 'CHARACTER_LIMIT'
   | 'UPLOAD_FAILED'
+  | 'ASSOCIATION_FAILED'
   | 'BLOCK_MISSING'
   | 'UNKNOWN';
 
@@ -39,6 +40,7 @@ const RETRYABLE_CODES = new Set<FailureCode>([
   'UPSTREAM',
   'INVALID_RESPONSE',
   'UPLOAD_FAILED',
+  'ASSOCIATION_FAILED',
 ]);
 
 export function isRetryableCode(code: FailureCode): boolean {
@@ -71,6 +73,7 @@ const PLUGIN_FAILURE_CODES: Record<string, ClassifiedFailure> = {
   NON_IMAGE_RESPONSE: { code: 'INVALID_RESPONSE', message: '', retryable: true },
   MISSING_SEED: { code: 'INVALID_RESPONSE', message: '', retryable: true },
   UPLOAD_INVALID_PAYLOAD: { code: 'INVALID_RESPONSE', message: '', retryable: true },
+  ASSOCIATION_FAILED: { code: 'ASSOCIATION_FAILED', message: '', retryable: true },
 };
 
 function classifyRequestError(error: RequestError, stage: FailureStage): ClassifiedFailure {

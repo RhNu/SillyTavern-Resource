@@ -2,6 +2,7 @@ import type { ImageBlock } from '../domain/block';
 import { createLogger } from '../app/logger';
 import type { MessageBlockRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
+import { registerGeneratedChatBackground } from '../platform/tavern/chat-background-registry';
 import { uploadGeneratedImage } from '../platform/tavern/image-upload';
 import type { SettingsStore } from '../settings/store';
 import { isTaskAbortReason, readAbortReason, sleepWithSignal, type TaskAbortReason } from './abort';
@@ -51,7 +52,12 @@ export type QueueSnapshot = {
 };
 
 type TaskRef = { messageId: number; blockId: string };
-type QueueTask = TaskRef & { summary: string; stage?: FailureStage; attempt: number };
+type QueueTask = TaskRef & {
+  summary: string;
+  stage?: FailureStage;
+  attempt: number;
+  resumeAssociationPath?: string;
+};
 type QueueTaskOutcome = { status: 'succeeded' } | { status: 'failed'; message: string } | { status: 'cancelled' };
 
 export type GenerationQueueOptions = {
@@ -139,7 +145,14 @@ export class GenerationQueue {
       this.policy = resolveRetryPolicy(this.settings.get().generation);
       this.ensureCompletion();
       this.known.add(key);
-      this.pending.push({ ...task, summary: block.summary || block.prompt.main.positive, attempt: 0 });
+      const resumeAssociationPath =
+        block.status === 'failed' && block.error?.stage === 'associate' ? block.outputs.at(-1)?.url : undefined;
+      this.pending.push({
+        ...task,
+        summary: block.summary || block.prompt.main.positive,
+        attempt: 0,
+        resumeAssociationPath,
+      });
       this.setStatus(task, 'queued');
       this.notify();
       logger.info('任务已加入生成队列', { messageId, blockId, pendingCount: this.pending.length });
@@ -429,6 +442,8 @@ export class GenerationQueue {
         repository: this.repository,
         client: this.client,
         upload: uploadGeneratedImage,
+        associate: registerGeneratedChatBackground,
+        resumeAssociationPath: task.resumeAssociationPath,
         generation,
         policy: this.policy,
         beginAttempt: (stage, attempt) => this.beginAttempt(task, stage, attempt, controller.signal),
@@ -604,7 +619,7 @@ export class GenerationQueue {
       }
     }
 
-    if (stage !== 'commit') {
+    if (stage !== 'commit' && stage !== 'associate') {
       const written = this.setStatus(task, stage === 'upload' ? 'uploading' : 'generating');
       if (!written) {
         logger.warn('阶段开始失败：图片块已被删除', { ...task, stage, attempt });
