@@ -63,19 +63,19 @@ export function sleepWithSignal(ms: number, signal: AbortSignal): Promise<void> 
   if (ms <= 0) return Promise.resolve();
 
   return new Promise<void>((resolve, reject) => {
-    let timer: ReturnType<typeof setTimeout>;
     const onAbort = () => {
       cleanup();
       reject(readAbortReason(signal) ?? { kind: 'cancelled' });
     };
-    const cleanup = () => {
-      clearTimeout(timer);
-      signal.removeEventListener('abort', onAbort);
-    };
-    timer = setTimeout(() => {
+    const timer = setTimeout(() => {
       cleanup();
       resolve();
     }, ms);
     signal.addEventListener('abort', onAbort, { once: true });
+
+    function cleanup() {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', onAbort);
+    }
   });
 }
