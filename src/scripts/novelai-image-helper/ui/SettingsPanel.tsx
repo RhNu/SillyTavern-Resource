@@ -451,7 +451,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
             <h4>模型分流模板</h4>
             <Field
               label="V4.5 模板"
-              help={{ title: 'V4.5 模板说明', text: '通常使用 Danbooru 标签串；当前生图模型为 V4.5 时使用。' }}
+              help={{
+                title: 'V4.5 模板说明',
+                text: 'Danbooru 标签串：逐角色性别隔离、动态与 NSFW 分级、构图标签。当前生图模型为 V4.5 时使用。',
+              }}
             >
               <textarea
                 className="text_pole"
@@ -465,7 +468,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
             </Field>
             <Field
               label="V5 模板"
-              help={{ title: 'V5 模板说明', text: '可使用自然语言、中文、标签或混合表达；当前生图模型为 V5 时使用。' }}
+              help={{
+                title: 'V5 模板说明',
+                text: '自然语言（可含中文）为主，重点描述取景、机位、人物站位与光影；标签只用于数量、专名与精确动作。当前生图模型为 V5 时使用。',
+              }}
             >
               <textarea
                 className="text_pole"

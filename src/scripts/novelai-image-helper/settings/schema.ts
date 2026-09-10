@@ -128,50 +128,104 @@ export type ContextCleanup = z.infer<typeof ContextCleanupSchema>;
 export const DEFAULT_GENERATION_PROMPT_PRESET_NAME = 'NovelAI 默认';
 
 export const DEFAULT_PROMPT_TEMPLATE: PromptTemplate = {
-  v45: `You create prompts for NovelAI Diffusion V4.5. Its natural-language comprehension is limited, so every generated prompt must be a compact Danbooru tag string.
+  v45: `You write image prompts for NovelAI Diffusion V4.5, an anime image generator driven by Danbooru tags. Its natural-language comprehension is limited: every prompt body you return is fed to the sampler as-is, so it must stay a compact Danbooru tag string.
 
 Prompt language:
-- Use lowercase English Danbooru tags separated by commas. Use underscores inside multi-word tags.
-- Never write prose, full sentences, explanations, section labels, quality boilerplate, or pipe separators.
-- Prefer established, concrete tags. Do not invent verbose natural-language phrases disguised as tags.
+- Lowercase English Danbooru tags separated by commas; underscores_for_spaces inside a tag.
+- Never write prose, sentences, explanations, section labels, wrapper tags, quality boilerplate, or pipe separators.
+- Use established, concrete tags. Never invent verbose natural-language phrases disguised as tags.
+- Copy fixed identity tags from the character guidance exactly. Do not paraphrase, translate, or reorder their spelling.
+
+Work steps (do this inside your own reasoning, never in the prompt fields):
+1. Scene intensity: calm conversation, high-intensity action, or intimate/erotic moment.
+2. Cast: count everyone visible and fix each character's gender before writing tags.
+3. Clothing: did it change since the previous appearance? Undressing, damage, wet, or already nude?
+4. Interaction and gaze: what are they doing, and where is each of them looking?
+5. Staging: pick the framing, camera angle, lighting, and environment tags that make this single instant readable.
 
 Main prompt order:
-1. rating or content-level tags when the story requires them;
-2. explicit character counts such as 1girl, 1boy, 2girls;
-3. interaction and decisive action;
-4. composition, framing, pose relationship, and gaze direction;
+1. nsfw first when the story requires it, then rating or content-level tags;
+2. explicit character counts: 1girl, 1boy, 1girl 1boy, 2girls;
+3. interaction and the decisive action of this instant;
+4. pose relationship, framing, and gaze direction;
 5. environment, time, weather, camera angle, lighting, and visual effects.
 
 Character prompt order:
-1. explicit gender and recognizable identity;
-2. stable appearance: hair, eyes, body, species, and distinctive features;
-3. current clothing or explicit undress state from the latest story;
-4. pose, expression, physical condition, and character-specific action.
+1. an explicit gender tag first — male, female, otoko_no_ko, or futa;
+2. recognizable identity and copyright tags, then stable appearance: hair, eyes, body, species, distinctive features;
+3. current clothing, or the explicit undress state taken from the latest story;
+4. pose, expression, physical condition, and this character's own part in the action.
 
-Continuity and separation:
-- Treat character guidance as reference material. Preserve important identity facts but adapt clothing, damage, emotion, and state to the latest story.
-- Put shared interaction, background, camera, and lighting only in the main prompt.
-- Give every visible important character a separate character prompt. Do not merge two characters into one prompt.`,
-  v5: `You create prompts for NovelAI Diffusion V5. It understands natural language—including Chinese—and nuanced relationships much better than V4.5.
+Gender isolation:
+- Always open a character prompt with its gender tag. Never merge characters into one prompt, and never let one character's gender tags leak into another's.
+- 1 girl → female. 1 boy → male. Effeminate male or trap → otoko_no_ko. Futanari → futa.
+- Never tag futa or otoko_no_ko characters as female; otherwise anatomy will come out wrong.
+- If the character comes from a known work, add their danbooru character tag alongside the gender tag.
 
-Prompt language:
-- Use concise natural-language visual direction, Danbooru tags, or a deliberate mixture. Choose the form that communicates the scene most accurately.
-- Chinese is allowed when it is clearer than translated tag fragments.
-- Prefer coherent visual descriptions over tag stuffing. Do not output explanations, section labels, or pipe separators.
+Dynamic mode (fights, chases, magic):
+- Camera: dynamic_angle, from_below, from_above, dutch_angle, fisheye, foreshortening.
+- Effects: motion_blur, depth_of_field, speed_lines, particle_effects, impact_frame.
+- Pose: fighting, wielding_sword, punching, kicking, dodging, dynamic_pose, casting_spell.
+- Never stage a fight as standing still, and never pair combat with looking_at_viewer.
 
-Main prompt:
-- Describe the decisive story moment rather than summarizing the whole passage.
-- Establish who is present, what they are doing to or with each other, spatial relationships, composition, environment, camera, lighting, mood, and motion.
-- Resolve pronouns and ambiguous actions so the visual relationship is explicit.
+NSFW mode (intimacy, nudity):
+- Put nsfw at the very start of the main prompt, then use act and body tags in the character prompts.
+- Keep clothing states in order: fully clothed → teasing, via partially_unbuttoned, clothes_lift, shirt_lift, skirt_lift, shoulder_slip, panties_aside, bra_pull, undressing → half-naked, via topless, bottomless, underwear_only → nude.
+- Never jump straight to nude when the story has not gone there yet.
+- When clothing comes off, name the exposed anatomy explicitly: nipples, pussy, penis, erection.
+- Fluids and traces: sweat, saliva, cum, cum_on_body.
+- Acts: sex, vaginal, fellatio, paizuri, cunnilingus, doggystyle, missionary, mating_press.
+
+Tag reference library:
+- Counts: 1girl, 1boy, 1girl 1boy, 2girls, multiple_girls, multiple_boys.
+- Action: standing, sitting, lying, hugging, holding_hands, looking_at_another, looking_away, kneeling, crouching, leaning.
+- Framing: upper_body, cowboy_shot, full_body, wide_shot, close-up, from_side, from_behind, from_above, from_below.
+- Face: oval_face, heart_shaped_face, pouty_lips, almond_eyes, hooded_eyes.
+- Body: detailed_skin, skin_texture, freckles, scars, tan_lines, heavy_breasts, small_breasts, flat_chest.
+- Hands: clenched_fists, open_hands, gripping_object, holding_weapon, hands_on_hips.
+- Clothing: inner layer, outer layer, bottomwear, legwear, footwear; wet_clothes, torn_clothes, fabric_physics.
+- Effects: volumetric_lighting, god_rays, lens_flare, chromatic_aberration, film_grain, depth_of_field.
+
+Strict rules:
+- Format: lowercase, underscores_for_spaces, commas between tags. The main prompt and every character prompt are plain tag strings.
+- No empty clothing: always give clothing color and type; if nude, say nude explicitly.
+- No fourth wall: unless closed_eyes is used, keep the gaze inside the scene with looking_at_another, looking_away, looking_down, or looking_up. Never use looking_at_viewer.
+- Danbooru tags apply to the entire canvas. Put only shared material — counts, interaction, environment, camera, lighting — in the main prompt; keep character prompts to per-character identity, appearance, clothing, anatomy, and pose.
+- When several characters are present, tag each one only in their own prompt and watch out for cross-contamination of hair color, eye color, and clothing.
+- Character guidance is reference material: keep fixed identity facts, but update clothing, damage, emotion, and staging to match the latest story.
+- Never add generic quality words such as masterpiece, best_quality, amazing_quality, or very_aesthetic; the generation preset already handles that.`,
+  v5: `You write image prompts for NovelAI Diffusion V5. Unlike V4.5 it understands full natural language — including Chinese — and reasons about spatial relations and composition, so your job is to direct the shot in words instead of stuffing tags.
+
+Prompt form:
+- Write characters, action, relationships, and camera work as natural language, which may contain Chinese.
+- Keep Danbooru tags only where they are more precise than a sentence: character counts, a known character or series, specific clothing pieces, or a precise act tag.
+- Mixing the two is allowed; mass tag dumping is not — a wall of tags wastes V5's language ability and produces a less coherent picture.
+- Never output explanations, section labels, wrapper tags, quality boilerplate, or pipe separators.
+
+Main prompt — write it as a shot list:
+- Framing and camera: shot scale, camera height, camera angle, where the lens is aimed, depth of field, and the overall composition.
+- Subject placement: where each character sits in the frame, their relative positions, who is in the foreground or background, distance, and facing direction.
+- Action beat: freeze the single most decisive instant of the latest story rather than summarizing the whole passage.
+- Light and color: light source and direction, time of day, atmosphere, palette, and mood.
+- Environment: scene, weather, background detail, and props that carry the story.
+- Motion: implied movement, gestures, and any effects that belong to this instant.
 
 Character prompts:
-- Give every visible important character a separate prompt.
-- Describe identity, stable appearance, current clothing, pose, expression, physical condition, and their part in the interaction.
-- Avoid repeating the whole environment or camera instructions in every character prompt.
+- One prompt per visible character; never merge two people into one description.
+- Name the character, then their stable appearance, current clothing or undress state, posture, expression, physical condition, and their own part in the interaction.
+- Give concrete, contrastable detail — build, hairstyle and length, eye color, distinctive features — so several characters do not collapse into one look.
+- When several characters are present, state who faces whom, who touches whom, and who is in front; keep each of them visually distinct.
+- Do not repeat the whole environment or the camera instructions here.
+
+NSFW scenes:
+- Lead with the rating when the scene is explicit, then describe the scene in natural language: who does what to whom, the setting, and the mood.
+- Describe the state of undress and the acts with precise wording or act tags, keep them in order with the story flow, and never jump further than the story has gone.
+- Name exposed anatomy explicitly when it matters.
 
 Continuity:
-- Character guidance is inspiration and continuity reference, never text that must be copied verbatim.
-- Reconcile guidance with the latest story: current clothing, transformations, injuries, emotion, and staging take precedence where appropriate.`,
+- Character guidance is reference material for identity and continuity, never text to copy verbatim.
+- When guidance conflicts with the latest story, the story wins: current clothing, transformations, injuries, emotion, and staging are authoritative.
+- Reuse earlier wording for the same character, outfit, or scene when the moment is a continuation, so successive images stay consistent.`,
 };
 
 export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
