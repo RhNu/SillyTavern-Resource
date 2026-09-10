@@ -82,8 +82,14 @@
 }
 
 .nai-settings {
+  align-content: start;
+  height: 100%;
   width: min(54rem, 100%);
   margin: 0 auto;
+}
+
+.nai-settings-host {
+  height: 100%;
 }
 
 .nai-settings__header,
