@@ -1,8 +1,8 @@
-import type { Settings } from '../settings/schema';
+import type { LlmMessage } from '../../../../util/llm-requester/contract';
 import { resolveActiveCharacters } from '../domain/binding';
 import { getCurrentBindingContext } from '../platform/tavern/binding-context';
+import type { Settings } from '../settings/schema';
 import { imageModelFamily, resolveSelectedTemplate } from './template-selection';
-import type { LlmMessage } from '../../../../util/llm-requester/contract';
 
 type AnalysisInput = {
   paragraphs: string[];
@@ -30,6 +30,7 @@ export function assemblePromptAnalysisMessages(input: AnalysisInput, settings: S
     {
       role: 'system',
       content: `You select useful illustration points only in the latest story and write prompts for ${settings.generation.model}.
+Your task is to generate high-fidelity, consistency-focused image prompts in format for the visual novel.
 
 Context boundaries:
 - The final user message contains <latest_story>, the only text that may produce insertion points.
@@ -44,10 +45,17 @@ ${resolveSelectedTemplate(settings)}
 Output contract:
 - Call submit_image_analysis exactly once, even when returning zero insertions.
 - Every insertion must target a valid [P#] from <latest_story> and contain complete main and character prompt fields.
-- The summary is a short, user-safe selection rationale; never reveal chain-of-thought or hidden context.`,
+- The summary is a short, user-safe selection rationale; never reveal chain-of-thought or hidden context.
+
+<format>
+
+SPECIAL INSTRUCTION: silently thinking token budget: NONE. SKIP silently thinking.
+EXPLICIT REASONING INSTRUCTION: after <!Init>, use the tool to output required information as specified.
+
+</format>`,
     },
     {
-      role: 'user',
+      role: 'system',
       content: `<history reference_only="true">
 ${input.history || '(empty)'}
 </history>
@@ -66,7 +74,18 @@ The blocks above are supporting references only. Wait for the next user message'
       role: 'user',
       content: `<latest_story>
 ${input.paragraphs.map((paragraph, index) => `[P${index + 1}] ${paragraph}`).join('\n\n')}
-</latest_story>`,
+</latest_story>
+
+<format>
+
+SPECIAL INSTRUCTION: silently thinking token budget: NONE. SKIP silently thinking.
+EXPLICIT REASONING INSTRUCTION: after <!Init>, use the tool to output required information as specified.
+
+</format>
+
+Then the response is starting.
+
+<!Init>`,
     },
   ];
 }
