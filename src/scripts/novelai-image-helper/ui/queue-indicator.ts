@@ -1,12 +1,14 @@
 import { mountDraggableFloatingSurface, type FloatingPercentPosition } from '@util/floating';
 import { createScriptSettingsSync, type ScriptSettingsSync } from '@util/script-settings';
 import { z } from 'zod';
+import { createLogger } from '../app/logger';
 import type { NovelAiImageService } from '../app/service';
 import type { FailureStage } from '../image-generation/failure';
 import type { QueueSnapshot, QueueTaskView } from '../image-generation/queue';
 
 const TITLE = 'NovelAI 图片助手';
 const TICK_MS = 500;
+const logger = createLogger('ui/queue-indicator');
 
 /**
  * 指示器位置与展开状态是纯界面偏好，单独存一条脚本变量，
@@ -104,7 +106,7 @@ export function mountQueueIndicator(service: NovelAiImageService): { destroy: ()
   }
 
   function ensureTicker(active: boolean): void {
-    if (active && !ticker) ticker = setInterval(render, TICK_MS);
+    if (active && !ticker) ticker = setInterval(safeRender, TICK_MS);
     else if (!active && ticker) {
       clearInterval(ticker);
       ticker = undefined;
@@ -163,38 +165,52 @@ export function mountQueueIndicator(service: NovelAiImageService): { destroy: ()
     $cancelAll.prop('disabled', !snapshot.active && pendingCount === 0);
   }
 
-  $root.on('click', '[data-action]', event => {
-    event.stopPropagation();
-    const action = String($(event.currentTarget).attr('data-action'));
+  function safeRender(): void {
+    try {
+      render();
+    } catch (error) {
+      logger.error('渲染生成队列指示器失败', error);
+    }
+  }
 
-    if (action === 'toggle') {
-      setCollapsed(!state.collapsed);
-      return;
-    }
-    if (action === 'pause') {
-      if (snapshot.mode === 'paused') service.resumeQueue();
-      else service.pauseQueue();
-      return;
-    }
-    if (action === 'cancel-current') {
-      const active = snapshot.active;
-      if (active) service.queue.cancel(active.messageId, active.blockId);
-      return;
-    }
-    if (action === 'cancel-all') {
-      const cancelled = service.cancelQueue();
-      toastr.info(`已取消 ${cancelled} 个等待中的任务`, TITLE);
-      return;
-    }
-    if (action === 'retry-failed') {
-      const { enqueued, skipped } = service.retryFailedBlocks();
-      if (enqueued === 0) toastr.info('没有需要重试的图片块（已跳过重复入队）', TITLE);
-      else toastr.success(`已重新加入 ${enqueued} 个任务${skipped > 0 ? `，跳过 ${skipped} 个` : ''}`, TITLE);
+  $root.on('click', '[data-action]', event => {
+    try {
+      event.stopPropagation();
+      const action = String($(event.currentTarget).attr('data-action'));
+
+      if (action === 'toggle') {
+        setCollapsed(!state.collapsed);
+        return;
+      }
+      if (action === 'pause') {
+        if (snapshot.mode === 'paused') service.resumeQueue();
+        else service.pauseQueue();
+        return;
+      }
+      if (action === 'cancel-current') {
+        const active = snapshot.active;
+        if (active) service.queue.cancel(active.messageId, active.blockId);
+        return;
+      }
+      if (action === 'cancel-all') {
+        const cancelled = service.cancelQueue();
+        toastr.info(`已取消 ${cancelled} 个等待中的任务`, TITLE);
+        return;
+      }
+      if (action === 'retry-failed') {
+        const { enqueued, skipped } = service.retryFailedBlocks();
+        if (enqueued === 0) toastr.info('没有需要重试的图片块（已跳过重复入队）', TITLE);
+        else toastr.success(`已重新加入 ${enqueued} 个任务${skipped > 0 ? `，跳过 ${skipped} 个` : ''}`, TITLE);
+      }
+    } catch (error) {
+      logger.error('处理生成队列指示器操作失败', error);
+      toastr.error(error instanceof Error ? error.message : String(error), TITLE);
     }
   });
 
-  const unsubscribe = service.queue.subscribe(render);
-  render();
+  const unsubscribe = service.queue.subscribe(safeRender);
+  safeRender();
+  logger.info('生成队列指示器已挂载');
 
   return {
     destroy: () => {
@@ -203,6 +219,7 @@ export function mountQueueIndicator(service: NovelAiImageService): { destroy: ()
       $root.off('click');
       floating.destroy();
       sync.destroy();
+      logger.debug('生成队列指示器已销毁');
     },
   };
 }

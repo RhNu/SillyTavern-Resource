@@ -2,9 +2,11 @@ import { z } from 'zod';
 import type { PromptBundle } from '../../domain/prompt';
 import { buildGenerateRequest } from '../../image-generation/build-request';
 import type { Settings } from '../../settings/schema';
+import { createLogger, serializeError } from '../../app/logger';
 import { RequestError } from '../request-error';
 
 const BASE_URL = '/api/plugins/imggen-novelai/v1';
+const logger = createLogger('platform/imggen-novelai');
 
 const CapabilitiesSchema = z
   .object({
@@ -51,16 +53,33 @@ async function readError(response: Response): Promise<RequestError> {
       code: payload.error?.code,
       requestId: payload.requestId,
     });
-  } catch {
+  } catch (error) {
+    logger.warn('无法解析图片后端错误响应', {
+      statusCode: response.status,
+      error: serializeError(error),
+    });
     return new RequestError(fallback, { statusCode: response.status });
   }
 }
 
 export class NovelAiClient {
   async capabilities(signal?: AbortSignal): Promise<Capabilities> {
-    const response = await fetch(`${BASE_URL}/capabilities`, { headers: headers(), signal });
-    if (!response.ok) throw await readError(response);
-    return CapabilitiesSchema.parse(await response.json());
+    const endpoint = `${BASE_URL}/capabilities`;
+    logger.debug('开始请求图片后端能力', { endpoint, aborted: signal?.aborted ?? false });
+    try {
+      const response = await fetch(endpoint, { headers: headers(), signal });
+      if (!response.ok) throw await readError(response);
+      const capabilities = CapabilitiesSchema.parse(await response.json());
+      logger.info('图片后端能力探测完成', {
+        configured: capabilities.configured,
+        modelCount: capabilities.models.length,
+        version: capabilities.version,
+      });
+      return capabilities;
+    } catch (error) {
+      logger.error('图片后端能力探测失败', error, { endpoint });
+      throw error;
+    }
   }
 
   async generate(
@@ -68,32 +87,61 @@ export class NovelAiClient {
     settings: Settings['generation'],
     signal?: AbortSignal,
   ): Promise<GeneratedImage> {
-    const response = await fetch(`${BASE_URL}/generate`, {
-      method: 'POST',
-      headers: { ...headers(), 'Content-Type': 'application/json' },
-      signal,
-      body: JSON.stringify(buildGenerateRequest(bundle, settings)),
+    const endpoint = `${BASE_URL}/generate`;
+    logger.debug('开始请求图片生成', {
+      endpoint,
+      model: settings.model,
+      width: settings.width,
+      height: settings.height,
+      steps: settings.steps,
+      characterCount: bundle.characters.length,
+      aborted: signal?.aborted ?? false,
     });
-    if (!response.ok) throw await readError(response);
-    if (!response.headers.get('Content-Type')?.toLowerCase().startsWith('image/')) {
-      throw new RequestError('图片后端返回了非图片响应', {
-        statusCode: response.status,
-        code: 'NON_IMAGE_RESPONSE',
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        signal,
+        body: JSON.stringify(buildGenerateRequest(bundle, settings)),
       });
-    }
+      if (!response.ok) throw await readError(response);
+      const contentType = response.headers.get('Content-Type')?.toLowerCase() ?? '';
+      if (!contentType.startsWith('image/')) {
+        throw new RequestError('图片后端返回了非图片响应', {
+          statusCode: response.status,
+          code: 'NON_IMAGE_RESPONSE',
+        });
+      }
 
-    const seed = Number(response.headers.get('X-Imggen-Seed'));
-    if (!Number.isSafeInteger(seed) || seed <= 0) {
-      throw new RequestError('图片后端没有返回有效 seed', {
-        statusCode: response.status,
-        code: 'MISSING_SEED',
+      const seed = Number(response.headers.get('X-Imggen-Seed'));
+      if (!Number.isSafeInteger(seed) || seed <= 0) {
+        throw new RequestError('图片后端没有返回有效 seed', {
+          statusCode: response.status,
+          code: 'MISSING_SEED',
+        });
+      }
+      const blob = await response.blob();
+      const result = {
+        blob,
+        seed,
+        model: response.headers.get('X-Imggen-Model')?.trim() || settings.model,
+        requestId: response.headers.get('X-Request-Id')?.trim() || undefined,
+      };
+      logger.info('图片生成请求完成', {
+        requestId: result.requestId,
+        seed: result.seed,
+        model: result.model,
+        contentType,
+        size: blob.size,
       });
+      return result;
+    } catch (error) {
+      logger.error('图片生成请求失败', error, {
+        endpoint,
+        model: settings.model,
+        characterCount: bundle.characters.length,
+      });
+      throw error;
     }
-    return {
-      blob: await response.blob(),
-      seed,
-      model: response.headers.get('X-Imggen-Model')?.trim() || settings.model,
-      requestId: response.headers.get('X-Request-Id')?.trim() || undefined,
-    };
   }
 }

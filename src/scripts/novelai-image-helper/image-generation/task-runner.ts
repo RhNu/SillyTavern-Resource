@@ -1,4 +1,5 @@
 import type { ImageBlock, ImageOutput } from '../domain/block';
+import { createLogger, serializeError } from '../app/logger';
 import type { MessageBlockRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
 import type { Settings } from '../settings/schema';
@@ -14,6 +15,7 @@ import { shouldRetry, type RetryPolicy } from './retry-policy';
 
 /** capabilities 是本地后端插件的轻量探测，用固定的短超时即可。 */
 const CAPABILITIES_TIMEOUT_MS = 15_000;
+const logger = createLogger('generation/task-runner');
 
 export type TaskOutcome =
   | { status: 'succeeded'; output: ImageOutput }
@@ -68,20 +70,61 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
   const { repository, messageId, blockId, signal, generation, policy } = deps;
   const attempts = new Map<FailureStage, number>();
 
+  logger.info('开始执行图片任务流水线', {
+    messageId,
+    blockId,
+    model: generation.model,
+    maxAttempts: policy.maxAttempts,
+  });
+
   const runStage = async <T>(stage: FailureStage, action: (stageSignal: AbortSignal) => Promise<T>): Promise<T> => {
     for (;;) {
       const attempt = (attempts.get(stage) ?? 0) + 1;
       attempts.set(stage, attempt);
+      logger.debug('开始执行任务阶段', { messageId, blockId, stage, attempt });
       await deps.beginAttempt(stage, attempt);
 
       const timeoutMs = stageTimeoutMs(stage, generation);
       const scoped = withStageTimeout(signal, timeoutMs, stage);
       try {
-        return await action(scoped.signal);
+        const result = await action(scoped.signal);
+        logger.debug('任务阶段完成', { messageId, blockId, stage, attempt });
+        return result;
       } catch (error) {
-        if (signal.aborted) throw error;
+        if (signal.aborted) {
+          logger.info('任务阶段因取消或销毁而中止', {
+            messageId,
+            blockId,
+            stage,
+            attempt,
+            reason: serializeError(signal.reason),
+          });
+          throw error;
+        }
         const failure = scoped.didTimeout() ? timeoutFailure(stage, timeoutMs) : classifyFailure(error, stage);
-        if (!shouldRetry(failure, attempt, policy)) throw new StageFailed(failure, attempt);
+        if (!shouldRetry(failure, attempt, policy)) {
+          logger.warn('任务阶段失败且不再重试', {
+            messageId,
+            blockId,
+            stage,
+            attempt,
+            code: failure.code,
+            retryable: failure.retryable,
+            message: failure.message,
+            error: serializeError(error),
+          });
+          throw new StageFailed(failure, attempt);
+        }
+        logger.warn('任务阶段失败，将自动重试', {
+          messageId,
+          blockId,
+          stage,
+          attempt,
+          maxAttempts: policy.maxAttempts,
+          code: failure.code,
+          message: failure.message,
+          error: serializeError(error),
+        });
         deps.onRetry({ stage, attempt, maxAttempts: policy.maxAttempts, failure });
       } finally {
         scoped.dispose();
@@ -100,6 +143,12 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
 
     await runStage('validate', async stageSignal => {
       const capabilities = await deps.client.capabilities(stageSignal);
+      logger.debug('图片后端能力已获取', {
+        messageId,
+        blockId,
+        configured: capabilities.configured,
+        modelCount: capabilities.models.length,
+      });
       if (!capabilities.configured) {
         throw new GenerationFailureError('TOKEN_NOT_CONFIGURED', '服务端未配置 NOVELAI_TOKEN');
       }
@@ -118,9 +167,14 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
     const generated = await runStage('generate', stageSignal =>
       deps.client.generate(block.prompt, generation, stageSignal),
     );
-    if (generated.requestId) {
-      console.info(`[NovelAI Image Helper] 生成完成 request=${generated.requestId} seed=${generated.seed}`);
-    }
+    logger.info('任务生成阶段完成', {
+      messageId,
+      blockId,
+      requestId: generated.requestId,
+      seed: generated.seed,
+      model: generated.model,
+      size: generated.blob.size,
+    });
 
     // 复用同一个 blob：上传阶段的重试不应重新生成图片。
     const url = await runStage('upload', stageSignal => deps.upload(generated.blob, stageSignal));
@@ -142,11 +196,28 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
       if (!saved) throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除，生成结果无法写回');
     });
 
+    logger.info('图片任务流水线完成', {
+      messageId,
+      blockId,
+      seed: output.seed,
+      model: output.model,
+      attempts: Object.fromEntries(attempts),
+    });
     return { status: 'succeeded', output };
   } catch (error) {
     if (error instanceof StageFailed) {
+      logger.warn('图片任务以结构化失败结束', {
+        messageId,
+        blockId,
+        code: error.failure.code,
+        stage: error.failure.stage,
+        attempts: error.attempts,
+        retryable: error.failure.retryable,
+        message: error.failure.message,
+      });
       return { status: 'failed', failure: error.failure, attempts: error.attempts };
     }
+    logger.error('图片任务出现未预期异常', error, { messageId, blockId, attempts: Object.fromEntries(attempts) });
     throw error;
   }
 }

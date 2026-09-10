@@ -1,4 +1,5 @@
 import type { BlockFailureStage } from '../domain/block';
+import { getErrorMessage } from '../app/logger';
 import { isRequestError, type RequestError } from '../platform/request-error';
 
 export type FailureStage = BlockFailureStage;
@@ -89,8 +90,7 @@ function classifyRequestError(error: RequestError, stage: FailureStage): Classif
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
+  return getErrorMessage(error);
 }
 
 function isAbortLike(error: unknown): boolean {

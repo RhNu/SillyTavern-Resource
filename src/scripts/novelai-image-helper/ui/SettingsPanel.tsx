@@ -1,6 +1,7 @@
 import { HelpMarker } from '@util/components/HelpMarker';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { LlmCapabilities, LlmModel } from '../../../../util/llm-requester/contract';
+import { createLogger, getErrorMessage, serializeError } from '../app/logger';
 import type { NovelAiImageService } from '../app/service';
 import { MODEL_IDS, SAMPLERS, SCHEDULES, type CharacterBindings, type Settings } from '../settings/schema';
 import CollapsibleSection from './CollapsibleSection';
@@ -30,11 +31,10 @@ type BackendStatus = {
   detail: string;
 };
 
-function getErrorMessage(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason);
-}
+const logger = createLogger('ui/settings-panel');
 
 function showSettingsError(reason: unknown): void {
+  logger.warn('设置操作失败', { error: serializeError(reason) });
   toastr.error(getErrorMessage(reason), 'NovelAI 图片助手');
 }
 
@@ -114,6 +114,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
         });
       })
       .catch(reason => {
+        logger.warn('设置面板读取图片后端能力失败', { error: serializeError(reason) });
         if (active) {
           setBackendStatus({ ready: false, detail: `无法连接 imggen-novelai 后端：${getErrorMessage(reason)}` });
         }
@@ -153,7 +154,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
           });
         });
       })
-      .catch(reason => setPromptModelStatus(`无法连接 llm-requester：${getErrorMessage(reason)}`));
+      .catch(reason => {
+        logger.warn('设置面板读取 LLM 能力失败', { error: serializeError(reason) });
+        setPromptModelStatus(`无法连接 llm-requester：${getErrorMessage(reason)}`);
+      });
     return () => controller.abort();
   }, [props.service]);
 
@@ -171,7 +175,8 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
       try {
         const url = new URL(draft.analysis.connection.baseUrl);
         if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
-      } catch {
+      } catch (reason) {
+        logger.debug('Custom Base URL 校验失败', { error: serializeError(reason) });
         const timer = window.setTimeout(() => {
           setPromptModels([]);
           setPromptModelStatus('请输入有效的 Custom Base URL。');
@@ -207,7 +212,12 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
             });
           })
           .catch(reason => {
-            if (!controller.signal.aborted) setPromptModelStatus(`获取模型失败：${getErrorMessage(reason)}`);
+            if (controller.signal.aborted) {
+              logger.debug('获取提示词模型列表已取消');
+              return;
+            }
+            logger.warn('获取提示词模型列表失败', { providerId: provider.id, error: serializeError(reason) });
+            setPromptModelStatus(`获取模型失败：${getErrorMessage(reason)}`);
           });
       },
       provider.baseUrl.mode === 'custom' ? 400 : 0,

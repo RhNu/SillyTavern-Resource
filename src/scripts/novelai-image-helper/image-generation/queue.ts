@@ -1,4 +1,5 @@
 import type { ImageBlock } from '../domain/block';
+import { createLogger } from '../app/logger';
 import type { MessageBlockRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
 import { uploadGeneratedImage } from '../platform/tavern/image-upload';
@@ -10,6 +11,7 @@ import { runGenerationTask } from './task-runner';
 
 export const BLOCKS_CHANGED_EVENT = 'novelai_image_helper_blocks_changed';
 const TITLE = 'NovelAI 图片助手';
+const logger = createLogger('generation/queue');
 
 export type GenerationQueueCompletionSummary = {
   requestId: string;
@@ -91,6 +93,10 @@ export class GenerationQueue {
     private readonly options: GenerationQueueOptions = {},
   ) {
     this.policy = resolveRetryPolicy(this.settings.get().generation);
+    logger.debug('生成队列已创建', {
+      maxAttempts: this.policy.maxAttempts,
+      intervalMs: this.policy.intervalMs,
+    });
   }
 
   private get sleep(): (ms: number, signal: AbortSignal) => Promise<void> {
@@ -106,23 +112,43 @@ export class GenerationQueue {
   }
 
   enqueue(messageId: number, blockId: string): QueueEnqueueResult {
-    if (this.destroyed) return { ok: false, reason: 'destroyed' };
+    if (this.destroyed) {
+      logger.warn('拒绝加入任务：队列已销毁', { messageId, blockId });
+      return { ok: false, reason: 'destroyed' };
+    }
 
     const task: TaskRef = { messageId, blockId };
     const key = taskKey(task);
-    if (this.known.has(key)) return { ok: false, reason: 'duplicate' };
+    if (this.known.has(key)) {
+      logger.debug('跳过重复任务', { messageId, blockId });
+      return { ok: false, reason: 'duplicate' };
+    }
 
     const block = this.repository.find(messageId, blockId);
-    if (!block) return { ok: false, reason: 'missing' };
+    if (!block) {
+      logger.warn('拒绝加入任务：图片块不存在', { messageId, blockId });
+      return { ok: false, reason: 'missing' };
+    }
 
-    this.policy = resolveRetryPolicy(this.settings.get().generation);
-    this.ensureCompletion();
-    this.known.add(key);
-    this.pending.push({ ...task, summary: block.summary || block.prompt.main.positive, attempt: 0 });
-    this.setStatus(task, 'queued');
-    this.notify();
-    void this.drain();
-    return { ok: true };
+    const hadCompletion = Boolean(this.completion);
+    try {
+      this.policy = resolveRetryPolicy(this.settings.get().generation);
+      this.ensureCompletion();
+      this.known.add(key);
+      this.pending.push({ ...task, summary: block.summary || block.prompt.main.positive, attempt: 0 });
+      this.setStatus(task, 'queued');
+      this.notify();
+      logger.info('任务已加入生成队列', { messageId, blockId, pendingCount: this.pending.length });
+      this.startDrain();
+      return { ok: true };
+    } catch (error) {
+      const pendingIndex = this.pending.findIndex(entry => taskKey(entry) === key);
+      if (pendingIndex >= 0) this.pending.splice(pendingIndex, 1);
+      this.known.delete(key);
+      if (!hadCompletion && this.pending.length === 0 && !this.active) this.completion = undefined;
+      logger.error('加入生成队列失败', error, { messageId, blockId });
+      throw error;
+    }
   }
 
   /** 取消单个任务：排队中的直接移除，执行中的立即中止。 */
@@ -137,13 +163,16 @@ export class GenerationQueue {
       this.recordOutcome(cancelled, { status: 'cancelled' });
       this.notify();
       this.completeIfIdle();
+      logger.info('已取消排队中的任务', { messageId, blockId });
       return true;
     }
 
     if (this.active && taskKey(this.active.task) === key) {
       this.active.controller.abort({ kind: 'cancelled' } satisfies TaskAbortReason);
+      logger.info('已请求取消执行中的任务', { messageId, blockId });
       return true;
     }
+    logger.debug('取消任务失败：任务不在队列中', { messageId, blockId });
     return false;
   }
 
@@ -158,6 +187,7 @@ export class GenerationQueue {
     if (this.active) this.active.controller.abort({ kind: 'cancelled-all' } satisfies TaskAbortReason);
     this.notify();
     this.completeIfIdle();
+    logger.info('已取消全部等待中的任务', { pendingCount: tasks.length, active: Boolean(this.active) });
     return tasks.length;
   }
 
@@ -169,13 +199,15 @@ export class GenerationQueue {
     if (this.destroyed || this.mode === 'paused') return;
     this.mode = 'paused';
     this.notify();
+    logger.info('生成队列已暂停', { pendingCount: this.pending.length, active: Boolean(this.active) });
   }
 
   resume(): void {
     if (this.destroyed || this.mode === 'running') return;
     this.mode = 'running';
     this.notify();
-    void this.drain();
+    logger.info('生成队列已恢复', { pendingCount: this.pending.length, active: Boolean(this.active) });
+    this.startDrain();
   }
 
   isActive(messageId: number, blockId: string): boolean {
@@ -207,11 +239,13 @@ export class GenerationQueue {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    logger.info('开始销毁生成队列', { pendingCount: this.pending.length, active: Boolean(this.active) });
     this.pending.splice(0).forEach(task => this.restoreIdleStatus(task));
     this.completion = undefined;
     this.active?.controller.abort({ kind: 'destroyed' } satisfies TaskAbortReason);
     this.known.clear();
     this.listeners.clear();
+    logger.debug('生成队列已销毁');
   }
 
   private toView(task: QueueTask, maxAttempts: number): QueueTaskView {
@@ -266,10 +300,11 @@ export class GenerationQueue {
     };
     this.lastSummary = summary;
     this.notify();
+    logger.info('生成队列批次完成', summary);
     try {
       this.options.onQueueFinished?.(summary);
     } catch (error) {
-      console.error('[NovelAI Image Helper] 队列完成回调失败', error);
+      logger.error('队列完成回调失败', error, { requestId: summary.requestId });
     }
   }
 
@@ -280,7 +315,7 @@ export class GenerationQueue {
       try {
         listener(snapshot);
       } catch (error) {
-        console.error('[NovelAI Image Helper] 队列状态监听失败', error);
+        logger.error('队列状态监听失败', error);
       }
     });
   }
@@ -292,20 +327,60 @@ export class GenerationQueue {
       status,
       error,
     }));
-    void eventEmit(BLOCKS_CHANGED_EVENT, task.messageId);
+    if (!result) {
+      logger.warn('更新图片块状态失败：图片块不存在', {
+        messageId: task.messageId,
+        blockId: task.blockId,
+        status,
+      });
+    } else {
+      logger.debug('图片块状态已更新', {
+        messageId: task.messageId,
+        blockId: task.blockId,
+        status,
+      });
+    }
+    this.emitBlocksChanged(task.messageId, `status:${status}`);
     return result;
   }
 
   /** 取消 / 销毁后回到「可再次生成」：已出图的回到 ready，否则回到 draft。 */
   private restoreIdleStatus(task: TaskRef): void {
-    const block = this.repository.find(task.messageId, task.blockId);
-    if (!block) return;
-    this.setStatus(task, block.outputs.length > 0 ? 'ready' : 'draft');
+    try {
+      const block = this.repository.find(task.messageId, task.blockId);
+      if (!block) {
+        logger.debug('无需恢复图片块状态：图片块已不存在', task);
+        return;
+      }
+      this.setStatus(task, block.outputs.length > 0 ? 'ready' : 'draft');
+    } catch (error) {
+      logger.error('恢复图片块空闲状态失败', error, task);
+    }
+  }
+
+  private emitBlocksChanged(messageId: number, reason: string): void {
+    try {
+      void Promise.resolve(eventEmit(BLOCKS_CHANGED_EVENT, messageId)).catch(error => {
+        logger.error('发送图片块变更事件失败', error, { messageId, reason });
+      });
+    } catch (error) {
+      logger.error('发送图片块变更事件失败', error, { messageId, reason });
+    }
+  }
+
+  private startDrain(): void {
+    void this.drain().catch(error => {
+      logger.error('生成队列调度异常', error, {
+        pendingCount: this.pending.length,
+        active: this.active ? taskKey(this.active.task) : undefined,
+      });
+    });
   }
 
   private async drain(): Promise<void> {
     if (this.draining || this.destroyed) return;
     this.draining = true;
+    logger.debug('开始排空生成队列', { pendingCount: this.pending.length });
     try {
       while (!this.destroyed && this.mode === 'running') {
         const task = this.pending.shift();
@@ -317,17 +392,23 @@ export class GenerationQueue {
       this.draining = false;
       this.notify();
       this.completeIfIdle();
+      logger.debug('生成队列排空结束', { pendingCount: this.pending.length, active: Boolean(this.active) });
     }
   }
 
   private async runTask(task: QueueTask): Promise<void> {
     const controller = new AbortController();
     this.active = { task, controller };
-    const generation = this.settings.get().generation;
-    this.policy = resolveRetryPolicy(generation);
-
     let outcome: QueueTaskOutcome | undefined;
     try {
+      const generation = this.settings.get().generation;
+      this.policy = resolveRetryPolicy(generation);
+      logger.info('开始执行队列任务', {
+        messageId: task.messageId,
+        blockId: task.blockId,
+        model: generation.model,
+        maxAttempts: this.policy.maxAttempts,
+      });
       const result = await runGenerationTask({
         messageId: task.messageId,
         blockId: task.blockId,
@@ -346,10 +427,15 @@ export class GenerationQueue {
         },
         onRetry: info => {
           this.ensureCompletion().retriedCount += 1;
-          console.info(
-            `[NovelAI Image Helper] ${info.failure.code} 第 ${info.attempt}/${info.maxAttempts} 次尝试失败，` +
-              `等待节流后重试：${info.failure.message}`,
-          );
+          logger.warn('任务将在节流后重试', {
+            messageId: task.messageId,
+            blockId: task.blockId,
+            stage: info.stage,
+            code: info.failure.code,
+            attempt: info.attempt,
+            maxAttempts: info.maxAttempts,
+            message: info.failure.message,
+          });
           this.notify();
         },
       });
@@ -359,24 +445,42 @@ export class GenerationQueue {
         toastr.success('图片已生成', TITLE);
       } else {
         outcome = { status: 'failed', message: result.failure.message };
-        this.setStatus(task, 'failed', {
-          code: result.failure.code,
-          message: result.failure.message,
-          retryable: result.failure.retryable,
-          stage: result.failure.stage,
-          attempts: result.attempts,
-        });
+        try {
+          this.setStatus(task, 'failed', {
+            code: result.failure.code,
+            message: result.failure.message,
+            retryable: result.failure.retryable,
+            stage: result.failure.stage,
+            attempts: result.attempts,
+          });
+        } catch (error) {
+          logger.error('记录结构化任务失败状态时发生异常', error, {
+            messageId: task.messageId,
+            blockId: task.blockId,
+            code: result.failure.code,
+          });
+        }
         toastr.error(result.failure.message, TITLE);
         this.failPendingForBackendFailure(result.failure);
       }
+      logger.info('队列任务处理完成', {
+        messageId: task.messageId,
+        blockId: task.blockId,
+        status: outcome?.status,
+      });
     } catch (error) {
       outcome = this.handleTaskError(task, error);
     } finally {
       this.known.delete(taskKey(task));
       this.active = undefined;
       if (outcome) this.recordOutcome(task, outcome);
-      void eventEmit(BLOCKS_CHANGED_EVENT, task.messageId);
+      this.emitBlocksChanged(task.messageId, 'task-finally');
       this.notify();
+      logger.debug('队列任务已离开执行态', {
+        messageId: task.messageId,
+        blockId: task.blockId,
+        outcome: outcome?.status,
+      });
     }
   }
 
@@ -391,21 +495,38 @@ export class GenerationQueue {
 
     if (reason?.kind === 'destroyed') {
       this.restoreIdleStatus(task);
+      logger.info('任务因队列销毁而中止', { ...task, reason: reason.kind });
       return undefined;
     }
     if (reason?.kind === 'cancelled' || reason?.kind === 'cancelled-all') {
       this.restoreIdleStatus(task);
+      logger.info('任务因用户取消而中止', { ...task, reason: reason.kind });
       return { status: 'cancelled' };
     }
 
     const failure = classifyFailure(error, task.stage ?? 'generate');
-    this.setStatus(task, 'failed', {
-      code: failure.code,
-      message: failure.message,
-      retryable: failure.retryable,
+    logger.error('队列任务出现逃逸异常，已标记失败', error, {
+      messageId: task.messageId,
+      blockId: task.blockId,
       stage: failure.stage,
-      attempts: task.attempt > 0 ? task.attempt : undefined,
+      code: failure.code,
+      retryable: failure.retryable,
     });
+    try {
+      this.setStatus(task, 'failed', {
+        code: failure.code,
+        message: failure.message,
+        retryable: failure.retryable,
+        stage: failure.stage,
+        attempts: task.attempt > 0 ? task.attempt : undefined,
+      });
+    } catch (statusError) {
+      logger.error('记录逃逸异常失败状态时发生异常', statusError, {
+        messageId: task.messageId,
+        blockId: task.blockId,
+        code: failure.code,
+      });
+    }
     toastr.error(failure.message, TITLE);
     return { status: 'failed', message: failure.message };
   }
@@ -419,14 +540,28 @@ export class GenerationQueue {
     const tasks = this.pending.splice(0);
     if (tasks.length === 0) return;
 
+    logger.warn('后端配置或凭证失败，批量终止等待中的任务', {
+      code: failure.code,
+      stage: failure.stage,
+      count: tasks.length,
+    });
+
     tasks.forEach(task => {
       this.known.delete(taskKey(task));
-      this.setStatus(task, 'failed', {
-        code: failure.code,
-        message: failure.message,
-        retryable: false,
-        stage: failure.stage,
-      });
+      try {
+        this.setStatus(task, 'failed', {
+          code: failure.code,
+          message: failure.message,
+          retryable: false,
+          stage: failure.stage,
+        });
+      } catch (error) {
+        logger.error('批量标记等待任务失败时发生异常', error, {
+          messageId: task.messageId,
+          blockId: task.blockId,
+          code: failure.code,
+        });
+      }
       this.recordOutcome(task, { status: 'failed', message: failure.message });
     });
     this.notify();
@@ -450,12 +585,18 @@ export class GenerationQueue {
 
     if (stage === 'generate') {
       const waitMs = Math.max(0, this.nextDispatchAt - this.now());
-      if (waitMs > 0) await this.sleep(waitMs, signal);
+      if (waitMs > 0) {
+        logger.debug('任务等待生成节流窗口', { ...task, waitMs, attempt });
+        await this.sleep(waitMs, signal);
+      }
     }
 
     if (stage !== 'commit') {
       const written = this.setStatus(task, stage === 'upload' ? 'uploading' : 'generating');
-      if (!written) throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除，已跳过生成');
+      if (!written) {
+        logger.warn('阶段开始失败：图片块已被删除', { ...task, stage, attempt });
+        throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除，已跳过生成');
+      }
     }
     this.notify();
   }

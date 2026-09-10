@@ -1,11 +1,13 @@
 import { matchAnchors } from '../domain/anchor';
 import { PromptBundleSchema } from '../domain/prompt';
 import { BLOCKS_CHANGED_EVENT, type QueueSnapshot, type QueueTaskView } from '../image-generation/queue';
+import { createLogger, serializeError } from '../app/logger';
 import type { NovelAiImageService } from '../app/service';
 
 const CARD_CLASS = 'nai-image-card';
 const EVENT_NAMESPACE = '.novelaiImageHelper';
 const TITLE = 'NovelAI 图片助手';
+const logger = createLogger('ui/message-cards');
 type OutputViewState = { count: number; index: number };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -26,6 +28,16 @@ const ENQUEUE_FAILURE_MESSAGES: Record<string, string> = {
 
 function outputStateKey(messageId: number, blockId: string): string {
   return `${messageId}:${blockId}`;
+}
+
+function emitBlocksChanged(messageId: number): void {
+  try {
+    void Promise.resolve(eventEmit(BLOCKS_CHANGED_EVENT, messageId)).catch(error => {
+      logger.error('发送图片块变更事件失败', error, { messageId });
+    });
+  } catch (error) {
+    logger.error('发送图片块变更事件失败', error, { messageId });
+  }
 }
 
 function currentOutputIndex(
@@ -89,6 +101,7 @@ function renderCard(
 ) {
   const block = service.repository.find(messageId, blockId);
   if (!block) {
+    logger.warn('渲染图片卡片时找不到图片块', { messageId, blockId });
     $card.empty().append($('<div class="nai-image-card__error">').text('图片块数据缺失'));
     return;
   }
@@ -170,7 +183,11 @@ function openEditor(service: NovelAiImageService, messageId: number, blockId: st
     okButton: false,
     cancelButton: false,
   });
-  $cancel.on('click', () => void popup.completeCancelled());
+  $cancel.on('click', () => {
+    void Promise.resolve(popup.completeCancelled()).catch(error => {
+      logger.error('关闭图片提示词编辑弹窗失败', error, { messageId, blockId });
+    });
+  });
   $save.on('click', () => {
     try {
       const prompt = PromptBundleSchema.parse({
@@ -185,14 +202,20 @@ function openEditor(service: NovelAiImageService, messageId: number, blockId: st
         status: 'draft',
         error: undefined,
       }));
-      void eventEmit(BLOCKS_CHANGED_EVENT, messageId);
+      emitBlocksChanged(messageId);
       toastr.success('提示词已保存', 'NovelAI 图片助手');
-      void popup.completeAffirmative();
+      void Promise.resolve(popup.completeAffirmative()).catch(error => {
+        logger.error('完成图片提示词编辑弹窗失败', error, { messageId, blockId });
+      });
     } catch (error) {
+      logger.warn('保存图片提示词失败', { messageId, blockId, error: serializeError(error) });
       toastr.error(error instanceof Error ? error.message : String(error), '提示词格式错误');
     }
   });
-  void popup.show().finally(() => $host.remove());
+  void popup
+    .show()
+    .catch(error => logger.error('图片提示词编辑弹窗异常结束', error, { messageId, blockId }))
+    .finally(() => $host.remove());
 }
 
 export function mountMessageCards(service: NovelAiImageService): { sync: () => void; destroy: () => void } {
@@ -233,48 +256,75 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
         });
       });
   };
+  const safeSync = () => {
+    try {
+      sync();
+    } catch (error) {
+      logger.error('同步图片卡片失败', error);
+    }
+  };
 
   const $chat = $('#chat');
   $chat.off(EVENT_NAMESPACE);
   $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="generate"]`, event => {
-    const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
-    const result = service.generate(Number($card.attr('data-message-id')), String($card.attr('data-block-id')));
-    if (!result.ok) toastr.info(ENQUEUE_FAILURE_MESSAGES[result.reason] ?? '无法加入生成队列', TITLE);
+    try {
+      const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
+      const result = service.generate(Number($card.attr('data-message-id')), String($card.attr('data-block-id')));
+      if (!result.ok) toastr.info(ENQUEUE_FAILURE_MESSAGES[result.reason] ?? '无法加入生成队列', TITLE);
+    } catch (error) {
+      logger.error('点击生成图片时发生异常', error);
+      toastr.error(error instanceof Error ? error.message : String(error), TITLE);
+    }
   });
   $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="edit"]`, event => {
-    const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
-    openEditor(service, Number($card.attr('data-message-id')), String($card.attr('data-block-id')));
+    try {
+      const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
+      openEditor(service, Number($card.attr('data-message-id')), String($card.attr('data-block-id')));
+    } catch (error) {
+      logger.error('打开图片提示词编辑器失败', error);
+      toastr.error(error instanceof Error ? error.message : String(error), TITLE);
+    }
   });
   $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="output-select"]`, event => {
-    const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
-    const messageId = Number($card.attr('data-message-id'));
-    const blockId = String($card.attr('data-block-id'));
-    const outputIndex = Number($(event.currentTarget).attr('data-output-index'));
-    const block = service.repository.find(messageId, blockId);
-    if (!block || !Number.isInteger(outputIndex) || outputIndex < 0 || outputIndex >= block.outputs.length) return;
-    outputViews.set(outputStateKey(messageId, blockId), { count: block.outputs.length, index: outputIndex });
-    renderCard(service, messageId, blockId, $card, outputViews, service.getQueueSnapshot());
+    try {
+      const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
+      const messageId = Number($card.attr('data-message-id'));
+      const blockId = String($card.attr('data-block-id'));
+      const outputIndex = Number($(event.currentTarget).attr('data-output-index'));
+      const block = service.repository.find(messageId, blockId);
+      if (!block || !Number.isInteger(outputIndex) || outputIndex < 0 || outputIndex >= block.outputs.length) return;
+      outputViews.set(outputStateKey(messageId, blockId), { count: block.outputs.length, index: outputIndex });
+      renderCard(service, messageId, blockId, $card, outputViews, service.getQueueSnapshot());
+    } catch (error) {
+      logger.error('切换图片输出失败', error);
+    }
   });
 
   const stops = [
-    eventOn('chatLoaded', sync).stop,
-    eventOn(tavern_events.CHARACTER_MESSAGE_RENDERED, sync).stop,
-    eventOn(tavern_events.MESSAGE_EDITED, sync).stop,
-    eventOn(tavern_events.MESSAGE_DELETED, sync).stop,
-    eventOn(tavern_events.MORE_MESSAGES_LOADED, sync).stop,
-    eventOn(BLOCKS_CHANGED_EVENT, sync).stop,
+    eventOn('chatLoaded', safeSync).stop,
+    eventOn(tavern_events.CHARACTER_MESSAGE_RENDERED, safeSync).stop,
+    eventOn(tavern_events.MESSAGE_EDITED, safeSync).stop,
+    eventOn(tavern_events.MESSAGE_DELETED, safeSync).stop,
+    eventOn(tavern_events.MORE_MESSAGES_LOADED, safeSync).stop,
+    eventOn(BLOCKS_CHANGED_EVENT, safeSync).stop,
   ];
-  const unsubscribeQueue = service.queue.subscribe(sync);
-  sync();
+  const unsubscribeQueue = service.queue.subscribe(safeSync);
+  safeSync();
+  logger.info('图片卡片界面已挂载');
   return {
-    sync,
+    sync: safeSync,
     destroy: () => {
       stops.forEach(stop => stop());
       unsubscribeQueue();
       $chat.off(EVENT_NAMESPACE);
-      mountedMessageIds.forEach(messageId => void refreshOneMessage(messageId));
+      mountedMessageIds.forEach(messageId => {
+        void Promise.resolve(refreshOneMessage(messageId)).catch(error => {
+          logger.error('刷新消息显示失败', error, { messageId });
+        });
+      });
       mountedMessageIds.clear();
       outputViews.clear();
+      logger.debug('图片卡片界面已销毁');
     },
   };
 }

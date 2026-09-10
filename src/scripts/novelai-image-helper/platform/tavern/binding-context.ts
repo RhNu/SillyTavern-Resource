@@ -1,5 +1,8 @@
 import type { BindingContext } from '../../domain/binding';
 import type { BindingRef } from '../../settings/schema';
+import { createLogger, serializeError } from '../../app/logger';
+
+const logger = createLogger('platform/tavern/binding-context');
 
 function nonEmpty(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -16,7 +19,7 @@ export function getCurrentBindingContext(): BindingContext {
     try {
       characterKey = nonEmpty(new RawCharacter(character).getAvatarId());
     } catch (error) {
-      console.warn('[NovelAI Image Helper] 读取角色卡标识失败', error);
+      logger.warn('读取角色卡标识失败，回退到角色名或角色 ID', { error: serializeError(error) });
     }
   }
 
