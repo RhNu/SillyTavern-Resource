@@ -64,6 +64,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
   const [newTemplateName, setNewTemplateName] = useState('');
   const [status, setStatus] = useState('正在检查 imggen-novelai…');
   const [error, setError] = useState('');
+  // Event currentTarget is cleared after the handler returns, so handlers must capture values before calling edit.
   const edit = (recipe: (next: Settings) => void) => setDraft(current => editSettings(current, recipe));
 
   useEffect(() => {
@@ -184,14 +185,20 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 <input
                   className="text_pole"
                   value={draft.analysis.proxyPreset}
-                  onChange={event => edit(next => void (next.analysis.proxyPreset = event.currentTarget.value))}
+                  onChange={event => {
+                    const value = event.currentTarget.value;
+                    edit(next => void (next.analysis.proxyPreset = value));
+                  }}
                 />
               </Field>
               <Field label="API URL">
                 <input
                   className="text_pole"
                   value={draft.analysis.apiUrl}
-                  onChange={event => edit(next => void (next.analysis.apiUrl = event.currentTarget.value))}
+                  onChange={event => {
+                    const value = event.currentTarget.value;
+                    edit(next => void (next.analysis.apiUrl = value));
+                  }}
                 />
               </Field>
               <Field label="API Key">
@@ -199,7 +206,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                   className="text_pole"
                   type="password"
                   value={draft.analysis.apiKey}
-                  onChange={event => edit(next => void (next.analysis.apiKey = event.currentTarget.value))}
+                  onChange={event => {
+                    const value = event.currentTarget.value;
+                    edit(next => void (next.analysis.apiKey = value));
+                  }}
                 />
               </Field>
               <div className="nai-settings__grid">
@@ -207,7 +217,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                   <input
                     className="text_pole"
                     value={draft.analysis.model}
-                    onChange={event => edit(next => void (next.analysis.model = event.currentTarget.value))}
+                    onChange={event => {
+                      const value = event.currentTarget.value;
+                      edit(next => void (next.analysis.model = value));
+                    }}
                   />
                 </Field>
                 <NumberField
@@ -230,7 +243,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
               <select
                 className="text_pole"
                 value={draft.analysis.templates.selected}
-                onChange={event => edit(next => void (next.analysis.templates.selected = event.currentTarget.value))}
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.analysis.templates.selected = value));
+                }}
               >
                 {Object.keys(draft.analysis.templates.items).map(name => (
                   <option key={name}>{name}</option>
@@ -271,13 +287,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 className="text_pole"
                 rows={12}
                 value={template.v45}
-                onChange={event =>
-                  edit(
-                    next =>
-                      void (next.analysis.templates.items[next.analysis.templates.selected]!.v45 =
-                        event.currentTarget.value),
-                  )
-                }
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.analysis.templates.items[next.analysis.templates.selected]!.v45 = value));
+                }}
               />
             </Field>
             <Field label="V5 核心模板" hint="可使用自然语言、中文、标签或混合表达。">
@@ -285,13 +298,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 className="text_pole"
                 rows={12}
                 value={template.v5}
-                onChange={event =>
-                  edit(
-                    next =>
-                      void (next.analysis.templates.items[next.analysis.templates.selected]!.v5 =
-                        event.currentTarget.value),
-                  )
-                }
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.analysis.templates.items[next.analysis.templates.selected]!.v5 = value));
+                }}
               />
             </Field>
           </section>
@@ -304,11 +314,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
               <select
                 className="text_pole"
                 value={draft.generation.model}
-                onChange={event =>
-                  edit(
-                    next => void (next.generation.model = event.currentTarget.value as Settings['generation']['model']),
-                  )
-                }
+                onChange={event => {
+                  const value = event.currentTarget.value as Settings['generation']['model'];
+                  edit(next => void (next.generation.model = value));
+                }}
               >
                 {MODEL_IDS.map(model => (
                   <option key={model}>{model}</option>
@@ -359,12 +368,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 <select
                   className="text_pole"
                   value={draft.generation.sampler}
-                  onChange={event =>
-                    edit(
-                      next =>
-                        void (next.generation.sampler = event.currentTarget.value as Settings['generation']['sampler']),
-                    )
-                  }
+                  onChange={event => {
+                    const value = event.currentTarget.value as Settings['generation']['sampler'];
+                    edit(next => void (next.generation.sampler = value));
+                  }}
                 >
                   {SAMPLERS.map(sampler => (
                     <option key={sampler}>{sampler}</option>
@@ -375,13 +382,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 <select
                   className="text_pole"
                   value={draft.generation.schedule}
-                  onChange={event =>
-                    edit(
-                      next =>
-                        void (next.generation.schedule = event.currentTarget
-                          .value as Settings['generation']['schedule']),
-                    )
-                  }
+                  onChange={event => {
+                    const value = event.currentTarget.value as Settings['generation']['schedule'];
+                    edit(next => void (next.generation.schedule = value));
+                  }}
                 >
                   {SCHEDULES.map(schedule => (
                     <option key={schedule}>{schedule}</option>
@@ -394,14 +398,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 className="text_pole"
                 type="number"
                 value={draft.generation.seed ?? ''}
-                onChange={event =>
-                  edit(
-                    next =>
-                      void (next.generation.seed = event.currentTarget.value
-                        ? Number(event.currentTarget.value)
-                        : null),
-                  )
-                }
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.generation.seed = value ? Number(value) : null));
+                }}
               />
             </Field>
             <Field label="主提示词前缀">
@@ -409,7 +409,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 className="text_pole"
                 rows={2}
                 value={draft.generation.prefix}
-                onChange={event => edit(next => void (next.generation.prefix = event.currentTarget.value))}
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.generation.prefix = value));
+                }}
               />
             </Field>
             <Field label="主提示词后缀">
@@ -417,7 +420,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 className="text_pole"
                 rows={2}
                 value={draft.generation.suffix}
-                onChange={event => edit(next => void (next.generation.suffix = event.currentTarget.value))}
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.generation.suffix = value));
+                }}
               />
             </Field>
             <Field label="全局负面提示词">
@@ -425,7 +431,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 className="text_pole"
                 rows={3}
                 value={draft.generation.negative}
-                onChange={event => edit(next => void (next.generation.negative = event.currentTarget.value))}
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.generation.negative = value));
+                }}
               />
             </Field>
           </section>
@@ -467,7 +476,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                   <input
                     className="text_pole"
                     value={character.name}
-                    onChange={event => edit(next => void (next.characters[index]!.name = event.currentTarget.value))}
+                    onChange={event => {
+                      const value = event.currentTarget.value;
+                      edit(next => void (next.characters[index]!.name = value));
+                    }}
                   />
                 </Field>
                 <Field label="提示内容" hint="可以是自然语言、标签或两者混合；模型将其作为参考而非逐字复制。">
@@ -475,7 +487,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                     className="text_pole"
                     rows={5}
                     value={character.content}
-                    onChange={event => edit(next => void (next.characters[index]!.content = event.currentTarget.value))}
+                    onChange={event => {
+                      const value = event.currentTarget.value;
+                      edit(next => void (next.characters[index]!.content = value));
+                    }}
                   />
                 </Field>
                 <Field label="避免内容">
@@ -483,9 +498,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                     className="text_pole"
                     rows={2}
                     value={character.negative}
-                    onChange={event =>
-                      edit(next => void (next.characters[index]!.negative = event.currentTarget.value))
-                    }
+                    onChange={event => {
+                      const value = event.currentTarget.value;
+                      edit(next => void (next.characters[index]!.negative = value));
+                    }}
                   />
                 </Field>
                 <div className="nai-settings__bindings">
