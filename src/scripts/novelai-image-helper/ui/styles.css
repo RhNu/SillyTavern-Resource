@@ -87,20 +87,11 @@
 }
 
 .nai-settings__header,
-.nai-settings__section-heading,
-.nai-settings__collapsible-heading {
+.nai-settings__section-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-}
-
-.nai-settings__collapsible-heading > .nai-settings__hint {
-  flex: 1 1 auto;
-}
-
-.nai-settings__collapsible-heading .menu_button {
-  flex: 0 0 auto;
 }
 
 .nai-settings__tabs {
@@ -133,12 +124,79 @@
   display: grid;
 }
 
-.nai-settings section {
+.nai-settings section,
+.nai-settings__collapsible {
   display: grid;
   gap: 0.5rem;
   padding: 0.6rem;
   border: 1px solid var(--SmartThemeBorderColor);
   border-radius: 0.6rem;
+}
+
+.nai-settings__collapsible-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.2rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor) 72%, transparent);
+  border-radius: 0.45rem;
+  color: inherit;
+  background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 48%, transparent);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.nai-settings__collapsible-bar::-webkit-details-marker {
+  display: none;
+}
+
+.nai-settings__collapsible-bar:hover {
+  background: color-mix(in srgb, var(--SmartThemeQuoteColor) 10%, transparent);
+}
+
+.nai-settings__collapsible-bar:focus-visible {
+  outline: 2px solid var(--SmartThemeQuoteColor);
+  outline-offset: 2px;
+}
+
+.nai-settings__collapsible-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.nai-settings__collapsible-title {
+  flex: 0 0 auto;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.nai-settings__collapsible-hint {
+  min-width: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
+  font-size: 0.86em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nai-settings__collapsible-bar > i {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
+  font-size: 0.8em;
+  transition: transform 0.16s ease;
+}
+
+.nai-settings__collapsible[open] > .nai-settings__collapsible-bar > i {
+  transform: rotate(180deg);
 }
 
 .nai-settings h3,
@@ -202,6 +260,10 @@
   padding-top: 0.15rem;
 }
 
+.nai-settings__collapsible:not([open]) > .nai-settings__collapsible-body {
+  display: none;
+}
+
 .nai-settings__prompt-presets {
   margin-top: 0.15rem;
   padding: 0.6rem;
@@ -217,41 +279,33 @@
   align-items: end;
 }
 
-.nai-character {
-  display: grid;
-  gap: 0;
+.nai-character.nai-settings__collapsible {
   padding: 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor) 75%, transparent);
-  border-radius: 0.55rem;
 }
 
-.nai-character.is-expanded {
+.nai-character.nai-settings__collapsible[open] {
   gap: 0.5rem;
 }
 
-.nai-character__toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  writing-mode: horizontal-tb;
+.nai-character .nai-settings__collapsible-copy,
+.nai-character .nai-settings__collapsible-title {
+  flex: 1 1 auto;
 }
 
 .nai-character__summary {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.nai-character__summary > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nai-character__status,
@@ -273,19 +327,12 @@
 }
 
 .nai-character__bindings-summary {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   max-width: 24rem;
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 72%, transparent);
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nai-character__toggle-state {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.82em;
   white-space: nowrap;
 }
 
@@ -323,8 +370,7 @@
 
   .nai-settings__header,
   .nai-settings__section-heading,
-  .nai-settings__collapsible-heading,
-  .nai-character__toggle {
+  .nai-settings__collapsible-bar {
     align-items: flex-start;
   }
 }

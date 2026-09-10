@@ -2,16 +2,17 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { NovelAiImageService } from '../app/service';
 import { MODEL_IDS, SAMPLERS, SCHEDULES, type CharacterBindings, type Settings } from '../settings/schema';
 import { requestPromptPresetName } from './prompt-preset-dialog';
+import CollapsibleSection from './CollapsibleSection';
 import {
-    addCharacter,
-    createSettingsEditorModel,
-    deleteSelectedPromptPreset,
-    editSettings,
-    removeCharacter,
-    savePromptPreset as savePromptPresetSettings,
-    saveSettings,
-    scheduleSettingsSave,
-    toggleCharacterBinding,
+  addCharacter,
+  createSettingsEditorModel,
+  deleteSelectedPromptPreset,
+  editSettings,
+  removeCharacter,
+  savePromptPreset as savePromptPresetSettings,
+  saveSettings,
+  scheduleSettingsSave,
+  toggleCharacterBinding,
 } from './settings-model';
 
 type Tab = 'general' | 'templates' | 'image' | 'characters';
@@ -63,7 +64,9 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
   const [draft, setDraft] = useState(initial.draft);
   const [tab, setTab] = useState<Tab>('general');
   const [expandedCharacterIds, setExpandedCharacterIds] = useState<Record<string, boolean>>({});
-  const [templateExpanded, setTemplateExpanded] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [promptModelOpen, setPromptModelOpen] = useState(false);
+  const [generationAdvancedOpen, setGenerationAdvancedOpen] = useState(false);
   const [status, setStatus] = useState('正在检查 imggen-novelai…');
   const [error, setError] = useState('');
   // Event currentTarget is cleared after the handler returns, so handlers must capture values before calling edit.
@@ -124,6 +127,17 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
   const template = draft.analysis.templates;
   const promptPresetNames = Object.keys(draft.generation.promptPresets.items);
   const promptPreset = draft.generation.promptPresets.items[draft.generation.promptPresets.selected]!;
+  const promptModelSummary = [
+    draft.analysis.proxyPreset.trim() ? `代理预设：${draft.analysis.proxyPreset.trim()}` : '未设置代理预设',
+    draft.analysis.model.trim() ? `模型：${draft.analysis.model.trim()}` : '使用默认模型',
+  ].join(' · ');
+  const generationAdvancedSummary = [
+    `${draft.generation.steps} 步`,
+    `CFG ${draft.generation.scale}`,
+    draft.generation.sampler,
+    draft.generation.schedule,
+    draft.generation.seed === null ? '随机种子' : `种子 ${draft.generation.seed}`,
+  ].join(' · ');
 
   return (
     <div className="nai-settings">
@@ -200,8 +214,13 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 />
               </div>
             </section>
-            <section>
-              <h4>提示词模型</h4>
+            <CollapsibleSection
+              title="提示词模型"
+              hint={promptModelSummary}
+              contentId="nai-prompt-model-details"
+              open={promptModelOpen}
+              onOpenChange={setPromptModelOpen}
+            >
               <p className="nai-settings__hint">代理预设优先；留空时使用 OpenAI-compatible API。</p>
               <Field label="代理预设">
                 <input
@@ -253,55 +272,41 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                   onChange={value => edit(next => void (next.analysis.maxTokens = value))}
                 />
               </div>
-            </section>
+            </CollapsibleSection>
           </>
         )}
 
         {tab === 'templates' && (
-          <section>
-            <h4>模型分流模板</h4>
-            <div className="nai-settings__collapsible-heading">
-              <p className="nai-settings__hint">按当前生图模型自动选择 V4.5 或 V5 规则。</p>
-              <button
-                type="button"
-                className="menu_button"
-                aria-expanded={templateExpanded}
-                onClick={() => setTemplateExpanded(current => !current)}
-              >
-                {templateExpanded ? '收起模板' : '展开模板'}
-                <i
-                  className={['fa-solid', templateExpanded ? 'fa-chevron-up' : 'fa-chevron-down'].join(' ')}
-                  aria-hidden="true"
-                ></i>
-              </button>
-            </div>
-            {templateExpanded && (
-              <div className="nai-settings__collapsible-body">
-                <Field label="V4.5 模板" hint="通常使用 Danbooru 标签串，自然语言理解较差。">
-                  <textarea
-                    className="text_pole"
-                    rows={12}
-                    value={template.v45}
-                    onChange={event => {
-                      const value = event.currentTarget.value;
-                      edit(next => void (next.analysis.templates.v45 = value));
-                    }}
-                  />
-                </Field>
-                <Field label="V5 模板" hint="可使用自然语言、中文、标签或混合表达。">
-                  <textarea
-                    className="text_pole"
-                    rows={12}
-                    value={template.v5}
-                    onChange={event => {
-                      const value = event.currentTarget.value;
-                      edit(next => void (next.analysis.templates.v5 = value));
-                    }}
-                  />
-                </Field>
-              </div>
-            )}
-          </section>
+          <CollapsibleSection
+            title="模型分流模板"
+            hint="按当前生图模型自动选择 V4.5 或 V5 规则。"
+            contentId="nai-model-template-details"
+            open={templateOpen}
+            onOpenChange={setTemplateOpen}
+          >
+            <Field label="V4.5 模板" hint="通常使用 Danbooru 标签串，自然语言理解较差。">
+              <textarea
+                className="text_pole"
+                rows={12}
+                value={template.v45}
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.analysis.templates.v45 = value));
+                }}
+              />
+            </Field>
+            <Field label="V5 模板" hint="可使用自然语言、中文、标签或混合表达。">
+              <textarea
+                className="text_pole"
+                rows={12}
+                value={template.v5}
+                onChange={event => {
+                  const value = event.currentTarget.value;
+                  edit(next => void (next.analysis.templates.v5 = value));
+                }}
+              />
+            </Field>
+          </CollapsibleSection>
         )}
 
         {tab === 'image' && (
@@ -338,69 +343,79 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 step={64}
                 onChange={value => edit(next => void (next.generation.height = value))}
               />
-              <NumberField
-                label="步数"
-                value={draft.generation.steps}
-                min={1}
-                max={50}
-                onChange={value => edit(next => void (next.generation.steps = value))}
-              />
-              <NumberField
-                label="CFG Scale"
-                value={draft.generation.scale}
-                min={0}
-                max={10}
-                step={0.1}
-                onChange={value => edit(next => void (next.generation.scale = value))}
-              />
-              <NumberField
-                label="超时毫秒"
-                value={draft.generation.timeoutMs}
-                min={10000}
-                max={180000}
-                step={1000}
-                onChange={value => edit(next => void (next.generation.timeoutMs = value))}
-              />
-              <Field label="采样器">
-                <select
-                  className="text_pole"
-                  value={draft.generation.sampler}
-                  onChange={event => {
-                    const value = event.currentTarget.value as Settings['generation']['sampler'];
-                    edit(next => void (next.generation.sampler = value));
-                  }}
-                >
-                  {SAMPLERS.map(sampler => (
-                    <option key={sampler}>{sampler}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="噪声调度">
-                <select
-                  className="text_pole"
-                  value={draft.generation.schedule}
-                  onChange={event => {
-                    const value = event.currentTarget.value as Settings['generation']['schedule'];
-                    edit(next => void (next.generation.schedule = value));
-                  }}
-                >
-                  {SCHEDULES.map(schedule => (
-                    <option key={schedule}>{schedule}</option>
-                  ))}
-                </select>
-              </Field>
             </div>
-            <Field label="种子" hint="留空表示随机">
-              <input
-                className="text_pole"
-                type="number"
-                value={draft.generation.seed ?? ''}
-                onChange={event => {
-                  const value = event.currentTarget.value;
-                  edit(next => void (next.generation.seed = value ? Number(value) : null));
-                }}
-              />
-            </Field>
+            <CollapsibleSection
+              title="高级生成参数"
+              hint={generationAdvancedSummary}
+              contentId="nai-generation-advanced-details"
+              open={generationAdvancedOpen}
+              onOpenChange={setGenerationAdvancedOpen}
+            >
+              <div className="nai-settings__grid">
+                <NumberField
+                  label="步数"
+                  value={draft.generation.steps}
+                  min={1}
+                  max={50}
+                  onChange={value => edit(next => void (next.generation.steps = value))}
+                />
+                <NumberField
+                  label="CFG Scale"
+                  value={draft.generation.scale}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  onChange={value => edit(next => void (next.generation.scale = value))}
+                />
+                <NumberField
+                  label="超时毫秒"
+                  value={draft.generation.timeoutMs}
+                  min={10000}
+                  max={180000}
+                  step={1000}
+                  onChange={value => edit(next => void (next.generation.timeoutMs = value))}
+                />
+                <Field label="采样器">
+                  <select
+                    className="text_pole"
+                    value={draft.generation.sampler}
+                    onChange={event => {
+                      const value = event.currentTarget.value as Settings['generation']['sampler'];
+                      edit(next => void (next.generation.sampler = value));
+                    }}
+                  >
+                    {SAMPLERS.map(sampler => (
+                      <option key={sampler}>{sampler}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="噪声调度">
+                  <select
+                    className="text_pole"
+                    value={draft.generation.schedule}
+                    onChange={event => {
+                      const value = event.currentTarget.value as Settings['generation']['schedule'];
+                      edit(next => void (next.generation.schedule = value));
+                    }}
+                  >
+                    {SCHEDULES.map(schedule => (
+                      <option key={schedule}>{schedule}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <Field label="种子" hint="留空表示随机">
+                <input
+                  className="text_pole"
+                  type="number"
+                  value={draft.generation.seed ?? ''}
+                  onChange={event => {
+                    const value = event.currentTarget.value;
+                    edit(next => void (next.generation.seed = value ? Number(value) : null));
+                  }}
+                />
+              </Field>
+            </CollapsibleSection>
             <div className="nai-settings__prompt-presets">
               <div className="nai-settings__section-heading">
                 <div>
@@ -517,19 +532,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 .map(kind => (kind === 'character' ? '角色卡' : kind === 'chat' ? '聊天' : '人设'));
 
               return (
-                <article
-                  className={['nai-character', expanded ? 'is-expanded' : ''].filter(Boolean).join(' ')}
+                <CollapsibleSection
+                  className="nai-character"
                   key={character.id}
-                >
-                  <button
-                    type="button"
-                    className="nai-character__toggle"
-                    aria-controls={detailsId}
-                    aria-expanded={expanded}
-                    onClick={() =>
-                      setExpandedCharacterIds(current => ({ ...current, [character.id]: !current[character.id] }))
-                    }
-                  >
+                  title={
                     <span className="nai-character__summary">
                       <strong>{character.name.trim() || `人物 ${index + 1}`}</strong>
                       <span
@@ -543,91 +549,85 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                         {bindingLabels.length > 0 ? `绑定：${bindingLabels.join('、')}` : '全局生效'}
                       </span>
                     </span>
-                    <span className="nai-character__toggle-state">
-                      {expanded ? '收起' : '展开'}
-                      <i
-                        className={['fa-solid', expanded ? 'fa-chevron-up' : 'fa-chevron-down'].join(' ')}
-                        aria-hidden="true"
-                      ></i>
-                    </span>
-                  </button>
-
-                  {expanded && (
-                    <div id={detailsId} className="nai-character__details">
-                      <div className="nai-settings__section-heading">
-                        <Check
-                          label={`人物 ${index + 1}`}
-                          checked={character.enabled}
-                          onChange={value => edit(next => void (next.characters[index]!.enabled = value))}
-                        />
-                        <button
-                          type="button"
-                          className="menu_button"
-                          onClick={() => setDraft(removeCharacter(draft, character.id))}
-                        >
-                          删除
-                        </button>
-                      </div>
-                      <Field label="名称">
-                        <input
-                          className="text_pole"
-                          value={character.name}
-                          onChange={event => {
-                            const value = event.currentTarget.value;
-                            edit(next => void (next.characters[index]!.name = value));
-                          }}
-                        />
-                      </Field>
-                      <Field label="提示内容" hint="可以是自然语言、标签或两者混合；模型将其作为参考而非逐字复制。">
-                        <textarea
-                          className="text_pole"
-                          rows={4}
-                          value={character.content}
-                          onChange={event => {
-                            const value = event.currentTarget.value;
-                            edit(next => void (next.characters[index]!.content = value));
-                          }}
-                        />
-                      </Field>
-                      <Field label="避免内容">
-                        <textarea
-                          className="text_pole"
-                          rows={2}
-                          value={character.negative}
-                          onChange={event => {
-                            const value = event.currentTarget.value;
-                            edit(next => void (next.characters[index]!.negative = value));
-                          }}
-                        />
-                      </Field>
-                      <div className="nai-settings__bindings">
-                        {(['character', 'chat', 'persona'] as const).map(kind => {
-                          const bound = character.bindings[kind];
-                          const label = kind === 'character' ? '角色卡' : kind === 'chat' ? '聊天' : '人设';
-                          return (
-                            <button
-                              key={kind}
-                              type="button"
-                              className={`menu_button ${bound ? 'is-active' : ''}`}
-                              onClick={() =>
-                                runAction(() =>
-                                  toggleCharacterBinding(
-                                    draft,
-                                    character.id,
-                                    kind as keyof CharacterBindings,
-                                    initial.context,
-                                  ),
-                                )
-                              }
-                            >
-                              {bound ? `${label}: ${bound.label}` : `绑定当前${label}`}
-                            </button>
-                          );
-                        })}
-                      </div>
+                  }
+                  contentId={detailsId}
+                  open={expanded}
+                  onOpenChange={open => setExpandedCharacterIds(current => ({ ...current, [character.id]: open }))}
+                >
+                  <div className="nai-character__details">
+                    <div className="nai-settings__section-heading">
+                      <Check
+                        label={`人物 ${index + 1}`}
+                        checked={character.enabled}
+                        onChange={value => edit(next => void (next.characters[index]!.enabled = value))}
+                      />
+                      <button
+                        type="button"
+                        className="menu_button"
+                        onClick={() => setDraft(removeCharacter(draft, character.id))}
+                      >
+                        删除
+                      </button>
                     </div>
-                  )}
-                </article>
+                    <Field label="名称">
+                      <input
+                        className="text_pole"
+                        value={character.name}
+                        onChange={event => {
+                          const value = event.currentTarget.value;
+                          edit(next => void (next.characters[index]!.name = value));
+                        }}
+                      />
+                    </Field>
+                    <Field label="提示内容" hint="可以是自然语言、标签或两者混合；模型将其作为参考而非逐字复制。">
+                      <textarea
+                        className="text_pole"
+                        rows={4}
+                        value={character.content}
+                        onChange={event => {
+                          const value = event.currentTarget.value;
+                          edit(next => void (next.characters[index]!.content = value));
+                        }}
+                      />
+                    </Field>
+                    <Field label="避免内容">
+                      <textarea
+                        className="text_pole"
+                        rows={2}
+                        value={character.negative}
+                        onChange={event => {
+                          const value = event.currentTarget.value;
+                          edit(next => void (next.characters[index]!.negative = value));
+                        }}
+                      />
+                    </Field>
+                    <div className="nai-settings__bindings">
+                      {(['character', 'chat', 'persona'] as const).map(kind => {
+                        const bound = character.bindings[kind];
+                        const label = kind === 'character' ? '角色卡' : kind === 'chat' ? '聊天' : '人设';
+                        return (
+                          <button
+                            key={kind}
+                            type="button"
+                            className={`menu_button ${bound ? 'is-active' : ''}`}
+                            onClick={() =>
+                              runAction(() =>
+                                toggleCharacterBinding(
+                                  draft,
+                                  character.id,
+                                  kind as keyof CharacterBindings,
+                                  initial.context,
+                                ),
+                              )
+                            }
+                          >
+                            {bound ? `${label}: ${bound.label}` : `绑定当前${label}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </CollapsibleSection>
               );
             })}
           </section>
