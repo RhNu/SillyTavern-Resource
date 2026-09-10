@@ -24,10 +24,11 @@ export function openSettings(service: NovelAiImageService): void {
     if (!closed) void popup.completeCancelled();
   };
   closeActivePopup = close;
-  root.render(createElement(SettingsPanel, { service, onClose: close }));
+  root.render(createElement(SettingsPanel, { service }));
 
   void popup.show().finally(() => {
     closed = true;
+    service.settings.flush();
     if (closeActivePopup === close) closeActivePopup = undefined;
     root.unmount();
     $host.remove();

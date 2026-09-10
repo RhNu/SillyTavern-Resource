@@ -40,20 +40,17 @@
   white-space: nowrap;
 }
 
-.nai-image-card__meta,
-.nai-settings__hint {
+.nai-image-card__meta {
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
   font-size: 0.86em;
 }
 
-.nai-image-card__error,
-.nai-settings__status.is-error {
+.nai-image-card__error {
   color: var(--SmartThemeEmColor, #d66);
   white-space: pre-wrap;
 }
 
 .nai-image-card__actions,
-.nai-settings__actions,
 .nai-image-editor__actions {
   display: flex;
   flex-wrap: wrap;
@@ -98,6 +95,104 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.nai-settings__header {
+  align-items: flex-start;
+}
+
+.nai-settings__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.nai-settings__title-row > h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nai-settings__header-status,
+.nai-settings__title-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.nai-settings .th-help-marker {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  padding: 0;
+  border: 0;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 68%, transparent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.nai-settings .th-help-marker:hover,
+.nai-settings .th-help-marker:focus-visible {
+  color: var(--SmartThemeQuoteColor);
+}
+
+.nai-settings .th-help-marker:focus-visible {
+  outline: 2px solid var(--SmartThemeQuoteColor);
+  outline-offset: 2px;
+}
+
+.nai-settings__header-status {
+  flex: 0 0 auto;
+}
+
+.nai-settings__section-heading--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.nai-settings__version-badge,
+.nai-settings__badge,
+.nai-character__badge {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0.15rem 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor) 72%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 88%, transparent);
+  font-size: 0.78em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.nai-settings__version-badge {
+  background: color-mix(in srgb, var(--SmartThemeQuoteColor) 16%, transparent);
+}
+
+.nai-settings__status-dot {
+  display: inline-block;
+  width: 0.62rem;
+  height: 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 35%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 0.35rem currentColor;
+}
+
+.nai-settings__status-dot.is-ready {
+  color: #55d889;
+  background: #55d889;
+}
+
+.nai-settings__status-dot.is-error {
+  color: #ef6a6a;
+  background: #ef6a6a;
 }
 
 .nai-settings__tabs {
@@ -185,15 +280,6 @@
   white-space: nowrap;
 }
 
-.nai-settings__collapsible-hint {
-  min-width: 0;
-  overflow: hidden;
-  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
-  font-size: 0.86em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .nai-settings__collapsible-bar > i {
   flex: 0 0 auto;
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
@@ -217,20 +303,37 @@
   gap: 0.2rem;
 }
 
-.nai-settings__field > span {
+.nai-settings__field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
   font-size: 0.9em;
   text-align: left;
 }
 
 .nai-settings__check {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+  color: inherit;
+  text-align: left;
 }
 
-.nai-settings__field small {
-  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 66%, transparent);
+.nai-settings__check span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nai-settings__checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 1rem;
+  width: min(100%, 32rem);
 }
 
 .nai-settings__grid {
@@ -249,11 +352,6 @@
 
 .nai-settings__inline .text_pole {
   flex: 1 1 14rem;
-}
-
-.nai-settings__actions .nai-settings__hint {
-  align-self: center;
-  margin-right: auto;
 }
 
 .nai-settings__collapsible-body,
@@ -308,36 +406,30 @@
 }
 
 .nai-character__summary > strong {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.nai-character__status,
-.nai-character__bindings-summary {
-  padding: 0.15rem 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor) 70%, transparent);
-  border-radius: 999px;
-  font-size: 0.78em;
-  line-height: 1.25;
+.nai-character__badge {
+  flex: 0 0 auto;
 }
 
-.nai-character__status {
-  background: color-mix(in srgb, var(--SmartThemeQuoteColor) 18%, transparent);
-}
-
-.nai-character__status.is-muted {
+.nai-character__badge.is-muted {
   opacity: 0.62;
   background: transparent;
 }
 
-.nai-character__bindings-summary {
-  flex: 1 1 auto;
+.nai-settings__badge-label {
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 66%, transparent);
+}
+
+.nai-settings__badge-value {
   min-width: 0;
+  max-width: 16rem;
   overflow: hidden;
-  max-width: 24rem;
-  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 72%, transparent);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -348,18 +440,22 @@
   padding-top: 0.15rem;
 }
 
-.nai-settings__context,
+.nai-settings__context-badges,
 .nai-settings__empty {
   margin: 0;
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
 }
 
-.nai-settings__error {
-  max-height: 10rem;
-  margin: 0;
-  overflow: auto;
-  color: var(--SmartThemeEmColor, #d66);
-  white-space: pre-wrap;
+.nai-settings__context-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-start;
+}
+
+.nai-settings__context-badge {
+  max-width: 100%;
+  gap: 0.3rem;
 }
 
 .nai-settings textarea,
@@ -372,6 +468,10 @@
   .nai-settings__tabs,
   .nai-settings__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nai-settings__checks {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .nai-settings__header,

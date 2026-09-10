@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { HelpMarker } from '@util/components/HelpMarker';
 import type { NovelAiImageService } from '../app/service';
 import { MODEL_IDS, SAMPLERS, SCHEDULES, type CharacterBindings, type Settings } from '../settings/schema';
 import { requestPromptPresetName } from './prompt-preset-dialog';
@@ -10,28 +11,48 @@ import {
   editSettings,
   removeCharacter,
   savePromptPreset as savePromptPresetSettings,
-  saveSettings,
   scheduleSettingsSave,
   toggleCharacterBinding,
 } from './settings-model';
 
 type Tab = 'general' | 'templates' | 'image' | 'characters';
 
-function Field(props: { label: string; hint?: string; children: ReactNode }) {
+type FieldHelp = {
+  title: string;
+  text: string;
+};
+
+type BackendStatus = {
+  version?: string;
+  ready: boolean;
+  detail: string;
+};
+
+function getErrorMessage(reason: unknown): string {
+  return reason instanceof Error ? reason.message : String(reason);
+}
+
+function showSettingsError(reason: unknown): void {
+  toastr.error(getErrorMessage(reason), 'NovelAI 图片助手');
+}
+
+function Field(props: { label: string; help?: FieldHelp; children: ReactNode }) {
   return (
-    <label className="nai-settings__field">
-      <span>{props.label}</span>
+    <div className="nai-settings__field">
+      <div className="nai-settings__field-label">
+        <span>{props.label}</span>
+        {props.help && <HelpMarker title={props.help.title} text={props.help.text} />}
+      </div>
       {props.children}
-      {props.hint && <small>{props.hint}</small>}
-    </label>
+    </div>
   );
 }
 
 function Check(props: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <label className="nai-settings__check">
-      <span>{props.label}</span>
       <input type="checkbox" checked={props.checked} onChange={event => props.onChange(event.currentTarget.checked)} />
+      <span>{props.label}</span>
     </label>
   );
 }
@@ -59,7 +80,7 @@ function NumberField(props: {
   );
 }
 
-export default function SettingsPanel(props: { service: NovelAiImageService; onClose: () => void }) {
+export default function SettingsPanel(props: { service: NovelAiImageService }) {
   const initial = useMemo(() => createSettingsEditorModel(props.service), [props.service]);
   const [draft, setDraft] = useState(initial.draft);
   const [tab, setTab] = useState<Tab>('general');
@@ -67,8 +88,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
   const [templateOpen, setTemplateOpen] = useState(false);
   const [promptModelOpen, setPromptModelOpen] = useState(false);
   const [generationAdvancedOpen, setGenerationAdvancedOpen] = useState(false);
-  const [status, setStatus] = useState('正在检查 imggen-novelai…');
-  const [error, setError] = useState('');
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>({
+    ready: false,
+    detail: '正在检查 imggen-novelai 后端。',
+  });
   // Event currentTarget is cleared after the handler returns, so handlers must capture values before calling edit.
   const edit = (recipe: (next: Settings) => void) => setDraft(current => editSettings(current, recipe));
 
@@ -77,10 +100,19 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
     void props.service.backend
       .capabilities()
       .then(result => {
-        if (active) setStatus(`插件 ${result.version} · ${result.configured ? 'Token 已配置' : 'Token 未配置'}`);
+        if (!active) return;
+        setBackendStatus({
+          version: result.version,
+          ready: result.configured,
+          detail: result.configured
+            ? 'imggen-novelai 后端连接正常，且服务端已配置 NOVELAI_TOKEN。'
+            : '已连接 imggen-novelai 后端，但服务端未配置 NOVELAI_TOKEN。',
+        });
       })
       .catch(reason => {
-        if (active) setStatus(reason instanceof Error ? reason.message : String(reason));
+        if (active) {
+          setBackendStatus({ ready: false, detail: `无法连接 imggen-novelai 后端：${getErrorMessage(reason)}` });
+        }
       });
     return () => {
       active = false;
@@ -94,19 +126,8 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
   const runAction = (action: () => Settings) => {
     try {
       setDraft(action());
-      setError('');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    }
-  };
-
-  const save = () => {
-    try {
-      saveSettings(props.service, draft);
-      toastr.success('设置已保存', 'NovelAI 图片助手');
-      props.onClose();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      showSettingsError(reason);
     }
   };
 
@@ -117,34 +138,29 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
 
       const next = savePromptPresetSettings(draft, rawName);
       setDraft(next);
-      setError('');
       toastr.success(`已另存为提示词预设“${rawName.trim()}”`, 'NovelAI 图片助手');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      showSettingsError(reason);
     }
   };
 
   const template = draft.analysis.templates;
   const promptPresetNames = Object.keys(draft.generation.promptPresets.items);
   const promptPreset = draft.generation.promptPresets.items[draft.generation.promptPresets.selected]!;
-  const promptModelSummary = [
-    draft.analysis.proxyPreset.trim() ? `代理预设：${draft.analysis.proxyPreset.trim()}` : '未设置代理预设',
-    draft.analysis.model.trim() ? `模型：${draft.analysis.model.trim()}` : '使用默认模型',
-  ].join(' · ');
-  const generationAdvancedSummary = [
-    `${draft.generation.steps} 步`,
-    `CFG ${draft.generation.scale}`,
-    draft.generation.sampler,
-    draft.generation.schedule,
-    draft.generation.seed === null ? '随机种子' : `种子 ${draft.generation.seed}`,
-  ].join(' · ');
 
   return (
     <div className="nai-settings">
       <header className="nai-settings__header">
-        <div>
+        <div className="nai-settings__title-row">
           <h3>NovelAI 图片助手</h3>
-          <p>{status}</p>
+          <div className="nai-settings__header-status" aria-label="后端状态">
+            <span
+              className={['nai-settings__status-dot', backendStatus.ready ? 'is-ready' : 'is-error'].join(' ')}
+              aria-label={backendStatus.ready ? '后端正常' : '后端异常'}
+            ></span>
+            <span className="nai-settings__version-badge">v{backendStatus.version ?? '—'}</span>
+            <HelpMarker title="后端状态" text={backendStatus.detail} />
+          </div>
         </div>
       </header>
 
@@ -168,21 +184,23 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
           <>
             <section>
               <h4>自动化</h4>
-              <Check
-                label="启用脚本"
-                checked={draft.enabled}
-                onChange={value => edit(next => void (next.enabled = value))}
-              />
-              <Check
-                label="自动分析新消息"
-                checked={draft.analysis.auto}
-                onChange={value => edit(next => void (next.analysis.auto = value))}
-              />
-              <Check
-                label="分析后自动生图"
-                checked={draft.analysis.autoGenerate}
-                onChange={value => edit(next => void (next.analysis.autoGenerate = value))}
-              />
+              <div className="nai-settings__checks">
+                <Check
+                  label="启用脚本"
+                  checked={draft.enabled}
+                  onChange={value => edit(next => void (next.enabled = value))}
+                />
+                <Check
+                  label="自动分析新消息"
+                  checked={draft.analysis.auto}
+                  onChange={value => edit(next => void (next.analysis.auto = value))}
+                />
+                <Check
+                  label="分析后自动生图"
+                  checked={draft.analysis.autoGenerate}
+                  onChange={value => edit(next => void (next.analysis.autoGenerate = value))}
+                />
+              </div>
               <div className="nai-settings__grid">
                 <NumberField
                   label="最低楼层"
@@ -216,12 +234,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
             </section>
             <CollapsibleSection
               title="提示词模型"
-              hint={promptModelSummary}
               contentId="nai-prompt-model-details"
               open={promptModelOpen}
               onOpenChange={setPromptModelOpen}
             >
-              <p className="nai-settings__hint">代理预设优先；留空时使用 OpenAI-compatible API。</p>
               <Field label="代理预设">
                 <input
                   className="text_pole"
@@ -279,12 +295,14 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
         {tab === 'templates' && (
           <CollapsibleSection
             title="模型分流模板"
-            hint="按当前生图模型自动选择 V4.5 或 V5 规则。"
             contentId="nai-model-template-details"
             open={templateOpen}
             onOpenChange={setTemplateOpen}
           >
-            <Field label="V4.5 模板" hint="通常使用 Danbooru 标签串，自然语言理解较差。">
+            <Field
+              label="V4.5 模板"
+              help={{ title: 'V4.5 模板说明', text: '通常使用 Danbooru 标签串；当前生图模型为 V4.5 时使用。' }}
+            >
               <textarea
                 className="text_pole"
                 rows={12}
@@ -295,7 +313,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 }}
               />
             </Field>
-            <Field label="V5 模板" hint="可使用自然语言、中文、标签或混合表达。">
+            <Field
+              label="V5 模板"
+              help={{ title: 'V5 模板说明', text: '可使用自然语言、中文、标签或混合表达；当前生图模型为 V5 时使用。' }}
+            >
               <textarea
                 className="text_pole"
                 rows={12}
@@ -346,7 +367,6 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
             </div>
             <CollapsibleSection
               title="高级生成参数"
-              hint={generationAdvancedSummary}
               contentId="nai-generation-advanced-details"
               open={generationAdvancedOpen}
               onOpenChange={setGenerationAdvancedOpen}
@@ -404,7 +424,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                   </select>
                 </Field>
               </div>
-              <Field label="种子" hint="留空表示随机">
+              <Field label="种子" help={{ title: '种子说明', text: '留空表示每次随机生成。' }}>
                 <input
                   className="text_pole"
                   type="number"
@@ -417,10 +437,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
               </Field>
             </CollapsibleSection>
             <div className="nai-settings__prompt-presets">
-              <div className="nai-settings__section-heading">
-                <div>
+              <div className="nai-settings__section-heading nai-settings__section-heading--center">
+                <div className="nai-settings__title-with-help">
                   <h4>提示词预设</h4>
-                  <p className="nai-settings__hint">切换预设会同时切换主提示词前缀、后缀和全局负面提示词。</p>
+                  <HelpMarker title="提示词预设说明" text="切换预设会同时切换主提示词前缀、后缀和全局负面提示词。" />
                 </div>
               </div>
               <div className="nai-settings__grid nai-settings__preset-selector">
@@ -502,9 +522,9 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
         {tab === 'characters' && (
           <section>
             <div className="nai-settings__section-heading">
-              <div>
+              <div className="nai-settings__title-with-help">
                 <h4>人物参考库</h4>
-                <p className="nai-settings__hint">未绑定的条目全局生效；多个绑定条件必须同时匹配。</p>
+                <HelpMarker title="人物参考库说明" text="未绑定的条目全局生效；绑定多个条件时必须同时匹配。" />
               </div>
               <button
                 type="button"
@@ -519,10 +539,20 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 新增人物
               </button>
             </div>
-            <p className="nai-settings__context">
-              当前：角色卡 {initial.context.character?.label ?? '无'} · 聊天 {initial.context.chat?.label ?? '无'} ·
-              人设 {initial.context.persona?.label ?? '无'}
-            </p>
+            <div className="nai-settings__context-badges" aria-label="当前绑定上下文">
+              {(
+                [
+                  ['角色卡', initial.context.character?.label ?? '无'],
+                  ['聊天', initial.context.chat?.label ?? '无'],
+                  ['人设', initial.context.persona?.label ?? '无'],
+                ] as const
+              ).map(([kind, value]) => (
+                <span className="nai-settings__badge nai-settings__context-badge" key={kind}>
+                  <span className="nai-settings__badge-label">{kind}</span>
+                  <span className="nai-settings__badge-value">{value}</span>
+                </span>
+              ))}
+            </div>
             {draft.characters.length === 0 && <p className="nai-settings__empty">还没有人物参考。</p>}
             {draft.characters.map((character, index) => {
               const expanded = Boolean(expandedCharacterIds[character.id]);
@@ -539,15 +569,21 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                     <span className="nai-character__summary">
                       <strong>{character.name.trim() || `人物 ${index + 1}`}</strong>
                       <span
-                        className={['nai-character__status', character.enabled ? '' : 'is-muted']
+                        className={['nai-character__badge', character.enabled ? '' : 'is-muted']
                           .filter(Boolean)
                           .join(' ')}
                       >
-                        {character.enabled ? '已启用' : '已停用'}
+                        {character.enabled ? '启用' : '停用'}
                       </span>
-                      <span className="nai-character__bindings-summary">
-                        {bindingLabels.length > 0 ? `绑定：${bindingLabels.join('、')}` : '全局生效'}
-                      </span>
+                      {bindingLabels.length > 0 ? (
+                        bindingLabels.map(label => (
+                          <span className="nai-character__badge" key={label}>
+                            {label}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="nai-character__badge">全局</span>
+                      )}
                     </span>
                   }
                   contentId={detailsId}
@@ -557,7 +593,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                   <div className="nai-character__details">
                     <div className="nai-settings__section-heading">
                       <Check
-                        label={`人物 ${index + 1}`}
+                        label="启用"
                         checked={character.enabled}
                         onChange={value => edit(next => void (next.characters[index]!.enabled = value))}
                       />
@@ -579,7 +615,13 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                         }}
                       />
                     </Field>
-                    <Field label="提示内容" hint="可以是自然语言、标签或两者混合；模型将其作为参考而非逐字复制。">
+                    <Field
+                      label="提示内容"
+                      help={{
+                        title: '提示内容说明',
+                        text: '可以使用自然语言、标签或两者混合；模型会将其作为参考，而不是逐字复制。',
+                      }}
+                    >
                       <textarea
                         className="text_pole"
                         rows={4}
@@ -633,24 +675,6 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
           </section>
         )}
       </main>
-
-      {error && <pre className="nai-settings__error">{error}</pre>}
-      <footer className="nai-settings__actions">
-        <span className="nai-settings__hint">更改会自动保存</span>
-        <button
-          type="button"
-          className="menu_button menu_button_cancel"
-          onClick={() => {
-            props.service.settings.flush();
-            props.onClose();
-          }}
-        >
-          关闭
-        </button>
-        <button type="button" className="menu_button" onClick={save}>
-          保存并关闭
-        </button>
-      </footer>
     </div>
   );
 }
