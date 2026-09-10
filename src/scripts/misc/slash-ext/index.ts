@@ -1,4 +1,4 @@
-import { isSlashCommandArgumentTrue, slashCommand, slashCommandArgumentTypes } from '@util/slash-command';
+import { slashCommand, slashCommandArgumentTypes } from '@util/slash-command';
 
 /**
  * Hides messages in the current chat from the specified start ID to the end ID.
@@ -16,11 +16,11 @@ function init() {
     .aliases('ha', 'hideall')
     .help('隐藏所有消息')
     .named('jump', '跳转到最后一条消息', slashCommandArgumentTypes.bool, { defaultValue: false })
-    .callback(async args => {
+    .callback(async ({ named }) => {
       const lastMessageId = getLastMessageId();
       console.log(`Hiding all messages up to ID ${lastMessageId}`);
       await hideRange(0, lastMessageId);
-      if (isSlashCommandArgumentTrue(args.jump)) {
+      if (named.jump) {
         await triggerSlash(`/chat-jump ${lastMessageId}`);
       }
     })
