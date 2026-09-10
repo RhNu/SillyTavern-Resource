@@ -26,12 +26,57 @@ export const PromptAnalysisResponseSchema = z.strictObject({
   insertions: z.array(PromptInsertionSchema).max(8),
 });
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Keep the wire schema to the common subset accepted by OpenAI function tools
+ * and Gemini's OpenAI-compatible FunctionDeclaration. Zod remains the source
+ * of truth for validating the returned tool arguments locally.
+ */
+function toCrossProviderToolSchema(value: unknown): Record<string, unknown> {
+  if (!isJsonObject(value)) {
+    return {};
+  }
+
+  const result: Record<string, unknown> = {};
+
+  if (typeof value.type === 'string') {
+    result.type = value.type;
+  }
+
+  if (typeof value.description === 'string') {
+    result.description = value.description;
+  }
+
+  if (Array.isArray(value.enum) && value.enum.every(item => typeof item === 'string')) {
+    result.enum = value.enum;
+  }
+
+  if (isJsonObject(value.properties)) {
+    result.properties = Object.fromEntries(
+      Object.entries(value.properties).map(([name, property]) => [name, toCrossProviderToolSchema(property)]),
+    );
+  }
+
+  if (Array.isArray(value.required) && value.required.every(item => typeof item === 'string')) {
+    result.required = value.required;
+  }
+
+  if (isJsonObject(value.items)) {
+    result.items = toCrossProviderToolSchema(value.items);
+  }
+
+  return result;
+}
+
 export type PromptBundle = z.infer<typeof PromptBundleSchema>;
 export type PromptInsertion = z.infer<typeof PromptInsertionSchema>;
 export type PromptAnalysisResponse = z.infer<typeof PromptAnalysisResponseSchema>;
 
 export function promptAnalysisJsonSchema(): Record<string, any> {
-  return z.toJSONSchema(PromptAnalysisResponseSchema) as Record<string, any>;
+  return toCrossProviderToolSchema(z.toJSONSchema(PromptAnalysisResponseSchema));
 }
 
 export function joinPromptParts(...parts: string[]): string {

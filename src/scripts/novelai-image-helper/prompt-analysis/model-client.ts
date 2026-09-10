@@ -52,12 +52,10 @@ export class PromptModelClient {
               name: 'submit_image_analysis',
               description: 'Submit the selected illustration points and their NovelAI prompts.',
               inputSchema: promptAnalysisJsonSchema(),
-              strict: true,
             },
           ],
           toolChoice: { type: 'tool', name: 'submit_image_analysis' },
           parameters: { maxOutputTokens: settings.analysis.maxTokens },
-          providerOptions: { llmRequester: { parallel_tool_calls: false } },
         },
         controller.signal,
       );
