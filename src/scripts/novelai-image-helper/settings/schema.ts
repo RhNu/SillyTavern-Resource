@@ -50,22 +50,28 @@ const PromptTemplateSchema = z.strictObject({
   v5: z.string().trim().min(1),
 });
 
-const PromptTemplateCollectionSchema = z
+const GenerationPromptPresetSchema = z.strictObject({
+  prefix: z.string(),
+  suffix: z.string(),
+  negative: z.string(),
+});
+
+const GenerationPromptPresetCollectionSchema = z
   .strictObject({
     selected: z.string().trim().min(1),
-    items: z.record(z.string(), PromptTemplateSchema),
+    items: z.record(z.string(), GenerationPromptPresetSchema),
   })
   .superRefine((value, context) => {
     if (!(value.selected in value.items)) {
-      context.addIssue({ code: 'custom', path: ['selected'], message: '选中的提示词模板不存在' });
+      context.addIssue({ code: 'custom', path: ['selected'], message: '选中的提示词预设不存在' });
     }
     if (Object.keys(value.items).length === 0) {
-      context.addIssue({ code: 'custom', path: ['items'], message: '至少需要保留一个提示词模板' });
+      context.addIssue({ code: 'custom', path: ['items'], message: '至少需要保留一个提示词预设' });
     }
   });
 
 export const SettingsSchema = z.strictObject({
-  schemaVersion: z.literal(2),
+  schemaVersion: z.literal(3),
   enabled: z.boolean(),
   analysis: z.strictObject({
     auto: z.boolean(),
@@ -79,7 +85,7 @@ export const SettingsSchema = z.strictObject({
     apiKey: z.string(),
     model: z.string(),
     maxTokens: z.number().int().min(256).max(32_000),
-    templates: PromptTemplateCollectionSchema,
+    templates: PromptTemplateSchema,
   }),
   generation: z.strictObject({
     model: ModelSchema,
@@ -90,9 +96,7 @@ export const SettingsSchema = z.strictObject({
     sampler: SamplerSchema,
     schedule: z.enum(SCHEDULES),
     seed: z.number().int().min(1).max(9_999_999_999).nullable(),
-    prefix: z.string(),
-    suffix: z.string(),
-    negative: z.string(),
+    promptPresets: GenerationPromptPresetCollectionSchema,
     timeoutMs: z.number().int().min(10_000).max(180_000),
   }),
   characters: z.array(CharacterLibraryEntrySchema).max(100),
@@ -100,11 +104,12 @@ export const SettingsSchema = z.strictObject({
 
 export type Settings = z.infer<typeof SettingsSchema>;
 export type PromptTemplate = z.infer<typeof PromptTemplateSchema>;
+export type GenerationPromptPreset = z.infer<typeof GenerationPromptPresetSchema>;
 export type CharacterLibraryEntry = z.infer<typeof CharacterLibraryEntrySchema>;
 export type CharacterBindings = z.infer<typeof CharacterBindingsSchema>;
 export type BindingRef = z.infer<typeof BindingRefSchema>;
 
-export const DEFAULT_TEMPLATE_NAME = 'NovelAI 官方模型';
+export const DEFAULT_GENERATION_PROMPT_PRESET_NAME = 'NovelAI 默认';
 
 export const DEFAULT_PROMPT_TEMPLATE: PromptTemplate = {
   v45: `You create prompts for NovelAI Diffusion V4.5. Its natural-language comprehension is limited, so every generated prompt must be a compact Danbooru tag string.
@@ -153,8 +158,14 @@ Continuity:
 - Reconcile guidance with the latest story: current clothing, transformations, injuries, emotion, and staging take precedence where appropriate.`,
 };
 
+export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
+  prefix: '',
+  suffix: '',
+  negative: 'lowres, bad anatomy, bad hands, text, watermark',
+};
+
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   enabled: true,
   analysis: {
     auto: false,
@@ -168,7 +179,7 @@ export const DEFAULT_SETTINGS: Settings = {
     apiKey: '',
     model: '',
     maxTokens: 4_096,
-    templates: { selected: DEFAULT_TEMPLATE_NAME, items: { [DEFAULT_TEMPLATE_NAME]: DEFAULT_PROMPT_TEMPLATE } },
+    templates: DEFAULT_PROMPT_TEMPLATE,
   },
   generation: {
     model: 'nai-diffusion-5-curated',
@@ -179,16 +190,76 @@ export const DEFAULT_SETTINGS: Settings = {
     sampler: 'k_euler_ancestral',
     schedule: 'karras',
     seed: null,
-    prefix: '',
-    suffix: '',
-    negative: 'lowres, bad anatomy, bad hands, text, watermark',
+    promptPresets: {
+      selected: DEFAULT_GENERATION_PROMPT_PRESET_NAME,
+      items: { [DEFAULT_GENERATION_PROMPT_PRESET_NAME]: DEFAULT_GENERATION_PROMPT_PRESET },
+    },
     timeoutMs: 130_000,
   },
   characters: [],
 };
 
-/** Settings v2 is intentionally a clean break: invalid or older data is discarded. */
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function omitKeys(source: UnknownRecord, keys: readonly string[]): UnknownRecord {
+  const result = { ...source };
+  keys.forEach(key => delete result[key]);
+  return result;
+}
+
+function readRequiredString(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim() ? value : fallback;
+}
+
+function readOptionalString(value: unknown, fallback: string): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+/** Preserve the selected v2 template and generation prompt fields when adopting the v3 shape. */
+function migrateV2Settings(value: unknown): unknown {
+  if (!isRecord(value) || value.schemaVersion !== 2) return value;
+
+  const sourceAnalysis = isRecord(value.analysis) ? value.analysis : {};
+  const sourceTemplates = isRecord(sourceAnalysis.templates) ? sourceAnalysis.templates : {};
+  const sourceTemplateItems = isRecord(sourceTemplates.items) ? sourceTemplates.items : {};
+  const selectedTemplateName = typeof sourceTemplates.selected === 'string' ? sourceTemplates.selected : '';
+  const sourceTemplate =
+    (isRecord(sourceTemplateItems[selectedTemplateName]) ? sourceTemplateItems[selectedTemplateName] : undefined) ??
+    Object.values(sourceTemplateItems).find(isRecord) ??
+    {};
+  const sourceGeneration = isRecord(value.generation) ? value.generation : {};
+
+  return {
+    ...value,
+    schemaVersion: 3,
+    analysis: {
+      ...omitKeys(sourceAnalysis, ['templates']),
+      templates: {
+        v45: readRequiredString(sourceTemplate.v45, DEFAULT_PROMPT_TEMPLATE.v45),
+        v5: readRequiredString(sourceTemplate.v5, DEFAULT_PROMPT_TEMPLATE.v5),
+      },
+    },
+    generation: {
+      ...omitKeys(sourceGeneration, ['prefix', 'suffix', 'negative']),
+      promptPresets: {
+        selected: DEFAULT_GENERATION_PROMPT_PRESET_NAME,
+        items: {
+          [DEFAULT_GENERATION_PROMPT_PRESET_NAME]: {
+            prefix: readOptionalString(sourceGeneration.prefix, DEFAULT_GENERATION_PROMPT_PRESET.prefix),
+            suffix: readOptionalString(sourceGeneration.suffix, DEFAULT_GENERATION_PROMPT_PRESET.suffix),
+            negative: readOptionalString(sourceGeneration.negative, DEFAULT_GENERATION_PROMPT_PRESET.negative),
+          },
+        },
+      },
+    },
+  };
+}
+
 export function normalizeSettings(value: unknown): Settings {
-  const parsed = SettingsSchema.safeParse(value);
+  const parsed = SettingsSchema.safeParse(migrateV2Settings(value));
   return parsed.success ? parsed.data : structuredClone(DEFAULT_SETTINGS);
 }

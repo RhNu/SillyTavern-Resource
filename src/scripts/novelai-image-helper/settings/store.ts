@@ -1,5 +1,5 @@
 import { createScriptSettingsSync, type ScriptSettingsSync } from '@util/script-settings';
-import { DEFAULT_SETTINGS, SettingsSchema, normalizeSettings, type Settings } from './schema';
+import { DEFAULT_SETTINGS, normalizeSettings, type Settings } from './schema';
 
 const SETTINGS_STORE_KEY = 'novelaiImageHelper';
 
@@ -7,7 +7,7 @@ function createSettingsSync(): ScriptSettingsSync<Settings> {
   return createScriptSettingsSync({
     key: SETTINGS_STORE_KEY,
     legacyPaths: [`${SETTINGS_STORE_KEY}.settings`],
-    parse: value => SettingsSchema.parse(value),
+    parse: value => normalizeSettings(value),
     defaultValue: () => structuredClone(DEFAULT_SETTINGS),
     debounceMs: 500,
   });

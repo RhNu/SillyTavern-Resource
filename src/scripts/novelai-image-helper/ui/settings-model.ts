@@ -3,9 +3,9 @@ import type { NovelAiImageService } from '../app/service';
 import { getCurrentBindingContext, type BindingContext } from '../platform/tavern/binding-context';
 import {
   CharacterBindingsSchema,
-  DEFAULT_PROMPT_TEMPLATE,
   SettingsSchema,
   type CharacterBindings,
+  type GenerationPromptPreset,
   type Settings,
 } from '../settings/schema';
 
@@ -24,28 +24,31 @@ export function editSettings(current: Settings, recipe: (draft: Settings) => voi
   return draft;
 }
 
-export function addTemplate(settings: Settings, rawName: string): Settings {
+function getSelectedPromptPreset(settings: Settings): GenerationPromptPreset {
+  const selected = settings.generation.promptPresets.items[settings.generation.promptPresets.selected];
+  if (!selected) throw new Error(`提示词预设不存在: ${settings.generation.promptPresets.selected}`);
+  return selected;
+}
+
+export function savePromptPreset(settings: Settings, rawName: string): Settings {
   const name = rawName.trim();
-  if (!name) throw new Error('模板名称不能为空');
-  if (settings.analysis.templates.items[name]) throw new Error(`模板“${name}”已经存在`);
+  if (!name) throw new Error('提示词预设名称不能为空');
+  if (settings.generation.promptPresets.items[name]) throw new Error(`提示词预设“${name}”已经存在`);
+  const current = getSelectedPromptPreset(settings);
+
   return editSettings(settings, draft => {
-    draft.analysis.templates.items[name] = structuredClone(DEFAULT_PROMPT_TEMPLATE);
-    draft.analysis.templates.selected = name;
+    draft.generation.promptPresets.items[name] = structuredClone(current);
+    draft.generation.promptPresets.selected = name;
   });
 }
 
-export function deleteSelectedTemplate(settings: Settings): Settings {
-  const names = Object.keys(settings.analysis.templates.items);
-  if (names.length <= 1) throw new Error('至少需要保留一个提示词模板');
-  return editSettings(settings, draft => {
-    delete draft.analysis.templates.items[draft.analysis.templates.selected];
-    draft.analysis.templates.selected = Object.keys(draft.analysis.templates.items)[0]!;
-  });
-}
+export function deleteSelectedPromptPreset(settings: Settings): Settings {
+  const names = Object.keys(settings.generation.promptPresets.items);
+  if (names.length <= 1) throw new Error('至少需要保留一个提示词预设');
 
-export function restoreSelectedTemplate(settings: Settings): Settings {
   return editSettings(settings, draft => {
-    draft.analysis.templates.items[draft.analysis.templates.selected] = structuredClone(DEFAULT_PROMPT_TEMPLATE);
+    delete draft.generation.promptPresets.items[draft.generation.promptPresets.selected];
+    draft.generation.promptPresets.selected = Object.keys(draft.generation.promptPresets.items)[0]!;
   });
 }
 

@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { NovelAiImageService } from '../app/service';
 import { MODEL_IDS, SAMPLERS, SCHEDULES, type CharacterBindings, type Settings } from '../settings/schema';
+import { requestPromptPresetName } from './prompt-preset-dialog';
 import {
-  addCharacter,
-  addTemplate,
-  createSettingsEditorModel,
-  deleteSelectedTemplate,
-  editSettings,
-  removeCharacter,
-  restoreSelectedTemplate,
-  saveSettings,
-  scheduleSettingsSave,
-  toggleCharacterBinding,
+    addCharacter,
+    createSettingsEditorModel,
+    deleteSelectedPromptPreset,
+    editSettings,
+    removeCharacter,
+    savePromptPreset as savePromptPresetSettings,
+    saveSettings,
+    scheduleSettingsSave,
+    toggleCharacterBinding,
 } from './settings-model';
 
 type Tab = 'general' | 'templates' | 'image' | 'characters';
@@ -63,7 +63,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
   const [draft, setDraft] = useState(initial.draft);
   const [tab, setTab] = useState<Tab>('general');
   const [expandedCharacterIds, setExpandedCharacterIds] = useState<Record<string, boolean>>({});
-  const [newTemplateName, setNewTemplateName] = useState('');
+  const [templateExpanded, setTemplateExpanded] = useState(false);
   const [status, setStatus] = useState('正在检查 imggen-novelai…');
   const [error, setError] = useState('');
   // Event currentTarget is cleared after the handler returns, so handlers must capture values before calling edit.
@@ -107,7 +107,23 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
     }
   };
 
-  const template = draft.analysis.templates.items[draft.analysis.templates.selected]!;
+  const savePromptPresetAs = async () => {
+    try {
+      const rawName = await requestPromptPresetName();
+      if (rawName === undefined) return;
+
+      const next = savePromptPresetSettings(draft, rawName);
+      setDraft(next);
+      setError('');
+      toastr.success(`已另存为提示词预设“${rawName.trim()}”`, 'NovelAI 图片助手');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const template = draft.analysis.templates;
+  const promptPresetNames = Object.keys(draft.generation.promptPresets.items);
+  const promptPreset = draft.generation.promptPresets.items[draft.generation.promptPresets.selected]!;
 
   return (
     <div className="nai-settings">
@@ -122,7 +138,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
         {(
           [
             ['general', '工作流'],
-            ['templates', '提示词模板'],
+            ['templates', '提示词'],
             ['image', '图像生成'],
             ['characters', '人物库'],
           ] as const
@@ -244,72 +260,47 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
         {tab === 'templates' && (
           <section>
             <h4>模型分流模板</h4>
-            <p className="nai-settings__hint">系统会按当前生图模型自动选择 V4.5 或 V5 模板正文。</p>
-            <Field label="当前模板">
-              <select
-                className="text_pole"
-                value={draft.analysis.templates.selected}
-                onChange={event => {
-                  const value = event.currentTarget.value;
-                  edit(next => void (next.analysis.templates.selected = value));
-                }}
-              >
-                {Object.keys(draft.analysis.templates.items).map(name => (
-                  <option key={name}>{name}</option>
-                ))}
-              </select>
-            </Field>
-            <div className="nai-settings__inline">
-              <input
-                className="text_pole"
-                placeholder="新模板名称"
-                value={newTemplateName}
-                onChange={event => setNewTemplateName(event.currentTarget.value)}
-              />
+            <div className="nai-settings__collapsible-heading">
+              <p className="nai-settings__hint">按当前生图模型自动选择 V4.5 或 V5 规则。</p>
               <button
                 type="button"
                 className="menu_button"
-                onClick={() => runAction(() => addTemplate(draft, newTemplateName))}
+                aria-expanded={templateExpanded}
+                onClick={() => setTemplateExpanded(current => !current)}
               >
-                新增
-              </button>
-              <button
-                type="button"
-                className="menu_button"
-                onClick={() => runAction(() => deleteSelectedTemplate(draft))}
-              >
-                删除当前
-              </button>
-              <button
-                type="button"
-                className="menu_button"
-                onClick={() => runAction(() => restoreSelectedTemplate(draft))}
-              >
-                恢复官方内容
+                {templateExpanded ? '收起模板' : '展开模板'}
+                <i
+                  className={['fa-solid', templateExpanded ? 'fa-chevron-up' : 'fa-chevron-down'].join(' ')}
+                  aria-hidden="true"
+                ></i>
               </button>
             </div>
-            <Field label="V4.5 核心模板" hint="建议只要求小写 Danbooru 标签串；不要依赖自然语言理解。">
-              <textarea
-                className="text_pole"
-                rows={12}
-                value={template.v45}
-                onChange={event => {
-                  const value = event.currentTarget.value;
-                  edit(next => void (next.analysis.templates.items[next.analysis.templates.selected]!.v45 = value));
-                }}
-              />
-            </Field>
-            <Field label="V5 核心模板" hint="可使用自然语言、中文、标签或混合表达。">
-              <textarea
-                className="text_pole"
-                rows={12}
-                value={template.v5}
-                onChange={event => {
-                  const value = event.currentTarget.value;
-                  edit(next => void (next.analysis.templates.items[next.analysis.templates.selected]!.v5 = value));
-                }}
-              />
-            </Field>
+            {templateExpanded && (
+              <div className="nai-settings__collapsible-body">
+                <Field label="V4.5 模板" hint="通常使用 Danbooru 标签串，自然语言理解较差。">
+                  <textarea
+                    className="text_pole"
+                    rows={12}
+                    value={template.v45}
+                    onChange={event => {
+                      const value = event.currentTarget.value;
+                      edit(next => void (next.analysis.templates.v45 = value));
+                    }}
+                  />
+                </Field>
+                <Field label="V5 模板" hint="可使用自然语言、中文、标签或混合表达。">
+                  <textarea
+                    className="text_pole"
+                    rows={12}
+                    value={template.v5}
+                    onChange={event => {
+                      const value = event.currentTarget.value;
+                      edit(next => void (next.analysis.templates.v5 = value));
+                    }}
+                  />
+                </Field>
+              </div>
+            )}
           </section>
         )}
 
@@ -399,7 +390,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 </select>
               </Field>
             </div>
-            <Field label="Seed" hint="留空表示随机">
+            <Field label="种子" hint="留空表示随机">
               <input
                 className="text_pole"
                 type="number"
@@ -410,39 +401,86 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 }}
               />
             </Field>
-            <Field label="主提示词前缀">
-              <textarea
-                className="text_pole"
-                rows={2}
-                value={draft.generation.prefix}
-                onChange={event => {
-                  const value = event.currentTarget.value;
-                  edit(next => void (next.generation.prefix = value));
-                }}
-              />
-            </Field>
-            <Field label="主提示词后缀">
-              <textarea
-                className="text_pole"
-                rows={2}
-                value={draft.generation.suffix}
-                onChange={event => {
-                  const value = event.currentTarget.value;
-                  edit(next => void (next.generation.suffix = value));
-                }}
-              />
-            </Field>
-            <Field label="全局负面提示词">
-              <textarea
-                className="text_pole"
-                rows={3}
-                value={draft.generation.negative}
-                onChange={event => {
-                  const value = event.currentTarget.value;
-                  edit(next => void (next.generation.negative = value));
-                }}
-              />
-            </Field>
+            <div className="nai-settings__prompt-presets">
+              <div className="nai-settings__section-heading">
+                <div>
+                  <h4>提示词预设</h4>
+                  <p className="nai-settings__hint">切换预设会同时切换主提示词前缀、后缀和全局负面提示词。</p>
+                </div>
+              </div>
+              <div className="nai-settings__grid nai-settings__preset-selector">
+                <Field label="当前预设">
+                  <select
+                    className="text_pole"
+                    value={draft.generation.promptPresets.selected}
+                    onChange={event => {
+                      const value = event.currentTarget.value;
+                      edit(next => void (next.generation.promptPresets.selected = value));
+                    }}
+                  >
+                    {promptPresetNames.map(name => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <div className="nai-settings__preset-actions">
+                  <button type="button" className="menu_button" onClick={() => void savePromptPresetAs()}>
+                    另存为预设
+                  </button>
+                  <button
+                    type="button"
+                    className="menu_button"
+                    onClick={() => runAction(() => deleteSelectedPromptPreset(draft))}
+                  >
+                    删除当前预设
+                  </button>
+                </div>
+              </div>
+              <Field label="主提示词前缀">
+                <textarea
+                  className="text_pole"
+                  rows={2}
+                  value={promptPreset.prefix}
+                  onChange={event => {
+                    const value = event.currentTarget.value;
+                    edit(next => {
+                      const current = next.generation.promptPresets.items[next.generation.promptPresets.selected];
+                      if (current) current.prefix = value;
+                    });
+                  }}
+                />
+              </Field>
+              <Field label="主提示词后缀">
+                <textarea
+                  className="text_pole"
+                  rows={2}
+                  value={promptPreset.suffix}
+                  onChange={event => {
+                    const value = event.currentTarget.value;
+                    edit(next => {
+                      const current = next.generation.promptPresets.items[next.generation.promptPresets.selected];
+                      if (current) current.suffix = value;
+                    });
+                  }}
+                />
+              </Field>
+              <Field label="全局负面提示词">
+                <textarea
+                  className="text_pole"
+                  rows={3}
+                  value={promptPreset.negative}
+                  onChange={event => {
+                    const value = event.currentTarget.value;
+                    edit(next => {
+                      const current = next.generation.promptPresets.items[next.generation.promptPresets.selected];
+                      if (current) current.negative = value;
+                    });
+                  }}
+                />
+              </Field>
+            </div>
           </section>
         )}
 

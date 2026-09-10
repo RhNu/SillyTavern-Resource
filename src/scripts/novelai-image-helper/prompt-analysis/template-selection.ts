@@ -7,7 +7,5 @@ export function imageModelFamily(model: Settings['generation']['model']): ImageM
 }
 
 export function resolveSelectedTemplate(settings: Settings): string {
-  const selected = settings.analysis.templates.items[settings.analysis.templates.selected];
-  if (!selected) throw new Error(`提示词模板不存在: ${settings.analysis.templates.selected}`);
-  return selected[imageModelFamily(settings.generation.model)];
+  return settings.analysis.templates[imageModelFamily(settings.generation.model)];
 }

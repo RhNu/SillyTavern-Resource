@@ -87,11 +87,20 @@
 }
 
 .nai-settings__header,
-.nai-settings__section-heading {
+.nai-settings__section-heading,
+.nai-settings__collapsible-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.nai-settings__collapsible-heading > .nai-settings__hint {
+  flex: 1 1 auto;
+}
+
+.nai-settings__collapsible-heading .menu_button {
+  flex: 0 0 auto;
 }
 
 .nai-settings__tabs {
@@ -167,7 +176,8 @@
 }
 
 .nai-settings__inline,
-.nai-settings__bindings {
+.nai-settings__bindings,
+.nai-settings__preset-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
@@ -180,6 +190,31 @@
 .nai-settings__actions .nai-settings__hint {
   align-self: center;
   margin-right: auto;
+}
+
+.nai-settings__collapsible-body,
+.nai-settings__prompt-presets {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.nai-settings__collapsible-body {
+  padding-top: 0.15rem;
+}
+
+.nai-settings__prompt-presets {
+  margin-top: 0.15rem;
+  padding: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor) 75%, transparent);
+  border-radius: 0.55rem;
+}
+
+.nai-settings__preset-selector {
+  align-items: end;
+}
+
+.nai-settings__preset-actions {
+  align-items: end;
 }
 
 .nai-character {
@@ -288,6 +323,7 @@
 
   .nai-settings__header,
   .nai-settings__section-heading,
+  .nai-settings__collapsible-heading,
   .nai-character__toggle {
     align-items: flex-start;
   }
