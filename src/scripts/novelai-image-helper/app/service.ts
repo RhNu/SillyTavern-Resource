@@ -1,6 +1,12 @@
 import { matchAnchors } from '../domain/anchor';
 import type { ImageBlock } from '../domain/block';
-import { GenerationQueue, type GenerationQueueOptions } from '../image-generation/queue';
+import {
+  BLOCKS_CHANGED_EVENT,
+  GenerationQueue,
+  type GenerationQueueOptions,
+  type QueueEnqueueResult,
+  type QueueSnapshot,
+} from '../image-generation/queue';
 import { commitAnalysis } from '../message-blocks/commit-analysis';
 import { MessageBlockRepository } from '../message-blocks/repository';
 import { buildHistory, buildWorldbook, paragraphTexts } from '../prompt-analysis/context';
@@ -106,7 +112,7 @@ export class NovelAiImageService {
         repository: this.repository,
       });
       if (generateAfterAnalysis) blocks.forEach(block => this.queue.enqueue(messageId, block.id));
-      void eventEmit('novelai_image_helper_blocks_changed', messageId);
+      void eventEmit(BLOCKS_CHANGED_EVENT, messageId);
       return blocks;
     } finally {
       this.activeAnalysis = undefined;
@@ -121,8 +127,43 @@ export class NovelAiImageService {
     throw new Error('当前聊天没有可分析的 AI 消息');
   }
 
-  generate(messageId: number, blockId: string): boolean {
+  generate(messageId: number, blockId: string): QueueEnqueueResult {
     return this.queue.enqueue(messageId, blockId);
+  }
+
+  getQueueSnapshot(): QueueSnapshot {
+    return this.queue.snapshot();
+  }
+
+  pauseQueue(): void {
+    this.queue.pause();
+  }
+
+  resumeQueue(): void {
+    this.queue.resume();
+  }
+
+  /** 取消全部排队与执行中的任务。 */
+  cancelQueue(): number {
+    return this.queue.cancelAll();
+  }
+
+  /**
+   * 重新入队当前聊天里所有可重试的失败图片块。
+   * 只处理正文里仍有锚点的块，避免重试已经被用户删掉的图片位。
+   */
+  retryFailedBlocks(): { enqueued: number; skipped: number } {
+    let enqueued = 0;
+    let skipped = 0;
+    getChatMessages('0-{{lastMessageId}}').forEach(message => {
+      const anchorIds = new Set(matchAnchors(message.message).map(anchor => anchor.id));
+      Object.values(this.repository.read(message.message_id).blocks).forEach(block => {
+        if (block.status !== 'failed' || block.error?.retryable === false || !anchorIds.has(block.id)) return;
+        if (this.queue.enqueue(message.message_id, block.id).ok) enqueued += 1;
+        else skipped += 1;
+      });
+    });
+    return { enqueued, skipped };
   }
 
   cancelAnalysis(): void {

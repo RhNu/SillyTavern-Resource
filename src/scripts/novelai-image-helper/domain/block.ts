@@ -3,6 +3,9 @@ import { PromptBundleSchema, type PromptBundle } from './prompt';
 
 export const BlockStatusSchema = z.enum(['prepared', 'draft', 'queued', 'generating', 'uploading', 'ready', 'failed']);
 
+/** 生图流水线的阶段。`INTERRUPTED` 这类系统级中断不带阶段。 */
+export const BlockFailureStageSchema = z.enum(['validate', 'generate', 'upload', 'commit']);
+
 export const ImageOutputSchema = z.strictObject({
   url: z.string().trim().min(1),
   seed: z.number().int().positive(),
@@ -24,12 +27,15 @@ export const ImageBlockSchema = z.strictObject({
       code: z.string(),
       message: z.string(),
       retryable: z.boolean(),
+      stage: BlockFailureStageSchema.optional(),
+      attempts: z.number().int().positive().optional(),
     })
     .optional(),
 });
 
 export type ImageBlock = z.infer<typeof ImageBlockSchema>;
 export type BlockStatus = z.infer<typeof BlockStatusSchema>;
+export type BlockFailureStage = z.infer<typeof BlockFailureStageSchema>;
 
 export function createImageBlock(input: {
   id: string;

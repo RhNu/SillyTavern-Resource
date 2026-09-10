@@ -1,3 +1,5 @@
+import { RequestError } from '../request-error';
+
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   const chunkSize = 0x8000;
@@ -20,10 +22,18 @@ export async function uploadGeneratedImage(blob: Blob, signal?: AbortSignal): Pr
       filename: `novelai_${Date.now()}`,
     }),
   });
-  if (!response.ok) throw new Error(`上传图片失败 (${response.status})`);
+  if (!response.ok) {
+    throw new RequestError(`上传图片失败 (${response.status})`, {
+      statusCode: response.status,
+      code: 'UPLOAD_HTTP_ERROR',
+    });
+  }
   const payload = (await response.json()) as { path?: unknown; error?: unknown };
   if (typeof payload.path !== 'string' || !payload.path.trim()) {
-    throw new Error(typeof payload.error === 'string' ? payload.error : '上传成功但没有返回图片路径');
+    throw new RequestError(typeof payload.error === 'string' ? payload.error : '上传成功但没有返回图片路径', {
+      statusCode: response.status,
+      code: 'UPLOAD_INVALID_PAYLOAD',
+    });
   }
   return payload.path.trim();
 }

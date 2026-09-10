@@ -77,7 +77,7 @@ const GenerationPromptPresetCollectionSchema = z
   });
 
 export const SettingsSchema = z.strictObject({
-  schemaVersion: z.literal(6),
+  schemaVersion: z.literal(7),
   enabled: z.boolean(),
   analysis: z.strictObject({
     auto: z.boolean(),
@@ -106,7 +106,13 @@ export const SettingsSchema = z.strictObject({
     schedule: z.enum(SCHEDULES),
     seed: z.number().int().min(1).max(9_999_999_999).nullable(),
     promptPresets: GenerationPromptPresetCollectionSchema,
+    /** 生成阶段超时；上传阶段由 uploadTimeoutMs 控制。 */
     timeoutMs: z.number().int().min(10_000).max(180_000),
+    /** 每个阶段的自动重试次数（首次尝试之外）。 */
+    retryCount: z.number().int().min(0).max(5),
+    /** 任务之间与重试之前的节流基准窗口，实际会在 ±25% 内抖动。 */
+    requestIntervalMs: z.number().int().min(0).max(30_000),
+    uploadTimeoutMs: z.number().int().min(5_000).max(120_000),
   }),
   characters: z.array(CharacterLibraryEntrySchema).max(100),
 });
@@ -175,7 +181,7 @@ export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 6,
+  schemaVersion: 7,
   enabled: true,
   analysis: {
     auto: false,
@@ -207,6 +213,9 @@ export const DEFAULT_SETTINGS: Settings = {
       items: { [DEFAULT_GENERATION_PROMPT_PRESET_NAME]: DEFAULT_GENERATION_PROMPT_PRESET },
     },
     timeoutMs: 130_000,
+    retryCount: 2,
+    requestIntervalMs: 4_000,
+    uploadTimeoutMs: 30_000,
   },
   characters: [],
 };
@@ -326,9 +335,25 @@ function migrateV5Settings(value: unknown): unknown {
   };
 }
 
+/** Add the queue throttle/retry controls; v6 retried nothing and paced nothing. */
+function migrateV6Settings(value: unknown): unknown {
+  if (!isRecord(value) || value.schemaVersion !== 6) return value;
+  const sourceGeneration = isRecord(value.generation) ? value.generation : {};
+  return {
+    ...value,
+    schemaVersion: 7,
+    generation: {
+      ...sourceGeneration,
+      retryCount: DEFAULT_SETTINGS.generation.retryCount,
+      requestIntervalMs: DEFAULT_SETTINGS.generation.requestIntervalMs,
+      uploadTimeoutMs: DEFAULT_SETTINGS.generation.uploadTimeoutMs,
+    },
+  };
+}
+
 export function normalizeSettings(value: unknown): Settings {
   const parsed = SettingsSchema.safeParse(
-    migrateV5Settings(migrateV4Settings(migrateV3Settings(migrateV2Settings(value)))),
+    migrateV6Settings(migrateV5Settings(migrateV4Settings(migrateV3Settings(migrateV2Settings(value))))),
   );
   return parsed.success ? parsed.data : structuredClone(DEFAULT_SETTINGS);
 }

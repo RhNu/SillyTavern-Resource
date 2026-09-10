@@ -20,8 +20,13 @@ export function buildGenerationNotificationBody(summary: GenerationQueueCompleti
   if (summary.failedCount > 0) parts.push(`${summary.failedCount} 个失败`);
   if (summary.cancelledCount > 0) parts.push(`${summary.cancelledCount} 个已取消`);
 
-  const detail = summary.failedCount === 1 && summary.failureMessages[0] ? `：${summary.failureMessages[0]}` : '';
-  return parts.length > 0 ? `生图队列结束，${parts.join('，')}${detail}` : '生图队列结束，没有可处理的图片任务';
+  const details: string[] = [];
+  if (summary.retriedCount > 0) details.push(`自动重试 ${summary.retriedCount} 次`);
+  if (summary.failedCount === 1 && summary.failureMessages[0]) details.push(summary.failureMessages[0]);
+
+  return parts.length > 0
+    ? `生图队列结束，${parts.join('，')}${details.length > 0 ? `（${details.join('；')}）` : ''}`
+    : '生图队列结束，没有可处理的图片任务';
 }
 
 function shouldNotify(summary: GenerationQueueCompletionSummary): boolean {

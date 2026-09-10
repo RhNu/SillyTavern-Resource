@@ -1,10 +1,11 @@
+import { teleportStyle } from '@util/script';
 import { matchAnchors } from '../domain/anchor';
+import { mountMessageCards } from '../ui/message-cards';
+import { mountQueueIndicator } from '../ui/queue-indicator';
+import { openSettings } from '../ui/settings';
+import '../ui/styles.css';
 import { initializeNovelAiImageNotifier } from './notifier';
 import { NovelAiImageService } from './service';
-import { mountMessageCards } from '../ui/message-cards';
-import { openSettings } from '../ui/settings';
-import { teleportStyle } from '@util/script';
-import '../ui/styles.css';
 
 const SCRIPT_NAME = 'NovelAI 图片助手';
 const ANALYZE_BUTTON = '分析并生成图片';
@@ -59,6 +60,7 @@ export function bootstrap(): { destroy: () => void } {
   service.recoverInterruptedBlocks();
   const style = teleportStyle();
   const cards = mountMessageCards(service);
+  const queueIndicator = mountQueueIndicator(service);
   const stops: Array<() => void> = [];
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
@@ -101,6 +103,11 @@ export function bootstrap(): { destroy: () => void } {
     analyzeMessage: (messageId: number, generate = false) => service.analyzeMessage(messageId, generate),
     generateBlock: (messageId: number, blockId: string) => service.generate(messageId, blockId),
     getBlock: (messageId: number, blockId: string) => service.repository.find(messageId, blockId),
+    getQueueSnapshot: () => service.getQueueSnapshot(),
+    pauseQueue: () => service.pauseQueue(),
+    resumeQueue: () => service.resumeQueue(),
+    cancelQueue: () => service.cancelQueue(),
+    retryFailedBlocks: () => service.retryFailedBlocks(),
   });
   ensurePromptFilter();
   void service.backend
@@ -115,6 +122,7 @@ export function bootstrap(): { destroy: () => void } {
     destroyed = true;
     if (debounceTimer) clearTimeout(debounceTimer);
     stops.forEach(stop => stop());
+    queueIndicator.destroy();
     cards.destroy();
     service.destroy();
     notifier.destroy();

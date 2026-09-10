@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { PromptBundle } from '../../domain/prompt';
 import { buildGenerateRequest } from '../../image-generation/build-request';
 import type { Settings } from '../../settings/schema';
+import { RequestError } from '../request-error';
 
 const BASE_URL = '/api/plugins/imggen-novelai/v1';
 
@@ -36,20 +37,22 @@ function headers(): Record<string, string> {
   return SillyTavern.getRequestHeaders() as Record<string, string>;
 }
 
-async function readError(response: Response): Promise<Error> {
+async function readError(response: Response): Promise<RequestError> {
+  const fallback = `图片后端请求失败 (${response.status})`;
   try {
     const payload = (await response.json()) as {
       error?: { code?: string; message?: string; issues?: Array<{ path: string; message: string }> };
       requestId?: string;
     };
     const details = payload.error?.issues?.map(issue => `${issue.path}: ${issue.message}`).join('；');
-    return new Error(
-      [payload.error?.code, payload.error?.message, details, payload.requestId && `request=${payload.requestId}`]
-        .filter(Boolean)
-        .join(' · ') || `图片后端请求失败 (${response.status})`,
-    );
+    const message = [payload.error?.message, details].filter(Boolean).join(' · ') || fallback;
+    return new RequestError(message, {
+      statusCode: response.status,
+      code: payload.error?.code,
+      requestId: payload.requestId,
+    });
   } catch {
-    return new Error(`图片后端请求失败 (${response.status})`);
+    return new RequestError(fallback, { statusCode: response.status });
   }
 }
 
@@ -73,11 +76,19 @@ export class NovelAiClient {
     });
     if (!response.ok) throw await readError(response);
     if (!response.headers.get('Content-Type')?.toLowerCase().startsWith('image/')) {
-      throw new Error('图片后端返回了非图片响应');
+      throw new RequestError('图片后端返回了非图片响应', {
+        statusCode: response.status,
+        code: 'NON_IMAGE_RESPONSE',
+      });
     }
 
     const seed = Number(response.headers.get('X-Imggen-Seed'));
-    if (!Number.isSafeInteger(seed) || seed <= 0) throw new Error('图片后端没有返回有效 seed');
+    if (!Number.isSafeInteger(seed) || seed <= 0) {
+      throw new RequestError('图片后端没有返回有效 seed', {
+        statusCode: response.status,
+        code: 'MISSING_SEED',
+      });
+    }
     return {
       blob: await response.blob(),
       seed,

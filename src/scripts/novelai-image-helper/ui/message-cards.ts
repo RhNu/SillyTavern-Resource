@@ -1,11 +1,28 @@
 import { matchAnchors } from '../domain/anchor';
 import { PromptBundleSchema } from '../domain/prompt';
-import { BLOCKS_CHANGED_EVENT } from '../image-generation/queue';
+import { BLOCKS_CHANGED_EVENT, type QueueSnapshot, type QueueTaskView } from '../image-generation/queue';
 import type { NovelAiImageService } from '../app/service';
 
 const CARD_CLASS = 'nai-image-card';
 const EVENT_NAMESPACE = '.novelaiImageHelper';
+const TITLE = 'NovelAI 图片助手';
 type OutputViewState = { count: number; index: number };
+
+const STATUS_LABELS: Record<string, string> = {
+  prepared: '正在写入',
+  draft: '等待生成',
+  queued: '已排队',
+  generating: '生成中',
+  uploading: '上传中',
+  ready: '已完成',
+  failed: '失败',
+};
+
+const ENQUEUE_FAILURE_MESSAGES: Record<string, string> = {
+  duplicate: '这个图片块已经在队列里了',
+  missing: '图片块已不存在，无法生成',
+  destroyed: '脚本已卸载，无法生成',
+};
 
 function outputStateKey(messageId: number, blockId: string): string {
   return `${messageId}:${blockId}`;
@@ -27,18 +44,17 @@ function currentOutputIndex(
   return index;
 }
 
-function statusLabel(status: string): string {
-  return (
-    {
-      prepared: '正在写入',
-      draft: '等待生成',
-      queued: '已排队',
-      generating: '生成中',
-      uploading: '上传中',
-      ready: '已完成',
-      failed: '失败',
-    }[status] ?? status
-  );
+function statusLabel(status: string, task: QueueTaskView | undefined, throttled: boolean): string {
+  if (task && status === 'queued') {
+    if (task.attempt > 1) return `重试中 (${task.attempt}/${task.maxAttempts})`;
+    if (throttled) return '等待节流';
+  }
+  return STATUS_LABELS[status] ?? status;
+}
+
+function findTaskView(snapshot: QueueSnapshot, messageId: number, blockId: string): QueueTaskView | undefined {
+  if (snapshot.active?.messageId === messageId && snapshot.active.blockId === blockId) return snapshot.active;
+  return snapshot.pending.find(task => task.messageId === messageId && task.blockId === blockId);
 }
 
 function findAnchorNode(root: HTMLElement, anchor: string): Text | undefined {
@@ -69,6 +85,7 @@ function renderCard(
   blockId: string,
   $card: JQuery<HTMLElement>,
   outputViews: Map<string, OutputViewState>,
+  snapshot: QueueSnapshot,
 ) {
   const block = service.repository.find(messageId, blockId);
   if (!block) {
@@ -76,6 +93,8 @@ function renderCard(
     return;
   }
 
+  const task = findTaskView(snapshot, messageId, blockId);
+  const label = statusLabel(block.status, task, snapshot.nextDispatchAt > Date.now());
   const outputIndex = currentOutputIndex(outputViews, messageId, blockId, block.outputs.length);
   const output = outputIndex >= 0 ? block.outputs[outputIndex] : undefined;
   const title = block.summary || block.prompt.main.positive;
@@ -88,7 +107,7 @@ function renderCard(
   if (output) {
     $card.append($('<img class="nai-image-card__image">').attr({ src: encodeURI(output.url), alt: title }));
   } else {
-    $card.append($('<div class="nai-image-card__placeholder">').text(statusLabel(block.status)));
+    $card.append($('<div class="nai-image-card__placeholder">').text(label));
   }
   if (block.outputs.length > 1) {
     const $gallery = $('<div class="nai-image-card__gallery" role="list" aria-label="已生成图片">');
@@ -112,7 +131,7 @@ function renderCard(
       .append($('<div class="nai-image-card__title">').text(title))
       .append(
         $('<div class="nai-image-card__meta">').text(
-          `${statusLabel(block.status)} · ${block.prompt.characters.length} 个角色${
+          `${label} · ${block.prompt.characters.length} 个角色${
             output ? ` · 图片 ${outputIndex + 1}/${block.outputs.length} · seed ${output.seed}` : ''
           }`,
         ),
@@ -123,8 +142,8 @@ function renderCard(
           .append($('<button type="button" class="menu_button" data-action="edit">').text('编辑提示词'))
           .append(
             $('<button type="button" class="menu_button" data-action="generate">')
-              .prop('disabled', service.queue.isActive(messageId, blockId) || block.status === 'queued')
-              .text(output ? '再生成' : '生成'),
+              .prop('disabled', service.queue.isBusy(messageId, blockId))
+              .text(block.status === 'failed' ? '重试' : output ? '再生成' : '生成'),
           ),
       ),
   );
@@ -180,6 +199,7 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
   const mountedMessageIds = new Set<number>();
   const outputViews = new Map<string, OutputViewState>();
   const sync = () => {
+    const snapshot = service.getQueueSnapshot();
     $('#chat')
       .children(".mes[is_user='false'][is_system='false']")
       .each((_index, element) => {
@@ -208,7 +228,7 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
             $card = $(`<div class="${CARD_CLASS}">`) as JQuery<HTMLElement>;
             replaceAnchor(node, anchor.fullMatch, $card[0]);
           }
-          renderCard(service, messageId, anchor.id, $card, outputViews);
+          renderCard(service, messageId, anchor.id, $card, outputViews, snapshot);
           mountedMessageIds.add(messageId);
         });
       });
@@ -218,7 +238,8 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
   $chat.off(EVENT_NAMESPACE);
   $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="generate"]`, event => {
     const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
-    service.generate(Number($card.attr('data-message-id')), String($card.attr('data-block-id')));
+    const result = service.generate(Number($card.attr('data-message-id')), String($card.attr('data-block-id')));
+    if (!result.ok) toastr.info(ENQUEUE_FAILURE_MESSAGES[result.reason] ?? '无法加入生成队列', TITLE);
   });
   $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="edit"]`, event => {
     const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
@@ -243,11 +264,13 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
     eventOn(tavern_events.MORE_MESSAGES_LOADED, sync).stop,
     eventOn(BLOCKS_CHANGED_EVENT, sync).stop,
   ];
+  const unsubscribeQueue = service.queue.subscribe(sync);
   sync();
   return {
     sync,
     destroy: () => {
       stops.forEach(stop => stop());
+      unsubscribeQueue();
       $chat.off(EVENT_NAMESPACE);
       mountedMessageIds.forEach(messageId => void refreshOneMessage(messageId));
       mountedMessageIds.clear();

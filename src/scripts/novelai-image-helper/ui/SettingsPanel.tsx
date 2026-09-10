@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { HelpMarker } from '@util/components/HelpMarker';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { LlmCapabilities, LlmModel } from '../../../../util/llm-requester/contract';
 import type { NovelAiImageService } from '../app/service';
 import { MODEL_IDS, SAMPLERS, SCHEDULES, type CharacterBindings, type Settings } from '../settings/schema';
-import { requestPromptPresetName } from './prompt-preset-dialog';
 import CollapsibleSection from './CollapsibleSection';
 import { ContextCleanupFields } from './ContextCleanupFields';
+import { requestPromptPresetName } from './prompt-preset-dialog';
 import {
   addCharacter,
   createSettingsEditorModel,
@@ -543,12 +543,36 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
                   onChange={value => edit(next => void (next.generation.scale = value))}
                 />
                 <NumberField
-                  label="超时毫秒"
+                  label="生成超时毫秒"
                   value={draft.generation.timeoutMs}
                   min={10000}
                   max={180000}
                   step={1000}
                   onChange={value => edit(next => void (next.generation.timeoutMs = value))}
+                />
+                <NumberField
+                  label="上传超时毫秒"
+                  value={draft.generation.uploadTimeoutMs}
+                  min={5000}
+                  max={120000}
+                  step={1000}
+                  onChange={value => edit(next => void (next.generation.uploadTimeoutMs = value))}
+                />
+                <NumberField
+                  label="自动重试次数"
+                  value={draft.generation.retryCount}
+                  min={0}
+                  max={5}
+                  step={1}
+                  onChange={value => edit(next => void (next.generation.retryCount = value))}
+                />
+                <NumberField
+                  label="请求间隔毫秒"
+                  value={draft.generation.requestIntervalMs}
+                  min={0}
+                  max={30000}
+                  step={500}
+                  onChange={value => edit(next => void (next.generation.requestIntervalMs = value))}
                 />
                 <Field label="采样器">
                   <select
