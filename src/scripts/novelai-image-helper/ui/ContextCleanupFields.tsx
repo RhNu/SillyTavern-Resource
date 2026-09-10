@@ -4,13 +4,10 @@ import { diagnoseCleanupRules } from '../prompt-analysis/context-cleaner';
 import type { ContextCleanup } from '../settings/schema';
 
 function splitRules(value: string, commaSeparated = false): string[] {
-  return value
-    .split(/\r?\n/)
-    .flatMap(line => {
-      if (commaSeparated && !line.trimStart().toLowerCase().startsWith('regex:')) return line.split(',');
-      return [line];
-    })
-    .filter(rule => rule.trim().length > 0);
+  return value.split(/\r?\n/).flatMap(line => {
+    if (commaSeparated && !line.trimStart().toLowerCase().startsWith('regex:')) return line.split(',');
+    return [line];
+  });
 }
 
 function RuleField(props: {
