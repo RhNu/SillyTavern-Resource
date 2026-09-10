@@ -97,49 +97,40 @@ function renderCard(
     .attr('data-status', block.status)
     .empty();
 
+  const $viewport = $('<div class="nai-image-card__viewport">');
   if (output) {
-    $card.append($('<img class="nai-image-card__image">').attr({ src: encodeURI(output.url), alt: title }));
+    $viewport.append($('<img class="nai-image-card__image">').attr({ src: encodeURI(output.url), alt: title }));
   } else {
-    $card.append($('<div class="nai-image-card__placeholder">').text(label));
-  }
-  if (block.outputs.length > 1) {
-    const $gallery = $('<div class="nai-image-card__gallery" role="list" aria-label="已生成图片">');
-    block.outputs.forEach((item, index) => {
-      $gallery.append(
-        $('<button type="button" class="nai-image-card__thumbnail" data-action="output-select">')
-          .attr({
-            'data-output-index': String(index),
-            'aria-label': `查看第 ${index + 1} 张图片`,
-            'aria-pressed': String(index === outputIndex),
-            title: `第 ${index + 1} 张 · seed ${item.seed}`,
-          })
-          .toggleClass('is-active', index === outputIndex)
-          .append($('<img>').attr({ src: encodeURI(item.url), alt: `第 ${index + 1} 张图片` })),
-      );
-    });
-    $card.append($gallery);
-  }
-  $card.append(
-    $('<div class="nai-image-card__body">')
-      .append($('<div class="nai-image-card__title">').text(title))
-      .append(
-        $('<div class="nai-image-card__meta">').text(
-          `${label} · ${block.prompt.characters.length} 个角色${
-            output ? ` · 图片 ${outputIndex + 1}/${block.outputs.length} · seed ${output.seed}` : ''
-          }`,
-        ),
-      )
-      .append(block.error ? $('<div class="nai-image-card__error">').text(block.error.message) : $())
-      .append(
-        $('<div class="nai-image-card__actions">')
-          .append($('<button type="button" class="menu_button" data-action="edit">').text('编辑提示词'))
-          .append(
-            $('<button type="button" class="menu_button" data-action="generate">')
-              .prop('disabled', service.queue.isBusy(messageId, blockId))
-              .text(block.status === 'failed' ? '重试' : output ? '再生成' : '生成'),
-          ),
+    $viewport.append(
+      $('<div class="nai-image-card__placeholder">').text(
+        block.error ? `${label}：${block.error.message}` : `${label} · 点击右侧生成`,
       ),
-  );
+    );
+  }
+  const atFirstOutput = outputIndex <= 0;
+  const atLastOutput = outputIndex < 0 || outputIndex === block.outputs.length - 1;
+  $viewport
+    .append(
+      $('<button type="button" class="nai-image-card__hotspot nai-image-card__hotspot--left" data-action="previous">')
+        .attr({ 'aria-label': '上一张图片', title: '上一张图片' })
+        .prop('disabled', atFirstOutput),
+    )
+    .append(
+      $(
+        '<button type="button" class="nai-image-card__hotspot nai-image-card__hotspot--right" data-action="next-or-generate">',
+      )
+        .attr({
+          'aria-label': atLastOutput ? '生成新图片' : '下一张图片',
+          title: atLastOutput ? '生成新图片' : '下一张图片',
+        })
+        .prop('disabled', atLastOutput && service.queue.isBusy(messageId, blockId)),
+    )
+    .append(
+      $(
+        '<button type="button" class="nai-image-card__hotspot nai-image-card__hotspot--bottom" data-action="edit">',
+      ).attr({ 'aria-label': '编辑提示词', title: '编辑提示词' }),
+    );
+  $card.append($viewport);
 }
 
 function openEditor(service: NovelAiImageService, messageId: number, blockId: string): void {
@@ -318,13 +309,38 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
 
   const $chat = $('#chat');
   $chat.off(EVENT_NAMESPACE);
-  $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="generate"]`, event => {
+  $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="previous"]`, event => {
     try {
       const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
-      const result = service.generate(Number($card.attr('data-message-id')), String($card.attr('data-block-id')));
+      const messageId = Number($card.attr('data-message-id'));
+      const blockId = String($card.attr('data-block-id'));
+      const block = service.repository.find(messageId, blockId);
+      if (!block) return;
+      const index = currentOutputIndex(outputViews, messageId, blockId, block.outputs.length);
+      if (index <= 0) return;
+      outputViews.set(outputStateKey(messageId, blockId), { count: block.outputs.length, index: index - 1 });
+      renderCard(service, messageId, blockId, $card, outputViews, service.getQueueSnapshot());
+    } catch (error) {
+      logger.error('切换上一张图片失败', error);
+    }
+  });
+  $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="next-or-generate"]`, event => {
+    try {
+      const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
+      const messageId = Number($card.attr('data-message-id'));
+      const blockId = String($card.attr('data-block-id'));
+      const block = service.repository.find(messageId, blockId);
+      if (!block) return;
+      const index = currentOutputIndex(outputViews, messageId, blockId, block.outputs.length);
+      if (index >= 0 && index < block.outputs.length - 1) {
+        outputViews.set(outputStateKey(messageId, blockId), { count: block.outputs.length, index: index + 1 });
+        renderCard(service, messageId, blockId, $card, outputViews, service.getQueueSnapshot());
+        return;
+      }
+      const result = service.generate(messageId, blockId);
       if (!result.ok) toastr.info(ENQUEUE_FAILURE_MESSAGES[result.reason] ?? '无法加入生成队列', TITLE);
     } catch (error) {
-      logger.error('点击生成图片时发生异常', error);
+      logger.error('切换或生成下一张图片失败', error);
       toastr.error(error instanceof Error ? error.message : String(error), TITLE);
     }
   });
@@ -335,20 +351,6 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
     } catch (error) {
       logger.error('打开图片提示词编辑器失败', error);
       toastr.error(error instanceof Error ? error.message : String(error), TITLE);
-    }
-  });
-  $chat.on(`click${EVENT_NAMESPACE}`, `.${CARD_CLASS} [data-action="output-select"]`, event => {
-    try {
-      const $card = $(event.currentTarget).closest(`.${CARD_CLASS}`);
-      const messageId = Number($card.attr('data-message-id'));
-      const blockId = String($card.attr('data-block-id'));
-      const outputIndex = Number($(event.currentTarget).attr('data-output-index'));
-      const block = service.repository.find(messageId, blockId);
-      if (!block || !Number.isInteger(outputIndex) || outputIndex < 0 || outputIndex >= block.outputs.length) return;
-      outputViews.set(outputStateKey(messageId, blockId), { count: block.outputs.length, index: outputIndex });
-      renderCard(service, messageId, blockId, $card, outputViews, service.getQueueSnapshot());
-    } catch (error) {
-      logger.error('切换图片输出失败', error);
     }
   });
 

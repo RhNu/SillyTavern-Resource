@@ -6,6 +6,14 @@
 
 .nai-image-card {
   margin: 0.75rem 0;
+}
+
+.nai-image-card__viewport {
+  position: relative;
+  display: flex;
+  min-height: 12rem;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   border: 1px solid var(--SmartThemeBorderColor);
   border-radius: 0.75rem;
@@ -13,10 +21,14 @@
 }
 
 .nai-image-card__image {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   max-height: 42rem;
   object-fit: contain;
+  pointer-events: none;
+  user-select: none;
   background: color-mix(in srgb, var(--SmartThemeShadowColor) 35%, transparent);
 }
 
@@ -27,60 +39,48 @@
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 72%, transparent);
 }
 
-.nai-image-card__gallery {
-  display: flex;
-  gap: 0.4rem;
-  padding: 0.45rem 0.55rem 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-
-.nai-image-card__thumbnail {
-  flex: 0 0 4.5rem;
-  width: 4.5rem;
-  height: 4.5rem;
-  padding: 0.15rem;
-  border: 1px solid var(--SmartThemeBorderColor);
-  border-radius: 0.35rem;
-  background: color-mix(in srgb, var(--SmartThemeShadowColor) 25%, transparent);
+.nai-image-card__hotspot {
+  position: absolute;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
   cursor: pointer;
-  opacity: 0.72;
+  transition: background-color 150ms ease;
 }
 
-.nai-image-card__thumbnail:hover,
-.nai-image-card__thumbnail.is-active {
-  border-color: var(--SmartThemeQuoteColor);
-  opacity: 1;
+.nai-image-card__hotspot:hover,
+.nai-image-card__hotspot:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--SmartThemeBodyColor, #fff) 8%, transparent);
 }
 
-.nai-image-card__thumbnail:focus-visible {
-  outline: 2px solid var(--SmartThemeQuoteColor);
-  outline-offset: 2px;
+.nai-image-card__hotspot:disabled {
+  cursor: default;
+  background: transparent;
 }
 
-.nai-image-card__thumbnail img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.nai-image-card__hotspot--left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 22%;
 }
 
-.nai-image-card__body {
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.7rem;
+.nai-image-card__hotspot--right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 22%;
 }
 
-.nai-image-card__title {
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nai-image-card__meta {
-  color: color-mix(in srgb, var(--SmartThemeBodyColor, #ddd) 70%, transparent);
-  font-size: 0.86em;
+.nai-image-card__hotspot--bottom {
+  right: 22%;
+  bottom: 0;
+  left: 22%;
+  height: 22%;
 }
 
 .nai-image-card__error {
@@ -88,14 +88,12 @@
   white-space: pre-wrap;
 }
 
-.nai-image-card__actions,
 .nai-image-editor__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.nai-image-card__actions .menu_button,
 .nai-settings .menu_button,
 .nai-image-editor__actions .menu_button {
   display: inline-flex;
