@@ -1,4 +1,5 @@
 import { APICallError } from 'ai';
+import { APIError, APIUserAbortError } from 'openai';
 import type { z } from 'zod';
 import type { PluginResponse } from '../@types/sillytavern-plugin.js';
 
@@ -26,6 +27,12 @@ export function normalizeError(error: unknown): LlmRequesterError {
   if (error instanceof LlmRequesterError) return error;
   if (APICallError.isInstance(error)) {
     return new LlmRequesterError(error.statusCode ?? 502, 'UPSTREAM_ERROR', error.message);
+  }
+  if (error instanceof APIUserAbortError) {
+    return new LlmRequesterError(499, 'CLIENT_ABORTED', '客户端已中止请求');
+  }
+  if (error instanceof APIError) {
+    return new LlmRequesterError(error.status ?? 502, 'UPSTREAM_ERROR', error.message);
   }
   if (error instanceof Error && error.name === 'AbortError') {
     return new LlmRequesterError(499, 'CLIENT_ABORTED', '客户端已中止请求');

@@ -10,13 +10,17 @@ type AnalysisInput = {
 };
 
 export class PromptModelClient {
-  private readonly client = new LlmRequesterClient();
   private readonly controllers = new Map<string, AbortController>();
 
+  constructor(private readonly client = new LlmRequesterClient()) {}
+
   async analyze(input: AnalysisInput, settings: Settings, generationId: string): Promise<PromptAnalysisResponse> {
-    const baseUrl = settings.analysis.baseUrl.trim();
+    const connection = settings.analysis.connection;
     const model = settings.analysis.model.trim();
-    if (!baseUrl) throw new Error('请先在设置中填写 OpenAI-compatible Base URL');
+    if (!connection.providerId) throw new Error('请先在设置中选择 Provider');
+    if (connection.providerId === 'custom' && !connection.baseUrl.trim()) {
+      throw new Error('请先在设置中填写 OpenAI-compatible Base URL');
+    }
     if (!model) throw new Error('请先在设置中填写提示词模型');
 
     const controller = new AbortController();
@@ -24,7 +28,11 @@ export class PromptModelClient {
     try {
       const result = await this.client.generate(
         {
-          provider: { type: 'openai-compatible', baseUrl },
+          provider: {
+            providerId: connection.providerId,
+            ...(connection.credentialId ? { credentialId: connection.credentialId } : {}),
+            ...(connection.providerId === 'custom' ? { baseUrl: connection.baseUrl.trim() } : {}),
+          },
           model,
           messages: assemblePromptAnalysisMessages(input, settings),
           tools: [

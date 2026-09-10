@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { LlmGenerateRequestSchema } from './contract';
 
 const validRequest = {
-  provider: { type: 'openai-compatible' as const, baseUrl: 'https://example.com/v1' },
+  provider: { providerId: 'custom', credentialId: 'credential-1', baseUrl: 'https://example.com/v1' },
   model: 'example-model',
   messages: [
     { role: 'system' as const, content: 'Return a tool call.' },
@@ -39,7 +39,7 @@ describe('LLM requester contract', () => {
   test('rejects non-http provider URLs', () => {
     const parsed = LlmGenerateRequestSchema.safeParse({
       ...validRequest,
-      provider: { type: 'openai-compatible', baseUrl: 'file:///tmp/secret' },
+      provider: { providerId: 'custom', baseUrl: 'file:///tmp/secret' },
     });
 
     expect(parsed.success).toBe(false);

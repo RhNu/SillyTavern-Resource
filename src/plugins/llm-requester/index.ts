@@ -1,9 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import type { PluginInfo, PluginInit, PluginRequest, PluginResponse } from '../@types/sillytavern-plugin.js';
-import { LlmGenerateRequestSchema, LlmGenerateResponseSchema } from '../../../util/llm-requester/contract.js';
+import {
+  LlmGenerateRequestSchema,
+  LlmGenerateResponseSchema,
+  LlmModelsRequestSchema,
+  LlmModelsResponseSchema,
+  type LlmConnection,
+  type LlmProvider,
+} from '../../../util/llm-requester/contract.js';
 import { generateOpenAiCompatible } from './adapter.ts';
 import { LlmRequesterError, sendError, validationError } from './errors.ts';
-import { loadSillyTavernRuntime, type SillyTavernRuntime } from './platform/sillytavern-runtime.ts';
+import { listOpenAiCompatibleModels } from './models.ts';
+import { findProvider, PROVIDERS } from './providers.ts';
+import {
+  loadSillyTavernRuntime,
+  type ResolvedConnection,
+  type SillyTavernRuntime,
+} from './platform/sillytavern-runtime.ts';
 
 export const info: PluginInfo = {
   id: 'llm-requester',
@@ -11,60 +24,106 @@ export const info: PluginInfo = {
   description: '基于 AI SDK 的独立 OpenAI-compatible LLM 请求器。',
 };
 
-const PLUGIN_VERSION = '0.1.0';
+const PLUGIN_VERSION = '0.2.0';
 let runtime: SillyTavernRuntime | undefined;
 let runtimeError: string | undefined;
 
-function customKey(req: PluginRequest): string {
-  if (!runtime) throw new LlmRequesterError(503, 'ST_RUNTIME_UNAVAILABLE', runtimeError ?? 'SillyTavern 运行时不可用');
-  return runtime.customApiKey(req.user.directories);
+function unavailableRuntime(): never {
+  throw new LlmRequesterError(503, 'ST_RUNTIME_UNAVAILABLE', runtimeError ?? 'SillyTavern 运行时不可用');
+}
+
+function publicProviders(req: PluginRequest): LlmProvider[] {
+  if (runtime) return runtime.providers(req.user.directories);
+  return PROVIDERS.map(provider => ({
+    id: provider.id,
+    label: provider.label,
+    baseUrl:
+      provider.baseUrl.mode === 'fixed'
+        ? { mode: 'fixed' as const }
+        : { mode: 'custom' as const, placeholder: provider.baseUrl.placeholder },
+    credentialRequired: provider.credentialRequired,
+    credentials: [],
+  }));
+}
+
+function resolveConnection(req: PluginRequest, connection: LlmConnection): ResolvedConnection {
+  if (!runtime) return unavailableRuntime();
+  const provider = findProvider(connection.providerId);
+  if (!provider) throw new LlmRequesterError(400, 'UNKNOWN_PROVIDER', `不支持 Provider: ${connection.providerId}`);
+
+  const publicProvider = runtime.providers(req.user.directories).find(item => item.id === provider.id)!;
+  if (provider.credentialRequired && !connection.credentialId) {
+    throw new LlmRequesterError(400, 'CREDENTIAL_REQUIRED', `${provider.label} 需要选择凭证`);
+  }
+  if (connection.credentialId && !publicProvider.credentials.some(item => item.id === connection.credentialId)) {
+    throw new LlmRequesterError(400, 'UNKNOWN_CREDENTIAL', `所选 ${provider.label} 凭证不存在`);
+  }
+  if (provider.baseUrl.mode === 'custom' && !connection.baseUrl) {
+    throw new LlmRequesterError(400, 'BASE_URL_REQUIRED', 'Custom Provider 需要 Base URL');
+  }
+  const resolved = runtime.resolveConnection(
+    req.user.directories,
+    provider,
+    connection.credentialId,
+    connection.baseUrl,
+  );
+  if (provider.credentialRequired && !resolved.apiKey) {
+    throw new LlmRequesterError(400, 'CREDENTIAL_EMPTY', `所选 ${provider.label} 凭证为空`);
+  }
+  return resolved;
+}
+
+function createAbortContext(req: PluginRequest) {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  req.once('aborted', abort);
+  return { signal: controller.signal, dispose: () => req.removeListener('aborted', abort) };
 }
 
 function handleCapabilities(req: PluginRequest, res: PluginResponse): void {
-  const configured = runtime ? Boolean(runtime.customApiKey(req.user.directories)) : false;
   res.json({
     ok: true,
     plugin: info.id,
     version: PLUGIN_VERSION,
     apiVersion: 1,
     runtimeCompatible: Boolean(runtime),
-    configured,
-    providers: [
-      {
-        type: 'openai-compatible',
-        credential: 'sillytavern-custom',
-        streaming: false,
-        tools: true,
-        assistantPrefill: true,
-      },
-    ],
+    streaming: false,
+    tools: true,
+    assistantPrefill: true,
+    providers: publicProviders(req),
   });
+}
+
+async function handleModels(req: PluginRequest, res: PluginResponse): Promise<void> {
+  const requestId = randomUUID();
+  res.set('X-Request-Id', requestId);
+  const abort = createAbortContext(req);
+  try {
+    const parsed = LlmModelsRequestSchema.safeParse(req.body);
+    if (!parsed.success) throw validationError(parsed.error);
+    const connection = resolveConnection(req, parsed.data);
+    const models = await listOpenAiCompatibleModels(connection, abort.signal);
+    res.json(LlmModelsResponseSchema.parse({ requestId, providerId: connection.providerId, models }));
+  } catch (error) {
+    sendError(res, requestId, error);
+  } finally {
+    abort.dispose();
+  }
 }
 
 async function handleGenerate(req: PluginRequest, res: PluginResponse): Promise<void> {
   const requestId = randomUUID();
   res.set('X-Request-Id', requestId);
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  req.once('aborted', abort);
-
+  const abort = createAbortContext(req);
   try {
     const parsed = LlmGenerateRequestSchema.safeParse(req.body);
     if (!parsed.success) throw validationError(parsed.error);
-    if (!runtime)
-      throw new LlmRequesterError(503, 'ST_RUNTIME_UNAVAILABLE', runtimeError ?? 'SillyTavern 运行时不可用');
-    const apiKey = customKey(req);
-    if (!apiKey) throw new LlmRequesterError(503, 'CUSTOM_KEY_NOT_CONFIGURED', 'SillyTavern 尚未配置 Custom API Key');
-
+    const connection = resolveConnection(req, parsed.data.provider);
     const startedAt = Date.now();
-    const result = await generateOpenAiCompatible(parsed.data, {
-      apiKey,
-      headers: runtime.requestHeaders(new URL(parsed.data.provider.baseUrl)),
-      signal: controller.signal,
-    });
+    const result = await generateOpenAiCompatible(parsed.data, { ...connection, signal: abort.signal });
     const response = LlmGenerateResponseSchema.parse({ requestId, ...result });
     console.info(
-      `[llm-requester] request=${requestId} model=${parsed.data.model} duration=${Date.now() - startedAt}ms finish=${response.finishReason}`,
+      `[llm-requester] request=${requestId} provider=${connection.providerId} model=${parsed.data.model} duration=${Date.now() - startedAt}ms finish=${response.finishReason}`,
     );
     res.json(response);
   } catch (error) {
@@ -73,7 +132,7 @@ async function handleGenerate(req: PluginRequest, res: PluginResponse): Promise<
     );
     sendError(res, requestId, error);
   } finally {
-    req.removeListener('aborted', abort);
+    abort.dispose();
   }
 }
 
@@ -85,5 +144,6 @@ export const init: PluginInit = async router => {
     console.error(`[llm-requester] SillyTavern runtime bridge unavailable: ${runtimeError}`);
   }
   router.get('/v1/capabilities', handleCapabilities);
+  router.post('/v1/models', handleModels);
   router.post('/v1/generate', handleGenerate);
 };

@@ -71,7 +71,7 @@ const GenerationPromptPresetCollectionSchema = z
   });
 
 export const SettingsSchema = z.strictObject({
-  schemaVersion: z.literal(4),
+  schemaVersion: z.literal(5),
   enabled: z.boolean(),
   analysis: z.strictObject({
     auto: z.boolean(),
@@ -80,7 +80,11 @@ export const SettingsSchema = z.strictObject({
     minimumParagraphLength: z.number().int().min(1).max(2_000),
     historyCount: z.number().int().min(0).max(100),
     debounceMs: z.number().int().min(0).max(60_000),
-    baseUrl: z.string(),
+    connection: z.strictObject({
+      providerId: z.string().trim().min(1),
+      credentialId: z.string(),
+      baseUrl: z.string(),
+    }),
     model: z.string(),
     maxTokens: z.number().int().min(256).max(32_000),
     templates: PromptTemplateSchema,
@@ -163,7 +167,7 @@ export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   enabled: true,
   analysis: {
     auto: false,
@@ -172,7 +176,7 @@ export const DEFAULT_SETTINGS: Settings = {
     minimumParagraphLength: 40,
     historyCount: 8,
     debounceMs: 1_500,
-    baseUrl: '',
+    connection: { providerId: 'openrouter', credentialId: '', baseUrl: '' },
     model: '',
     maxTokens: 4_096,
     templates: DEFAULT_PROMPT_TEMPLATE,
@@ -269,7 +273,26 @@ function migrateV3Settings(value: unknown): unknown {
   };
 }
 
+/** Replace the fixed Custom connection with an explicit provider and credential selection. */
+function migrateV4Settings(value: unknown): unknown {
+  if (!isRecord(value) || value.schemaVersion !== 4) return value;
+  const sourceAnalysis = isRecord(value.analysis) ? value.analysis : {};
+  const baseUrl = readOptionalString(sourceAnalysis.baseUrl, '');
+  return {
+    ...value,
+    schemaVersion: 5,
+    analysis: {
+      ...omitKeys(sourceAnalysis, ['baseUrl']),
+      connection: {
+        providerId: baseUrl.trim() ? 'custom' : 'openrouter',
+        credentialId: '',
+        baseUrl,
+      },
+    },
+  };
+}
+
 export function normalizeSettings(value: unknown): Settings {
-  const parsed = SettingsSchema.safeParse(migrateV3Settings(migrateV2Settings(value)));
+  const parsed = SettingsSchema.safeParse(migrateV4Settings(migrateV3Settings(migrateV2Settings(value))));
   return parsed.success ? parsed.data : structuredClone(DEFAULT_SETTINGS);
 }

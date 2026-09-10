@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { HelpMarker } from '@util/components/HelpMarker';
+import type { LlmCapabilities, LlmModel } from '../../../../util/llm-requester/contract';
 import type { NovelAiImageService } from '../app/service';
 import { MODEL_IDS, SAMPLERS, SCHEDULES, type CharacterBindings, type Settings } from '../settings/schema';
 import { requestPromptPresetName } from './prompt-preset-dialog';
@@ -92,6 +93,9 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
     ready: false,
     detail: '正在检查 imggen-novelai 后端。',
   });
+  const [llmCapabilities, setLlmCapabilities] = useState<LlmCapabilities>();
+  const [promptModels, setPromptModels] = useState<LlmModel[]>([]);
+  const [promptModelStatus, setPromptModelStatus] = useState('正在读取 Provider。');
   // Event currentTarget is cleared after the handler returns, so handlers must capture values before calling edit.
   const edit = (recipe: (next: Settings) => void) => setDraft(current => editSettings(current, recipe));
 
@@ -118,6 +122,107 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
       active = false;
     };
   }, [props.service]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void props.service.llmRequester
+      .capabilities(controller.signal)
+      .then(result => {
+        setLlmCapabilities(result);
+        if (!result.runtimeCompatible) {
+          setPromptModelStatus('llm-requester 与当前 SillyTavern 运行时不兼容。');
+          return;
+        }
+        setDraft(current => {
+          const selected = result.providers.find(provider => provider.id === current.analysis.connection.providerId);
+          const provider = selected ?? result.providers[0];
+          if (!provider) return current;
+          const credentialId = provider.credentials.some(item => item.id === current.analysis.connection.credentialId)
+            ? current.analysis.connection.credentialId
+            : ((provider.credentials.find(item => item.active) ?? provider.credentials[0])?.id ?? '');
+          if (
+            provider.id === current.analysis.connection.providerId &&
+            credentialId === current.analysis.connection.credentialId
+          ) {
+            return current;
+          }
+          return editSettings(current, next => {
+            next.analysis.connection.providerId = provider.id;
+            next.analysis.connection.credentialId = credentialId;
+            next.analysis.model = '';
+          });
+        });
+      })
+      .catch(reason => setPromptModelStatus(`无法连接 llm-requester：${getErrorMessage(reason)}`));
+    return () => controller.abort();
+  }, [props.service]);
+
+  useEffect(() => {
+    const provider = llmCapabilities?.providers.find(item => item.id === draft.analysis.connection.providerId);
+    if (!provider || !llmCapabilities?.runtimeCompatible) return;
+    if (provider.credentialRequired && !draft.analysis.connection.credentialId) {
+      const timer = window.setTimeout(() => {
+        setPromptModels([]);
+        setPromptModelStatus(`请先在 SillyTavern 中保存 ${provider.label} 密钥。`);
+      });
+      return () => window.clearTimeout(timer);
+    }
+    if (provider.baseUrl.mode === 'custom') {
+      try {
+        const url = new URL(draft.analysis.connection.baseUrl);
+        if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
+      } catch {
+        const timer = window.setTimeout(() => {
+          setPromptModels([]);
+          setPromptModelStatus('请输入有效的 Custom Base URL。');
+        });
+        return () => window.clearTimeout(timer);
+      }
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(
+      () => {
+        setPromptModels([]);
+        setPromptModelStatus('正在获取模型列表。');
+        void props.service.llmRequester
+          .models(
+            {
+              providerId: provider.id,
+              ...(draft.analysis.connection.credentialId
+                ? { credentialId: draft.analysis.connection.credentialId }
+                : {}),
+              ...(provider.baseUrl.mode === 'custom' ? { baseUrl: draft.analysis.connection.baseUrl } : {}),
+            },
+            controller.signal,
+          )
+          .then(result => {
+            setPromptModels(result.models);
+            setPromptModelStatus(
+              result.models.length ? `已获取 ${result.models.length} 个模型。` : 'Provider 没有返回模型。',
+            );
+            setDraft(current => {
+              if (result.models.some(model => model.id === current.analysis.model)) return current;
+              return editSettings(current, next => void (next.analysis.model = result.models[0]?.id ?? ''));
+            });
+          })
+          .catch(reason => {
+            if (!controller.signal.aborted) setPromptModelStatus(`获取模型失败：${getErrorMessage(reason)}`);
+          });
+      },
+      provider.baseUrl.mode === 'custom' ? 400 : 0,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    draft.analysis.connection.baseUrl,
+    draft.analysis.connection.credentialId,
+    draft.analysis.connection.providerId,
+    llmCapabilities,
+    props.service,
+  ]);
 
   useEffect(() => {
     scheduleSettingsSave(props.service, draft);
@@ -147,6 +252,9 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
   const template = draft.analysis.templates;
   const promptPresetNames = Object.keys(draft.generation.promptPresets.items);
   const promptPreset = draft.generation.promptPresets.items[draft.generation.promptPresets.selected]!;
+  const promptProvider = llmCapabilities?.providers.find(
+    provider => provider.id === draft.analysis.connection.providerId,
+  );
 
   return (
     <div className="nai-settings">
@@ -238,41 +346,98 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
               open={promptModelOpen}
               onOpenChange={setPromptModelOpen}
             >
-              <Field
-                label="OpenAI-compatible Base URL"
-                help={{
-                  title: '连接说明',
-                  text: 'API Key 读取自 SillyTavern 的 Custom API Key，不会保存在脚本设置中。',
-                }}
-              >
-                <input
+              <Field label="Provider">
+                <select
                   className="text_pole"
-                  value={draft.analysis.baseUrl}
+                  value={draft.analysis.connection.providerId}
+                  disabled={!llmCapabilities?.runtimeCompatible}
                   onChange={event => {
-                    const value = event.currentTarget.value;
-                    edit(next => void (next.analysis.baseUrl = value));
+                    const providerId = event.currentTarget.value;
+                    const provider = llmCapabilities?.providers.find(item => item.id === providerId);
+                    edit(next => {
+                      next.analysis.connection.providerId = providerId;
+                      next.analysis.connection.credentialId =
+                        (provider?.credentials.find(item => item.active) ?? provider?.credentials[0])?.id ?? '';
+                      next.analysis.model = '';
+                    });
                   }}
-                />
+                >
+                  {(llmCapabilities?.providers ?? []).map(provider => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
-              <div className="nai-settings__grid">
-                <Field label="模型">
+              {promptProvider?.baseUrl.mode === 'custom' && (
+                <Field label="OpenAI-compatible Base URL">
                   <input
                     className="text_pole"
+                    placeholder={promptProvider.baseUrl.placeholder}
+                    value={draft.analysis.connection.baseUrl}
+                    onChange={event => {
+                      const value = event.currentTarget.value;
+                      edit(next => void (next.analysis.connection.baseUrl = value));
+                    }}
+                  />
+                </Field>
+              )}
+              <div className="nai-settings__grid">
+                <Field
+                  label="凭证"
+                  help={{ title: '凭证来源', text: '选项读取自当前 SillyTavern 用户的密码管理器，不会传给浏览器。' }}
+                >
+                  <select
+                    className="text_pole"
+                    value={draft.analysis.connection.credentialId}
+                    disabled={!promptProvider}
+                    onChange={event => {
+                      const credentialId = event.currentTarget.value;
+                      edit(next => {
+                        next.analysis.connection.credentialId = credentialId;
+                        next.analysis.model = '';
+                      });
+                    }}
+                  >
+                    {!promptProvider?.credentialRequired && <option value="">不使用密钥</option>}
+                    {promptProvider?.credentialRequired && promptProvider.credentials.length === 0 && (
+                      <option value="">没有已保存的凭证</option>
+                    )}
+                    {promptProvider?.credentials.map(credential => (
+                      <option key={credential.id} value={credential.id}>
+                        {credential.label}
+                        {credential.active ? '（当前）' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="模型">
+                  <select
+                    className="text_pole"
                     value={draft.analysis.model}
+                    disabled={promptModels.length === 0}
                     onChange={event => {
                       const value = event.currentTarget.value;
                       edit(next => void (next.analysis.model = value));
                     }}
-                  />
+                  >
+                    {promptModels.length === 0 && <option value="">暂无模型</option>}
+                    {promptModels.map(model => (
+                      <option key={model.id} value={model.id}>
+                        {model.label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
-                <NumberField
-                  label="最大 Tokens"
-                  value={draft.analysis.maxTokens}
-                  min={256}
-                  max={32000}
-                  onChange={value => edit(next => void (next.analysis.maxTokens = value))}
-                />
               </div>
+              <p className="nai-settings__empty">{promptModelStatus}</p>
+              <NumberField
+                label="最大 Tokens"
+                value={draft.analysis.maxTokens}
+                min={256}
+                max={32000}
+                onChange={value => edit(next => void (next.analysis.maxTokens = value))}
+              />
             </CollapsibleSection>
           </>
         )}

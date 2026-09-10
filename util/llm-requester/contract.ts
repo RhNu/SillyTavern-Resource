@@ -1,6 +1,15 @@
 import { z } from 'zod';
 
 const JsonObjectSchema = z.record(z.string(), z.json());
+const HttpUrlSchema = z
+  .url()
+  .refine(value => ['http:', 'https:'].includes(new URL(value).protocol), '仅支持 HTTP(S) URL');
+
+export const LlmConnectionSchema = z.strictObject({
+  providerId: z.string().trim().min(1).max(64),
+  credentialId: z.string().trim().max(128).optional(),
+  baseUrl: HttpUrlSchema.optional(),
+});
 
 export const LlmMessageSchema = z.strictObject({
   role: z.enum(['system', 'user', 'assistant']),
@@ -24,10 +33,7 @@ export const LlmToolChoiceSchema = z.union([
 
 export const LlmGenerateRequestSchema = z
   .strictObject({
-    provider: z.strictObject({
-      type: z.literal('openai-compatible'),
-      baseUrl: z.url().refine(value => ['http:', 'https:'].includes(new URL(value).protocol), '仅支持 HTTP(S) URL'),
-    }),
+    provider: LlmConnectionSchema,
     model: z.string().trim().min(1).max(512),
     messages: z.array(LlmMessageSchema).min(1).max(512),
     tools: z.array(LlmToolSchema).max(128).optional(),
@@ -57,12 +63,27 @@ export const LlmGenerateRequestSchema = z
     }
   });
 
-export const LlmToolCallSchema = z.strictObject({
+export const LlmCredentialSchema = z.strictObject({ id: z.string(), label: z.string(), active: z.boolean() });
+export const LlmProviderSchema = z.strictObject({
   id: z.string(),
-  name: z.string(),
-  input: z.json(),
+  label: z.string(),
+  baseUrl: z.discriminatedUnion('mode', [
+    z.strictObject({ mode: z.literal('fixed') }),
+    z.strictObject({ mode: z.literal('custom'), placeholder: z.string() }),
+  ]),
+  credentialRequired: z.boolean(),
+  credentials: z.array(LlmCredentialSchema),
 });
 
+export const LlmModelSchema = z.strictObject({ id: z.string(), label: z.string() });
+export const LlmModelsRequestSchema = LlmConnectionSchema;
+export const LlmModelsResponseSchema = z.strictObject({
+  requestId: z.string(),
+  providerId: z.string(),
+  models: z.array(LlmModelSchema),
+});
+
+export const LlmToolCallSchema = z.strictObject({ id: z.string(), name: z.string(), input: z.json() });
 export const LlmUsageSchema = z.strictObject({
   inputTokens: z.number().int().nonnegative().optional(),
   outputTokens: z.number().int().nonnegative().optional(),
@@ -87,21 +108,21 @@ export const LlmCapabilitiesSchema = z.strictObject({
   version: z.string(),
   apiVersion: z.literal(1),
   runtimeCompatible: z.boolean(),
-  configured: z.boolean(),
-  providers: z.array(
-    z.strictObject({
-      type: z.literal('openai-compatible'),
-      credential: z.literal('sillytavern-custom'),
-      streaming: z.literal(false),
-      tools: z.literal(true),
-      assistantPrefill: z.literal(true),
-    }),
-  ),
+  streaming: z.literal(false),
+  tools: z.literal(true),
+  assistantPrefill: z.literal(true),
+  providers: z.array(LlmProviderSchema),
 });
 
+export type LlmConnection = z.infer<typeof LlmConnectionSchema>;
+export type LlmCredential = z.infer<typeof LlmCredentialSchema>;
 export type LlmMessage = z.infer<typeof LlmMessageSchema>;
 export type LlmTool = z.infer<typeof LlmToolSchema>;
 export type LlmGenerateRequest = z.input<typeof LlmGenerateRequestSchema>;
 export type ParsedLlmGenerateRequest = z.output<typeof LlmGenerateRequestSchema>;
 export type LlmGenerateResponse = z.infer<typeof LlmGenerateResponseSchema>;
+export type LlmProvider = z.infer<typeof LlmProviderSchema>;
+export type LlmModel = z.infer<typeof LlmModelSchema>;
+export type LlmModelsRequest = z.infer<typeof LlmModelsRequestSchema>;
+export type LlmModelsResponse = z.infer<typeof LlmModelsResponseSchema>;
 export type LlmCapabilities = z.infer<typeof LlmCapabilitiesSchema>;

@@ -57,7 +57,7 @@ describe('settings migration', () => {
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(4);
+    expect(normalized.schemaVersion).toBe(5);
     expect(normalized.analysis.templates).toEqual({ v45: 'v45 custom', v5: 'v5 custom' });
     expect(normalized.generation.promptPresets.selected).toBe('NovelAI 默认');
     expect(normalized.generation.promptPresets.items['NovelAI 默认']).toEqual({
@@ -78,12 +78,16 @@ describe('settings migration', () => {
         apiKey: 'must-not-survive',
       },
     };
-    delete (legacy.analysis as Partial<typeof legacy.analysis>).baseUrl;
+    delete (legacy.analysis as unknown as Record<string, unknown>).connection;
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(4);
-    expect(normalized.analysis.baseUrl).toBe('https://example.com/v1');
+    expect(normalized.schemaVersion).toBe(5);
+    expect(normalized.analysis.connection).toEqual({
+      providerId: 'custom',
+      credentialId: '',
+      baseUrl: 'https://example.com/v1',
+    });
     expect(normalized.analysis).not.toHaveProperty('proxyPreset');
     expect(normalized.analysis).not.toHaveProperty('apiKey');
   });

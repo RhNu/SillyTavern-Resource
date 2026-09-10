@@ -1,9 +1,12 @@
 import {
   LlmCapabilitiesSchema,
   LlmGenerateResponseSchema,
+  LlmModelsResponseSchema,
   type LlmCapabilities,
   type LlmGenerateRequest,
   type LlmGenerateResponse,
+  type LlmModelsRequest,
+  type LlmModelsResponse,
 } from './contract';
 
 const BASE_URL = '/api/plugins/llm-requester/v1';
@@ -45,5 +48,16 @@ export class LlmRequesterClient {
     });
     if (!response.ok) throw await readError(response);
     return LlmGenerateResponseSchema.parse(await response.json());
+  }
+
+  async models(request: LlmModelsRequest, signal?: AbortSignal): Promise<LlmModelsResponse> {
+    const response = await fetch(`${BASE_URL}/models`, {
+      method: 'POST',
+      headers: { ...requestHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    });
+    if (!response.ok) throw await readError(response);
+    return LlmModelsResponseSchema.parse(await response.json());
   }
 }

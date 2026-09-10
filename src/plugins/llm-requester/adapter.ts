@@ -12,6 +12,8 @@ import {
 import type { ParsedLlmGenerateRequest } from '../../../util/llm-requester/contract.js';
 
 export type GenerateContext = {
+  providerId: string;
+  baseUrl: string;
   apiKey: string;
   headers: Record<string, string>;
   signal: AbortSignal;
@@ -59,8 +61,8 @@ export async function generateOpenAiCompatible(request: ParsedLlmGenerateRequest
   const providerName = 'llmRequester';
   const provider = createOpenAICompatible({
     name: providerName,
-    baseURL: request.provider.baseUrl.replace(/\/$/, ''),
-    apiKey: context.apiKey,
+    baseURL: context.baseUrl,
+    apiKey: context.apiKey || 'not-required',
     headers: context.headers,
   });
   const parameters = request.parameters ?? {};
