@@ -59,9 +59,12 @@ test('Vite and tsdown preserve the template output contracts', async () => {
     const exports = createRequire(import.meta.url)(path.join(plugin.stagingOutputDir, 'index.cjs')) as {
       info: { id: string };
       hasHttpClient: () => boolean;
+      parsesBundledDependencySubpath: () => boolean;
     };
     expect(exports.info.id).toBe('build-fixture');
     expect(exports.hasHttpClient()).toBe(true);
+    expect(exports.parsesBundledDependencySubpath()).toBe(true);
+    expect(pluginCode).not.toMatch(/require\(["']zod\/v4["']\)/);
   } finally {
     fs.rmSync(outputRoot, { recursive: true, force: true });
   }

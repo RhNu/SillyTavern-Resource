@@ -4,14 +4,15 @@ import { build, type UserConfig } from 'tsdown';
 import { rootDir } from './config.ts';
 import type { BuildContext, Project } from './types.ts';
 
-function bundledDependencies(): string[] {
+function bundledDependencies(): Array<string | RegExp> {
   const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')) as {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
   };
-  return [
+  const dependencies = [
     ...new Set([...Object.keys(packageJson.dependencies ?? {}), ...Object.keys(packageJson.devDependencies ?? {})]),
   ].filter(name => name !== 'canvas');
+  return dependencies.flatMap(name => [name, new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`)]);
 }
 
 export async function buildPluginProject(project: Project, context: BuildContext): Promise<void> {
