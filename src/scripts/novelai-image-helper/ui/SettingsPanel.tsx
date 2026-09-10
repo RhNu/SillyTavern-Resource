@@ -87,7 +87,6 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
   const [draft, setDraft] = useState(initial.draft);
   const [tab, setTab] = useState<Tab>('general');
   const [expandedCharacterIds, setExpandedCharacterIds] = useState<Record<string, boolean>>({});
-  const [templateOpen, setTemplateOpen] = useState(false);
   const [promptModelOpen, setPromptModelOpen] = useState(false);
   const [generationAdvancedOpen, setGenerationAdvancedOpen] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>({
@@ -448,12 +447,8 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
         )}
 
         {tab === 'templates' && (
-          <CollapsibleSection
-            title="模型分流模板"
-            contentId="nai-model-template-details"
-            open={templateOpen}
-            onOpenChange={setTemplateOpen}
-          >
+          <section>
+            <h4>模型分流模板</h4>
             <Field
               label="V4.5 模板"
               help={{ title: 'V4.5 模板说明', text: '通常使用 Danbooru 标签串；当前生图模型为 V4.5 时使用。' }}
@@ -482,7 +477,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
                 }}
               />
             </Field>
-          </CollapsibleSection>
+          </section>
         )}
 
         {tab === 'image' && (

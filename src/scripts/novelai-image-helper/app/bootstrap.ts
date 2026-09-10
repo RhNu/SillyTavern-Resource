@@ -8,8 +8,8 @@ import { initializeNovelAiImageNotifier } from './notifier';
 import { NovelAiImageService } from './service';
 
 const SCRIPT_NAME = 'NovelAI 图片助手';
-const ANALYZE_BUTTON = '分析并生成图片';
-const SETTINGS_BUTTON = 'NovelAI 图片设置';
+const ANALYZE_BUTTON = '& 提示生成';
+const SETTINGS_BUTTON = '& 生成设置';
 const PROMPT_REGEX_NAME = '[NOVELAI_IMAGE_HELPER] 隐藏图片锚点';
 const PROMPT_REGEX = String.raw`/\[\[NovelAIImage\s+id=(?:"[^"\]]+"|'[^'\]]+')\s*\]\]/gsi`;
 
