@@ -3,8 +3,10 @@ import { PromptBundleSchema } from '../domain/prompt';
 import { BLOCKS_CHANGED_EVENT, type QueueSnapshot, type QueueTaskView } from '../image-generation/queue';
 import { createLogger, serializeError } from '../app/logger';
 import type { NovelAiImageService } from '../app/service';
+import { previewRenderedText, renderedTextContains, replaceRenderedAnchor } from './message-anchor-dom';
 
 const CARD_CLASS = 'nai-image-card';
+const CARD_SELECTOR = `.${CARD_CLASS}`;
 const EVENT_NAMESPACE = '.novelaiImageHelper';
 const TITLE = 'NovelAI 图片助手';
 const logger = createLogger('ui/message-cards');
@@ -67,28 +69,6 @@ function statusLabel(status: string, task: QueueTaskView | undefined, throttled:
 function findTaskView(snapshot: QueueSnapshot, messageId: number, blockId: string): QueueTaskView | undefined {
   if (snapshot.active?.messageId === messageId && snapshot.active.blockId === blockId) return snapshot.active;
   return snapshot.pending.find(task => task.messageId === messageId && task.blockId === blockId);
-}
-
-function findAnchorNode(root: HTMLElement, anchor: string): Text | undefined {
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let node = walker.nextNode();
-  while (node) {
-    if ((node.nodeValue ?? '').includes(anchor)) return node as Text;
-    node = walker.nextNode();
-  }
-  return undefined;
-}
-
-function replaceAnchor(node: Text, anchor: string, card: HTMLElement): void {
-  const text = node.nodeValue ?? '';
-  const index = text.indexOf(anchor);
-  const before = text.slice(0, index);
-  const after = text.slice(index + anchor.length);
-  const fragment = node.ownerDocument.createDocumentFragment();
-  if (before) fragment.append(before);
-  fragment.append(card);
-  if (after) fragment.append(after);
-  node.replaceWith(fragment);
 }
 
 function renderCard(
@@ -221,6 +201,67 @@ function openEditor(service: NovelAiImageService, messageId: number, blockId: st
 export function mountMessageCards(service: NovelAiImageService): { sync: () => void; destroy: () => void } {
   const mountedMessageIds = new Set<number>();
   const outputViews = new Map<string, OutputViewState>();
+  const anchorRetries = new Map<string, { attempt: number; timer?: ReturnType<typeof setTimeout> }>();
+  let syncTimer: ReturnType<typeof setTimeout> | undefined;
+  let syncRequested = false;
+  let syncRunning = false;
+  let destroyed = false;
+
+  const clearAnchorRetry = (messageId: number, blockId: string) => {
+    const key = outputStateKey(messageId, blockId);
+    const retry = anchorRetries.get(key);
+    if (retry?.timer) clearTimeout(retry.timer);
+    anchorRetries.delete(key);
+  };
+
+  const clearMessageRetries = (messageId: number) => {
+    const prefix = `${messageId}:`;
+    [...anchorRetries.keys()]
+      .filter(key => key.startsWith(prefix))
+      .forEach(key => {
+        const retry = anchorRetries.get(key);
+        if (retry?.timer) clearTimeout(retry.timer);
+        anchorRetries.delete(key);
+      });
+  };
+
+  const scheduleSync = () => {
+    if (destroyed) return;
+    syncRequested = true;
+    if (syncTimer) return;
+    syncTimer = setTimeout(() => {
+      syncTimer = undefined;
+      if (syncRunning || destroyed) return;
+      syncRunning = true;
+      try {
+        while (syncRequested && !destroyed) {
+          syncRequested = false;
+          safeSync();
+        }
+      } finally {
+        syncRunning = false;
+      }
+    }, 0);
+  };
+
+  const scheduleAnchorRetry = (messageId: number, blockId: string): boolean => {
+    const key = outputStateKey(messageId, blockId);
+    const previous = anchorRetries.get(key) ?? { attempt: 0 };
+    if (previous.timer) return true;
+    if (previous.attempt >= 3) return false;
+    const attempt = previous.attempt + 1;
+    const retry = {
+      attempt,
+      timer: setTimeout(() => {
+        const current = anchorRetries.get(key);
+        if (current) anchorRetries.set(key, { attempt: current.attempt });
+        scheduleSync();
+      }, attempt * 80),
+    };
+    anchorRetries.set(key, retry);
+    return true;
+  };
+
   const sync = () => {
     const snapshot = service.getQueueSnapshot();
     $('#chat')
@@ -236,6 +277,7 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
         $displayed.find(`.${CARD_CLASS}`).each((_cardIndex, card) => {
           const blockId = String($(card).attr('data-block-id'));
           if (!anchorIds.has(blockId)) {
+            clearAnchorRetry(messageId, blockId);
             outputViews.delete(outputStateKey(messageId, blockId));
             $(card).remove();
           }
@@ -246,11 +288,21 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
             .filter((_cardIndex, card) => $(card).attr('data-block-id') === anchor.id)
             .first() as JQuery<HTMLElement>;
           if (!$card.length) {
-            const node = findAnchorNode($displayed[0], anchor.fullMatch);
-            if (!node) return;
             $card = $(`<div class="${CARD_CLASS}">`) as JQuery<HTMLElement>;
-            replaceAnchor(node, anchor.fullMatch, $card[0]);
+            if (!replaceRenderedAnchor($displayed[0], anchor.fullMatch, $card[0], CARD_SELECTOR)) {
+              if (!renderedTextContains($displayed[0], anchor.fullMatch) && scheduleAnchorRetry(messageId, anchor.id)) {
+                return;
+              }
+              logger.warn('未能在聊天 DOM 中定位图片锚点', {
+                messageId,
+                blockId: anchor.id,
+                anchor: anchor.fullMatch,
+                textPreview: previewRenderedText($displayed[0]),
+              });
+              return;
+            }
           }
+          clearAnchorRetry(messageId, anchor.id);
           renderCard(service, messageId, anchor.id, $card, outputViews, snapshot);
           mountedMessageIds.add(messageId);
         });
@@ -301,28 +353,36 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
   });
 
   const stops = [
-    eventOn('chatLoaded', safeSync).stop,
-    eventOn(tavern_events.CHARACTER_MESSAGE_RENDERED, safeSync).stop,
-    eventOn(tavern_events.MESSAGE_EDITED, safeSync).stop,
-    eventOn(tavern_events.MESSAGE_DELETED, safeSync).stop,
-    eventOn(tavern_events.MORE_MESSAGES_LOADED, safeSync).stop,
-    eventOn(BLOCKS_CHANGED_EVENT, safeSync).stop,
+    eventOn('chatLoaded', () => scheduleSync()).stop,
+    eventOn(tavern_events.CHARACTER_MESSAGE_RENDERED, () => scheduleSync()).stop,
+    eventOn(tavern_events.MESSAGE_EDITED, () => scheduleSync()).stop,
+    eventOn(tavern_events.MESSAGE_DELETED, () => scheduleSync()).stop,
+    eventOn(tavern_events.MORE_MESSAGES_LOADED, () => scheduleSync()).stop,
+    eventOn(BLOCKS_CHANGED_EVENT, () => scheduleSync()).stop,
   ];
-  const unsubscribeQueue = service.queue.subscribe(safeSync);
-  safeSync();
+  const unsubscribeQueue = service.queue.subscribe(() => scheduleSync());
+  scheduleSync();
   logger.info('图片卡片界面已挂载');
   return {
     sync: safeSync,
     destroy: () => {
+      destroyed = true;
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = undefined;
       stops.forEach(stop => stop());
       unsubscribeQueue();
       $chat.off(EVENT_NAMESPACE);
       mountedMessageIds.forEach(messageId => {
+        clearMessageRetries(messageId);
         void Promise.resolve(refreshOneMessage(messageId)).catch(error => {
           logger.error('刷新消息显示失败', error, { messageId });
         });
       });
       mountedMessageIds.clear();
+      anchorRetries.forEach(retry => {
+        if (retry.timer) clearTimeout(retry.timer);
+      });
+      anchorRetries.clear();
       outputViews.clear();
       logger.debug('图片卡片界面已销毁');
     },
