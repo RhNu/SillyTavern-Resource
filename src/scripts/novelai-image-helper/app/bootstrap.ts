@@ -1,4 +1,5 @@
 import { matchAnchors } from '../domain/anchor';
+import { initializeNovelAiImageNotifier } from './notifier';
 import { NovelAiImageService } from './service';
 import { mountMessageCards } from '../ui/message-cards';
 import { openSettings } from '../ui/settings';
@@ -51,7 +52,10 @@ function ensurePromptFilter(): void {
 }
 
 export function bootstrap(): { destroy: () => void } {
-  const service = new NovelAiImageService();
+  const notifier = initializeNovelAiImageNotifier();
+  const service = new NovelAiImageService({
+    onGenerationQueueFinished: notifier.notifyQueueFinished,
+  });
   service.recoverInterruptedBlocks();
   const style = teleportStyle();
   const cards = mountMessageCards(service);
@@ -113,6 +117,7 @@ export function bootstrap(): { destroy: () => void } {
     stops.forEach(stop => stop());
     cards.destroy();
     service.destroy();
+    notifier.destroy();
     style.destroy();
     $(window).off('pagehide.novelaiImageHelper');
   };

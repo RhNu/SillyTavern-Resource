@@ -1,6 +1,6 @@
 import { matchAnchors } from '../domain/anchor';
 import type { ImageBlock } from '../domain/block';
-import { GenerationQueue } from '../image-generation/queue';
+import { GenerationQueue, type GenerationQueueOptions } from '../image-generation/queue';
 import { commitAnalysis } from '../message-blocks/commit-analysis';
 import { MessageBlockRepository } from '../message-blocks/repository';
 import { buildHistory, buildWorldbook, paragraphTexts } from '../prompt-analysis/context';
@@ -10,14 +10,24 @@ import { NovelAiClient } from '../platform/imggen-novelai/client';
 import { SettingsStore } from '../settings/store';
 import { LlmRequesterClient } from '../../../../util/llm-requester/client';
 
+export type NovelAiImageServiceOptions = {
+  onGenerationQueueFinished?: GenerationQueueOptions['onQueueFinished'];
+};
+
 export class NovelAiImageService {
   readonly settings = new SettingsStore();
   readonly repository = new MessageBlockRepository();
   readonly backend = new NovelAiClient();
   readonly llmRequester = new LlmRequesterClient();
-  readonly queue = new GenerationQueue(this.repository, this.settings, this.backend);
+  readonly queue: GenerationQueue;
   private readonly promptModel = new PromptModelClient(this.llmRequester);
   private activeAnalysis?: { generationId: string; messageId: number };
+
+  constructor(options: NovelAiImageServiceOptions = {}) {
+    this.queue = new GenerationQueue(this.repository, this.settings, this.backend, {
+      onQueueFinished: options.onGenerationQueueFinished,
+    });
+  }
 
   recoverInterruptedBlocks(): void {
     getChatMessages('0-{{lastMessageId}}').forEach(message => {
