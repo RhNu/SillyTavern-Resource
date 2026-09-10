@@ -13,6 +13,7 @@ export function openSettings(service: NovelAiImageService): void {
   const popup = new SillyTavern.Popup($host[0], SillyTavern.POPUP_TYPE.DISPLAY, '', {
     wide: true,
     wider: true,
+    allowVerticalScrolling: true,
     okButton: false,
     cancelButton: false,
   });
