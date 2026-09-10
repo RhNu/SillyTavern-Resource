@@ -23,7 +23,6 @@ export const PromptInsertionSchema = z.strictObject({
 });
 
 export const PromptAnalysisResponseSchema = z.strictObject({
-  version: z.literal(2),
   insertions: z.array(PromptInsertionSchema).max(8),
 });
 

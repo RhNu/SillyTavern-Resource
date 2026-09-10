@@ -3,7 +3,6 @@ import { PromptAnalysisResponseSchema } from './prompt';
 
 describe('PromptAnalysisResponseSchema', () => {
   const response = {
-    version: 2 as const,
     insertions: [
       {
         after_paragraph: 1,
