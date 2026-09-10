@@ -61,6 +61,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
   const initial = useMemo(() => createSettingsEditorModel(props.service), [props.service]);
   const [draft, setDraft] = useState(initial.draft);
   const [tab, setTab] = useState<Tab>('general');
+  const [expandedCharacterIds, setExpandedCharacterIds] = useState<Record<string, boolean>>({});
   const [newTemplateName, setNewTemplateName] = useState('');
   const [status, setStatus] = useState('正在检查 imggen-novelai…');
   const [error, setError] = useState('');
@@ -447,7 +448,16 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
                 <h4>人物参考库</h4>
                 <p className="nai-settings__hint">未绑定的条目全局生效；多个绑定条件必须同时匹配。</p>
               </div>
-              <button type="button" className="menu_button" onClick={() => setDraft(addCharacter(draft))}>
+              <button
+                type="button"
+                className="menu_button"
+                onClick={() => {
+                  const next = addCharacter(draft);
+                  const characterId = next.characters.at(-1)!.id;
+                  setDraft(next);
+                  setExpandedCharacterIds(current => ({ ...current, [characterId]: true }));
+                }}
+              >
                 新增人物
               </button>
             </div>
@@ -456,81 +466,127 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
               人设 {initial.context.persona?.label ?? '无'}
             </p>
             {draft.characters.length === 0 && <p className="nai-settings__empty">还没有人物参考。</p>}
-            {draft.characters.map((character, index) => (
-              <article className="nai-character" key={character.id}>
-                <div className="nai-settings__section-heading">
-                  <Check
-                    label={`人物 ${index + 1}`}
-                    checked={character.enabled}
-                    onChange={value => edit(next => void (next.characters[index]!.enabled = value))}
-                  />
+            {draft.characters.map((character, index) => {
+              const expanded = Boolean(expandedCharacterIds[character.id]);
+              const detailsId = `nai-character-details-${character.id}`;
+              const bindingLabels = (['character', 'chat', 'persona'] as const)
+                .filter(kind => character.bindings[kind])
+                .map(kind => (kind === 'character' ? '角色卡' : kind === 'chat' ? '聊天' : '人设'));
+
+              return (
+                <article
+                  className={['nai-character', expanded ? 'is-expanded' : ''].filter(Boolean).join(' ')}
+                  key={character.id}
+                >
                   <button
                     type="button"
-                    className="menu_button"
-                    onClick={() => setDraft(removeCharacter(draft, character.id))}
+                    className="nai-character__toggle"
+                    aria-controls={detailsId}
+                    aria-expanded={expanded}
+                    onClick={() =>
+                      setExpandedCharacterIds(current => ({ ...current, [character.id]: !current[character.id] }))
+                    }
                   >
-                    删除
-                  </button>
-                </div>
-                <Field label="名称">
-                  <input
-                    className="text_pole"
-                    value={character.name}
-                    onChange={event => {
-                      const value = event.currentTarget.value;
-                      edit(next => void (next.characters[index]!.name = value));
-                    }}
-                  />
-                </Field>
-                <Field label="提示内容" hint="可以是自然语言、标签或两者混合；模型将其作为参考而非逐字复制。">
-                  <textarea
-                    className="text_pole"
-                    rows={5}
-                    value={character.content}
-                    onChange={event => {
-                      const value = event.currentTarget.value;
-                      edit(next => void (next.characters[index]!.content = value));
-                    }}
-                  />
-                </Field>
-                <Field label="避免内容">
-                  <textarea
-                    className="text_pole"
-                    rows={2}
-                    value={character.negative}
-                    onChange={event => {
-                      const value = event.currentTarget.value;
-                      edit(next => void (next.characters[index]!.negative = value));
-                    }}
-                  />
-                </Field>
-                <div className="nai-settings__bindings">
-                  {(['character', 'chat', 'persona'] as const).map(kind => {
-                    const bound = character.bindings[kind];
-                    const label = kind === 'character' ? '角色卡' : kind === 'chat' ? '聊天' : '人设';
-                    return (
-                      <button
-                        key={kind}
-                        type="button"
-                        className={`menu_button ${bound ? 'is-active' : ''}`}
-                        onClick={() =>
-                          runAction(() =>
-                            toggleCharacterBinding(
-                              draft,
-                              character.id,
-                              kind as keyof CharacterBindings,
-                              initial.context,
-                            ),
-                          )
-                        }
+                    <span className="nai-character__summary">
+                      <strong>{character.name.trim() || `人物 ${index + 1}`}</strong>
+                      <span
+                        className={['nai-character__status', character.enabled ? '' : 'is-muted']
+                          .filter(Boolean)
+                          .join(' ')}
                       >
-                        {bound ? `${label}: ${bound.label}` : `绑定当前${label}`}
-                      </button>
-                    );
-                  })}
-                </div>
-              </article>
-            ))}
+                        {character.enabled ? '已启用' : '已停用'}
+                      </span>
+                      <span className="nai-character__bindings-summary">
+                        {bindingLabels.length > 0 ? `绑定：${bindingLabels.join('、')}` : '全局生效'}
+                      </span>
+                    </span>
+                    <span className="nai-character__toggle-state">
+                      {expanded ? '收起' : '展开'}
+                      <i
+                        className={['fa-solid', expanded ? 'fa-chevron-up' : 'fa-chevron-down'].join(' ')}
+                        aria-hidden="true"
+                      ></i>
+                    </span>
+                  </button>
+
+                  {expanded && (
+                    <div id={detailsId} className="nai-character__details">
+                      <div className="nai-settings__section-heading">
+                        <Check
+                          label={`人物 ${index + 1}`}
+                          checked={character.enabled}
+                          onChange={value => edit(next => void (next.characters[index]!.enabled = value))}
+                        />
+                        <button
+                          type="button"
+                          className="menu_button"
+                          onClick={() => setDraft(removeCharacter(draft, character.id))}
+                        >
+                          删除
+                        </button>
+                      </div>
+                      <Field label="名称">
+                        <input
+                          className="text_pole"
+                          value={character.name}
+                          onChange={event => {
+                            const value = event.currentTarget.value;
+                            edit(next => void (next.characters[index]!.name = value));
+                          }}
+                        />
+                      </Field>
+                      <Field label="提示内容" hint="可以是自然语言、标签或两者混合；模型将其作为参考而非逐字复制。">
+                        <textarea
+                          className="text_pole"
+                          rows={4}
+                          value={character.content}
+                          onChange={event => {
+                            const value = event.currentTarget.value;
+                            edit(next => void (next.characters[index]!.content = value));
+                          }}
+                        />
+                      </Field>
+                      <Field label="避免内容">
+                        <textarea
+                          className="text_pole"
+                          rows={2}
+                          value={character.negative}
+                          onChange={event => {
+                            const value = event.currentTarget.value;
+                            edit(next => void (next.characters[index]!.negative = value));
+                          }}
+                        />
+                      </Field>
+                      <div className="nai-settings__bindings">
+                        {(['character', 'chat', 'persona'] as const).map(kind => {
+                          const bound = character.bindings[kind];
+                          const label = kind === 'character' ? '角色卡' : kind === 'chat' ? '聊天' : '人设';
+                          return (
+                            <button
+                              key={kind}
+                              type="button"
+                              className={`menu_button ${bound ? 'is-active' : ''}`}
+                              onClick={() =>
+                                runAction(() =>
+                                  toggleCharacterBinding(
+                                    draft,
+                                    character.id,
+                                    kind as keyof CharacterBindings,
+                                    initial.context,
+                                  ),
+                                )
+                              }
+                            >
+                              {bound ? `${label}: ${bound.label}` : `绑定当前${label}`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </section>
         )}
       </main>
