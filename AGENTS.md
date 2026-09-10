@@ -5,6 +5,8 @@
 使用 `pnpm build` 生产构建所有浏览器端项目和服务端插件；只构建其中一类时使用 `pnpm build:scripts` 或
 `pnpm build:plugins`。
 
+即使是在开发环境，也使用生产构建为主。
+
 ## 1. 总索引
 
 - [agents/INDEX.md](agents/INDEX.md)
