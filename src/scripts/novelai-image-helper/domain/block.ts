@@ -13,6 +13,8 @@ export const ImageOutputSchema = z.strictObject({
   createdAt: z.string().trim().min(1),
 });
 
+export type ImageOutput = z.infer<typeof ImageOutputSchema>;
+
 export const ImageBlockSchema = z.strictObject({
   schemaVersion: z.literal(1),
   id: z.string().trim().min(1),

@@ -40,25 +40,27 @@ export class NovelAiImageService {
       const anchorIds = new Set(matchAnchors(message.message).map(anchor => anchor.id));
       const payload = this.repository.read(message.message_id);
       let changed = false;
-      const blocks = Object.values(payload.blocks).flatMap(block => {
+      const blocks: ImageBlock[] = [];
+      Object.values(payload.blocks).forEach(block => {
         if (block.status === 'prepared' && !anchorIds.has(block.id)) {
           changed = true;
-          return [];
+          return;
         }
-        if (!['prepared', 'queued', 'generating', 'uploading'].includes(block.status)) return block;
+        if (!['prepared', 'queued', 'generating', 'uploading'].includes(block.status)) {
+          blocks.push(block);
+          return;
+        }
         changed = true;
-        return [
-          {
-            ...block,
-            revision: block.revision + 1,
-            status: 'failed' as const,
-            error: {
-              code: 'INTERRUPTED',
-              message: '上次任务在脚本卸载或页面重载时中断，可手动重试',
-              retryable: true,
-            },
+        blocks.push({
+          ...block,
+          revision: block.revision + 1,
+          status: 'failed',
+          error: {
+            code: 'INTERRUPTED',
+            message: '上次任务在脚本卸载或页面重载时中断，可手动重试',
+            retryable: true,
           },
-        ];
+        });
       });
       if (changed) this.repository.write(message.message_id, blocks);
     });

@@ -253,7 +253,7 @@ export function mountMessageCards(service: NovelAiImageService): { sync: () => v
     const block = service.repository.find(messageId, blockId);
     if (!block || !Number.isInteger(outputIndex) || outputIndex < 0 || outputIndex >= block.outputs.length) return;
     outputViews.set(outputStateKey(messageId, blockId), { count: block.outputs.length, index: outputIndex });
-    renderCard(service, messageId, blockId, $card, outputViews);
+    renderCard(service, messageId, blockId, $card, outputViews, service.getQueueSnapshot());
   });
 
   const stops = [
