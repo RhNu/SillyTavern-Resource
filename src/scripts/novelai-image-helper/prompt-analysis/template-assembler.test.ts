@@ -21,6 +21,9 @@ describe('prompt analysis message boundaries', () => {
     expect(messages).toHaveLength(3);
     expect(messages[0]?.content).toContain('only in the latest story');
     expect(messages[0]?.content).toContain('reference-only');
+    expect(messages[0]?.content).toContain('Prefer at least 3 insertions');
+    expect(messages[0]?.content).toContain('early, middle, and late portions');
+    expect(messages[0]?.content).toContain('Do not cluster all insertions');
     expect(messages[1]?.content).toContain('Wait for the next user message');
     expect(messages[2]?.content).toContain('[P1] clean latest paragraph');
   });
