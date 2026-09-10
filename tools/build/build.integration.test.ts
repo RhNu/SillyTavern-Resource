@@ -44,8 +44,9 @@ test('Vite and tsdown preserve the template output contracts', async () => {
     removeEmptyDirectories(script.stagingOutputDir);
     const javascript = fs.readFileSync(path.join(script.stagingOutputDir, 'index.js'), 'utf8');
     expect(javascript).toMatch(/https:\/\/testingcf\.jsdelivr\.net\/npm\/lodash\/\+esm/);
-    expect(javascript).not.toMatch(/https:\/\/testingcf\.jsdelivr\.net\/npm\/scheduler\/\+esm/);
+    expect(javascript).toMatch(/https:\/\/testingcf\.jsdelivr\.net\/npm\/scheduler\/\+esm/);
     expect(javascript).not.toContain('Calling `require` for "https://testingcf.jsdelivr.net/npm/scheduler/+esm"');
+    expect(javascript).not.toContain('@oxc-project/runtime');
     expect(javascript).toMatch(/data-bundled-style/);
     expect(fs.readdirSync(script.stagingOutputDir)).toEqual(['index.js']);
 

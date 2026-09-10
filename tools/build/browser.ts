@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { minify as terserMinify } from 'terser';
-import { build, type Plugin } from 'vite';
+import { build, esmExternalRequirePlugin, type Plugin } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { resolveExternalCdnUrl, shouldExternalizeScriptImport } from './package-resolver.ts';
 import type { BuildContext, Project } from './types.ts';
@@ -27,7 +27,8 @@ async function buildFrontend(project: Project, context: BuildContext): Promise<v
       outDir: project.stagingOutputDir,
       emptyOutDir: false,
       sourcemap: false,
-      minify: context.isProduction ? 'oxc' : false,
+      minify: context.isProduction ? 'terser' : false,
+      terserOptions,
       cssCodeSplit: false,
       assetsInlineLimit: Number.MAX_SAFE_INTEGER,
       rolldownOptions: {
@@ -58,7 +59,7 @@ async function buildScript(project: Project, context: BuildContext): Promise<voi
   await build({
     configFile: false,
     mode: context.mode,
-    plugins: [react()],
+    plugins: [esmExternalRequirePlugin({ external: ['scheduler'] }), react()],
     define: environmentDefines(context),
     resolve: { alias: resolveAlias },
     build: {
@@ -66,7 +67,8 @@ async function buildScript(project: Project, context: BuildContext): Promise<voi
       outDir: project.stagingOutputDir,
       emptyOutDir: false,
       sourcemap: context.mode === 'development',
-      minify: false,
+      minify: context.isProduction ? 'terser' : false,
+      terserOptions,
       cssCodeSplit: false,
       lib: { entry: project.entryFile, formats: ['es'], fileName: () => 'index', cssFileName: 'index' },
       rolldownOptions: {
