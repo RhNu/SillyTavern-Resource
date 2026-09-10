@@ -9,7 +9,7 @@ import {
   type LlmProvider,
 } from '../../../util/llm-requester/contract.js';
 import { generateOpenAiCompatible } from './adapter.ts';
-import { LlmRequesterError, sendError, validationError } from './errors.ts';
+import { describeError, LlmRequesterError, normalizeError, sendError, validationError } from './errors.ts';
 import { listOpenAiCompatibleModels } from './models.ts';
 import { findProvider, PROVIDERS } from './providers.ts';
 import {
@@ -80,6 +80,15 @@ function createAbortContext(req: PluginRequest) {
   return { signal: controller.signal, dispose: () => req.removeListener('aborted', abort) };
 }
 
+function safeBaseUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return '(invalid-url)';
+  }
+}
+
 function handleCapabilities(req: PluginRequest, res: PluginResponse): void {
   res.json({
     ok: true,
@@ -115,22 +124,53 @@ async function handleGenerate(req: PluginRequest, res: PluginResponse): Promise<
   const requestId = randomUUID();
   res.set('X-Request-Id', requestId);
   const abort = createAbortContext(req);
+  const startedAt = Date.now();
+  let phase = 'validate';
+  let providerId = 'unknown';
+  let model = 'unknown';
+
+  console.info(`[llm-requester] request=${requestId} status=received`);
+
   try {
     const parsed = LlmGenerateRequestSchema.safeParse(req.body);
     if (!parsed.success) throw validationError(parsed.error);
+
+    providerId = parsed.data.provider.providerId;
+    model = parsed.data.model;
+    phase = 'resolve-connection';
     const connection = resolveConnection(req, parsed.data.provider);
-    const startedAt = Date.now();
+
+    const messageChars = parsed.data.messages.reduce((total, message) => total + message.content.length, 0);
+    const systemMessageCount = parsed.data.messages.filter(message => message.role === 'system').length;
+    const toolChoice =
+      typeof parsed.data.toolChoice === 'object'
+        ? `tool:${parsed.data.toolChoice.name}`
+        : (parsed.data.toolChoice ?? 'auto');
+    phase = 'upstream-request';
+    console.info(
+      `[llm-requester] request=${requestId} phase=${phase} provider=${providerId} model=${JSON.stringify(model)} ` +
+        `baseUrl=${safeBaseUrl(connection.baseUrl)} messages=${parsed.data.messages.length} ` +
+        `systemMessages=${systemMessageCount} messageChars=${messageChars} tools=${parsed.data.tools?.length ?? 0} ` +
+        `toolChoice=${toolChoice} timeoutMs=${parsed.data.timeoutMs}`,
+    );
     const result = await generateOpenAiCompatible(parsed.data, { ...connection, signal: abort.signal });
+    phase = 'response-validation';
     const response = LlmGenerateResponseSchema.parse({ requestId, ...result });
     console.info(
-      `[llm-requester] request=${requestId} provider=${connection.providerId} model=${parsed.data.model} duration=${Date.now() - startedAt}ms finish=${response.finishReason}`,
+      `[llm-requester] request=${requestId} status=ok provider=${connection.providerId} model=${JSON.stringify(parsed.data.model)} ` +
+        `duration=${Date.now() - startedAt}ms finish=${response.finishReason} textChars=${response.text.length} ` +
+        `toolCalls=${response.toolCalls.length} warnings=${response.warnings.length}`,
     );
     res.json(response);
   } catch (error) {
+    const normalized = normalizeError(error);
     console.warn(
-      `[llm-requester] request=${requestId} status=error code=${error instanceof LlmRequesterError ? error.code : 'REQUEST_FAILED'}`,
+      `[llm-requester] request=${requestId} status=error phase=${phase} provider=${providerId} ` +
+        `model=${JSON.stringify(model)} code=${normalized.code} statusCode=${normalized.statusCode} ` +
+        `duration=${Date.now() - startedAt}ms`,
+      { message: normalized.message, error: describeError(error) },
     );
-    sendError(res, requestId, error);
+    sendError(res, requestId, normalized);
   } finally {
     abort.dispose();
   }

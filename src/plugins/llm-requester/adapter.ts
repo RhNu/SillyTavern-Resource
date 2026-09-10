@@ -69,6 +69,7 @@ export async function generateOpenAiCompatible(request: ParsedLlmGenerateRequest
   const result = await generateText({
     model: provider(request.model),
     messages: request.messages as ModelMessage[],
+    allowSystemInMessages: true,
     tools: buildTools(request),
     toolChoice: buildToolChoice(request),
     maxOutputTokens: parameters.maxOutputTokens,
