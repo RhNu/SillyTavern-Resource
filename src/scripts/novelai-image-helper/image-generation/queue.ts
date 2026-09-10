@@ -39,10 +39,14 @@ export type QueueTaskView = {
 
 export type QueueSnapshot = {
   mode: 'idle' | 'running' | 'paused';
+  /** 当前活动请求是否已经收到中断信号、正在等待底层请求退出。 */
+  cancelling: boolean;
   active?: QueueTaskView;
   pending: QueueTaskView[];
   /** 节流闸门的下一个可派发时刻；大于当前时间表示队列正在等待。 */
   nextDispatchAt: number;
+  /** 当前批次的完成计数；仅用于进度投影，不暴露内部可变对象。 */
+  batch?: Omit<GenerationQueueCompletionSummary, 'requestId' | 'failureMessages'>;
   lastSummary?: GenerationQueueCompletionSummary;
 };
 
@@ -224,9 +228,18 @@ export class GenerationQueue {
     const busy = Boolean(this.active) || this.pending.length > 0;
     return {
       mode: !this.destroyed && busy ? this.mode : 'idle',
+      cancelling: Boolean(this.active?.controller.signal.aborted),
       active: this.active ? this.toView(this.active.task, maxAttempts) : undefined,
       pending: this.pending.map(task => this.toView(task, maxAttempts)),
       nextDispatchAt: this.nextDispatchAt,
+      batch: this.completion
+        ? {
+            succeededCount: this.completion.succeededCount,
+            failedCount: this.completion.failedCount,
+            cancelledCount: this.completion.cancelledCount,
+            retriedCount: this.completion.retriedCount,
+          }
+        : undefined,
       lastSummary: this.lastSummary,
     };
   }

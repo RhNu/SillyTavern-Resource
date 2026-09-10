@@ -1,12 +1,14 @@
 import { teleportStyle } from '@util/script';
 import { matchAnchors } from '../domain/anchor';
 import { mountMessageCards } from '../ui/message-cards';
-import { mountQueueIndicator } from '../ui/queue-indicator';
+import { mountProgressToast } from '../ui/progress-toast';
+import { mountWorkIndicator } from '../ui/work-indicator';
 import { openSettings } from '../ui/settings';
 import '../ui/styles.css';
 import { initializeNovelAiImageNotifier } from './notifier';
-import { NovelAiImageService } from './service';
+import { isAnalysisCancelledError, NovelAiImageService } from './service';
 import { createLogger, serializeError } from './logger';
+import { destroyPreviousInstance, registerActiveInstance, unregisterActiveInstance } from './lifecycle';
 
 const SCRIPT_NAME = 'NovelAI 图片助手';
 const ANALYZE_BUTTON = '& 提示生成';
@@ -65,6 +67,7 @@ function ensurePromptFilter(): void {
 }
 
 export function bootstrap(): { destroy: () => void } {
+  destroyPreviousInstance();
   logger.info('开始初始化图片助手');
   const notifier = initializeNovelAiImageNotifier();
   const service = new NovelAiImageService({
@@ -73,7 +76,8 @@ export function bootstrap(): { destroy: () => void } {
   service.recoverInterruptedBlocks();
   const style = teleportStyle();
   const cards = mountMessageCards(service);
-  const queueIndicator = mountQueueIndicator(service);
+  const workIndicator = mountWorkIndicator(service);
+  const progressToast = mountProgressToast(service);
   const stops: Array<() => void> = [];
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
@@ -94,6 +98,11 @@ export function bootstrap(): { destroy: () => void } {
             else toastr.success(`已创建 ${blocks.length} 个图片块`, SCRIPT_NAME);
           })
           .catch(error => {
+            if (isAnalysisCancelledError(error)) {
+              logger.info('手动分析已由用户中断', { messageId: error.messageId });
+              toastr.info(error.message, SCRIPT_NAME);
+              return;
+            }
             logger.error('手动分析失败', error);
             toastr.error(error instanceof Error ? error.message : String(error), SCRIPT_NAME);
           });
@@ -128,7 +137,14 @@ export function bootstrap(): { destroy: () => void } {
               logger.info('自动分析完成', { messageId, blockCount: blocks.length });
               if (blocks.length > 0) toastr.success(`自动创建了 ${blocks.length} 个图片块`, SCRIPT_NAME);
             })
-            .catch(error => logger.error('自动分析失败', error, { messageId }));
+            .catch(error => {
+              if (isAnalysisCancelledError(error)) {
+                logger.info('自动分析已由用户中断', { messageId });
+                toastr.info(error.message, SCRIPT_NAME);
+                return;
+              }
+              logger.error('自动分析失败', error, { messageId });
+            });
         }, settings.analysis.debounceMs);
       } catch (error) {
         logger.error('处理消息接收事件失败', error, { messageId });
@@ -145,6 +161,7 @@ export function bootstrap(): { destroy: () => void } {
     pauseQueue: () => service.pauseQueue(),
     resumeQueue: () => service.resumeQueue(),
     cancelQueue: () => service.cancelQueue(),
+    cancelAnalysis: () => service.cancelAnalysis(),
     retryFailedBlocks: () => service.retryFailedBlocks(),
   });
   ensurePromptFilter();
@@ -163,11 +180,13 @@ export function bootstrap(): { destroy: () => void } {
   const destroy = () => {
     if (destroyed) return;
     destroyed = true;
+    unregisterActiveInstance(destroy);
     logger.info('开始卸载图片助手');
     if (debounceTimer) clearTimeout(debounceTimer);
     stops.forEach(stop => stop());
     [
-      ['queue indicator', () => queueIndicator.destroy()],
+      ['progress toast', () => progressToast.destroy()],
+      ['work indicator', () => workIndicator.destroy()],
       ['message cards', () => cards.destroy()],
       ['service', () => service.destroy()],
       ['notifier', () => notifier.destroy()],
@@ -182,6 +201,7 @@ export function bootstrap(): { destroy: () => void } {
     $(window).off('pagehide.novelaiImageHelper');
     logger.info('图片助手已卸载');
   };
+  registerActiveInstance(destroy);
   $(window).off('pagehide.novelaiImageHelper').on('pagehide.novelaiImageHelper', destroy);
   logger.info('图片助手已加载');
   return { destroy };

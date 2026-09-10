@@ -16,6 +16,7 @@ import { PromptModelClient } from '../prompt-analysis/model-client';
 import { NovelAiClient } from '../platform/imggen-novelai/client';
 import { SettingsStore } from '../settings/store';
 import { LlmRequesterClient } from '../../../../util/llm-requester/client';
+import { queueSnapshotToProgress, WorkProgressStore } from './work-progress';
 
 const logger = createLogger('app/service');
 
@@ -29,12 +30,19 @@ export class NovelAiImageService {
   readonly backend = new NovelAiClient();
   readonly llmRequester = new LlmRequesterClient();
   readonly queue: GenerationQueue;
+  readonly progress = new WorkProgressStore();
   private readonly promptModel = new PromptModelClient(this.llmRequester);
-  private activeAnalysis?: { generationId: string; messageId: number };
+  private activeAnalysis?: { generationId: string; messageId: number; cancelled: boolean };
+  private readonly unsubscribeQueueProgress: () => void;
 
   constructor(options: NovelAiImageServiceOptions = {}) {
     this.queue = new GenerationQueue(this.repository, this.settings, this.backend, {
       onQueueFinished: options.onGenerationQueueFinished,
+    });
+    this.unsubscribeQueueProgress = this.queue.subscribe(snapshot => {
+      const item = queueSnapshotToProgress(snapshot, () => this.cancelQueue());
+      if (item) this.progress.upsert(item);
+      else this.progress.remove('generation-queue');
     });
     logger.info('图片助手服务已创建');
   }
@@ -149,7 +157,17 @@ export class NovelAiImageService {
     }
 
     const generationId = `nai-analysis-${crypto.randomUUID()}`;
-    this.activeAnalysis = { generationId, messageId };
+    const analysis = { generationId, messageId, cancelled: false };
+    this.activeAnalysis = analysis;
+    this.progress.upsert({
+      id: generationId,
+      kind: 'analysis',
+      status: 'running',
+      title: `分析消息 ${messageId}`,
+      detail: '正在整理剧情上下文',
+      completed: 0,
+      cancel: { label: '中断提示词分析', run: () => this.cancelAnalysis() },
+    });
     try {
       logger.debug('开始构建提示词分析上下文', {
         messageId,
@@ -157,11 +175,22 @@ export class NovelAiImageService {
         paragraphCount: paragraphs.length,
         historyCount: settings.analysis.historyCount,
       });
+      const worldbook = await buildWorldbook();
+      if (analysis.cancelled) throw new AnalysisCancelledError(messageId);
+      this.progress.upsert({
+        id: generationId,
+        kind: 'analysis',
+        status: 'running',
+        title: `分析消息 ${messageId}`,
+        detail: '正在请求提示词模型',
+        completed: 0,
+        cancel: { label: '中断提示词分析', run: () => this.cancelAnalysis() },
+      });
       const response = await this.promptModel.analyze(
         {
           paragraphs: paragraphTexts(paragraphs),
           history: buildHistory(messageId, settings.analysis.historyCount, settings.analysis.cleanup),
-          worldbook: await buildWorldbook(),
+          worldbook,
         },
         settings,
         generationId,
@@ -185,6 +214,16 @@ export class NovelAiImageService {
         }
       });
 
+      if (analysis.cancelled) throw new AnalysisCancelledError(messageId);
+      this.progress.upsert({
+        id: generationId,
+        kind: 'analysis',
+        status: 'running',
+        title: `分析消息 ${messageId}`,
+        detail: '正在写入图片块',
+        completed: 0,
+        cancel: { label: '中断提示词分析', run: () => this.cancelAnalysis() },
+      });
       const blocks = await commitAnalysis({
         messageId,
         originalText: message.message,
@@ -208,10 +247,12 @@ export class NovelAiImageService {
       });
       return blocks;
     } catch (error) {
+      if (analysis.cancelled) throw new AnalysisCancelledError(messageId);
       logger.error('消息分析失败', error, { messageId, generationId });
       throw error;
     } finally {
       this.activeAnalysis = undefined;
+      this.progress.remove(generationId);
       logger.debug('消息分析任务已清理', { messageId, generationId });
     }
   }
@@ -294,14 +335,37 @@ export class NovelAiImageService {
       return;
     }
     logger.info('请求取消消息分析', this.activeAnalysis);
+    this.activeAnalysis.cancelled = true;
+    this.progress.upsert({
+      id: this.activeAnalysis.generationId,
+      kind: 'analysis',
+      status: 'cancelling',
+      title: `分析消息 ${this.activeAnalysis.messageId}`,
+      detail: '正在中断提示词模型请求',
+      completed: 0,
+      cancel: { label: '正在中断…', run: () => undefined },
+    });
     this.promptModel.stop(this.activeAnalysis.generationId);
   }
 
   destroy(): void {
     logger.info('开始销毁图片助手服务');
     this.cancelAnalysis();
+    this.unsubscribeQueueProgress();
     this.queue.destroy();
+    this.progress.destroy();
     this.settings.destroy();
     logger.debug('图片助手服务已销毁');
   }
+}
+
+export class AnalysisCancelledError extends Error {
+  constructor(readonly messageId: number) {
+    super(`消息 ${messageId} 的提示词分析已中断`);
+    this.name = 'AnalysisCancelledError';
+  }
+}
+
+export function isAnalysisCancelledError(error: unknown): error is AnalysisCancelledError {
+  return error instanceof AnalysisCancelledError;
 }

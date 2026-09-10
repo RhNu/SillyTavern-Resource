@@ -532,130 +532,292 @@
   border-color: var(--SmartThemeEmColor, #d66);
 }
 
-.nai-queue {
+.nai-work-root {
+  --nai-work-progress: 0;
   position: fixed;
-  z-index: 4000;
-  display: none;
-  color: var(--SmartThemeBodyColor, inherit);
-  font-size: 0.9rem;
-}
-
-.nai-queue[data-visible='true'] {
+  z-index: 2147483644;
   display: block;
+  width: 54px;
+  height: 54px;
+  color: var(--SmartThemeBodyColor, #eee);
+  touch-action: none;
+  user-select: none;
 }
 
-.nai-queue[data-collapsed='true'] .nai-queue__panel {
-  display: none;
-}
-
-.nai-queue[data-collapsed='false'] .nai-queue__toggle {
-  display: none;
-}
-
-.nai-queue__toggle {
-  display: grid;
-  width: 3rem;
-  height: 3rem;
-  padding: 0;
-  place-items: center;
+.nai-work-trigger {
+  position: relative;
+  width: 54px !important;
+  min-width: 54px !important;
+  height: 54px;
+  padding: 0 !important;
   border: 1px solid var(--SmartThemeBorderColor);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 88%, transparent);
+  border-radius: 10px;
   color: inherit;
+  background: var(--SmartThemeBlurTintColor, rgba(25, 25, 25, 0.96));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--SmartThemeShadowColor) 65%, transparent);
   cursor: grab;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--SmartThemeShadowColor) 55%, transparent);
+  writing-mode: horizontal-tb !important;
 }
 
-.nai-queue[data-mode='paused'] .nai-queue__toggle {
-  border-color: var(--SmartThemeQuoteColor);
+.nai-work-trigger:focus-visible {
+  outline: 2px solid var(--SmartThemeQuoteColor);
+  outline-offset: 2px;
 }
 
-.nai-queue[data-waiting='true'] .nai-queue__toggle {
-  border-style: dashed;
-}
-
-.nai-queue__badge {
-  font-weight: 600;
-}
-
-.nai-queue__badge[data-tone='error'] {
-  color: var(--SmartThemeEmColor, #d66);
-}
-
-.nai-queue__panel {
-  width: min(20rem, 80vw);
+.nai-work-ring {
+  position: absolute;
+  inset: auto 7px 7px;
+  height: 2px;
   overflow: hidden;
-  border: 1px solid var(--SmartThemeBorderColor);
-  border-radius: 0.6rem;
-  background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 92%, transparent);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--SmartThemeShadowColor) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--SmartThemeBorderColor) 72%, transparent);
+  pointer-events: none;
 }
 
-.nai-queue__header {
+.nai-work-ring::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--SmartThemeQuoteColor);
+  transform: scaleX(calc(var(--nai-work-progress) * 0.01));
+  transform-origin: left;
+  transition: transform 180ms ease;
+}
+
+.nai-work-root.is-indeterminate .nai-work-ring::after {
+  animation: nai-work-ring-scan 1s ease-in-out infinite;
+}
+
+.nai-work-root.is-idle .nai-work-ring,
+.nai-work-root.is-idle .nai-work-percent {
+  display: none;
+}
+
+.nai-work-root.is-idle .nai-work-core {
+  font-size: 16px;
+}
+
+.nai-work-core {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid var(--SmartThemeBorderColor);
-  cursor: grab;
-}
-
-.nai-queue__title {
-  font-weight: 600;
-}
-
-.nai-queue__mode {
-  margin-left: auto;
-  font-size: 0.86em;
-  opacity: 0.75;
-}
-
-.nai-queue__detail,
-.nai-queue__list {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.5rem 0.6rem 0;
-}
-
-.nai-queue__list {
-  margin: 0;
-  list-style: none;
-}
-
-.nai-queue__line,
-.nai-queue__item {
-  overflow-wrap: anywhere;
-}
-
-.nai-queue__line--waiting {
-  color: var(--SmartThemeQuoteColor);
-}
-
-.nai-queue__line--error {
-  color: var(--SmartThemeEmColor, #d66);
-}
-
-.nai-queue__item {
-  font-size: 0.9em;
-  opacity: 0.85;
-}
-
-.nai-queue__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.5rem 0.6rem 0.6rem;
-}
-
-.nai-queue__actions .menu_button {
-  display: inline-flex;
-  flex: 0 0 auto;
+  height: 100%;
   align-items: center;
   justify-content: center;
-  width: auto !important;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.nai-work-percent {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.nai-work-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: none;
+  min-width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 1px solid var(--SmartThemeBorderColor);
+  border-radius: 999px;
+  color: inherit;
+  background: var(--SmartThemeBlurTintColor, rgba(25, 25, 25, 0.96));
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.nai-work-badge.has-count {
+  display: inline-flex;
+}
+
+.nai-work-menu {
+  position: fixed;
+  z-index: 2147483643;
+  display: grid;
+  width: min(82vw, 260px);
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid var(--SmartThemeBorderColor);
+  border-radius: 10px;
+  color: var(--SmartThemeBodyColor, #eee);
+  background: var(--SmartThemeBlurTintColor, rgba(25, 25, 25, 0.96));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--SmartThemeShadowColor) 65%, transparent);
+  opacity: 0;
+  transform: scale(0.96);
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.nai-work-menu.is-open {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.nai-work-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nai-work-close {
+  display: inline-flex;
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0 !important;
+  border: 1px solid var(--SmartThemeBorderColor);
+  border-radius: 7px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  writing-mode: horizontal-tb !important;
+}
+
+.nai-work-focus {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 8px;
+  align-items: center;
   min-width: 0;
+}
+
+.nai-work-status {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--SmartThemeQuoteColor) 20%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nai-work-focus-title,
+.nai-work-focus-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nai-work-focus-detail {
+  grid-column: 1 / -1;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #eee) 78%, transparent);
+  font-size: 12px;
+}
+
+.nai-work-progress {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--SmartThemeBorderColor) 55%, transparent);
+}
+
+.nai-work-progress-bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--SmartThemeQuoteColor);
+}
+
+.nai-work-menu.is-indeterminate .nai-work-progress-bar {
+  animation: nai-work-menu-scan 1.2s ease-in-out infinite alternate;
+}
+
+.nai-work-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding-left: 20px;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #eee) 76%, transparent);
+  font-size: 12px;
+}
+
+.nai-work-actions {
+  display: flex;
+}
+
+.nai-work-actions .menu_button {
+  display: inline-flex;
+  width: 100% !important;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
   white-space: nowrap !important;
   word-break: keep-all;
+  writing-mode: horizontal-tb !important;
+}
+
+.toast.nai-work-toast .nai-work-toast__body {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.toast.nai-work-toast .nai-work-toast__body > span,
+.toast.nai-work-toast .nai-work-toast__body > small {
+  overflow-wrap: anywhere;
+  opacity: 0.82;
+}
+
+.toast.nai-work-toast .nai-work-toast__button {
+  justify-self: end;
+  width: auto;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
+  border-radius: 999px;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 9%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.toast.nai-work-toast .nai-work-toast__button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.toast.nai-work-toast .toast-progress {
+  width: 100% !important;
+  opacity: 0.9;
+  background: var(--SmartThemeQuoteColor);
+  animation: nai-work-toast-scan 1.5s linear infinite;
+}
+
+@keyframes nai-work-ring-scan {
+  0% {
+    transform: translateX(-80%) scaleX(0.25);
+  }
+  50% {
+    transform: translateX(0) scaleX(0.7);
+  }
+  100% {
+    transform: translateX(80%) scaleX(0.25);
+  }
+}
+
+@keyframes nai-work-menu-scan {
+  from {
+    transform: translateX(-30%);
+  }
+  to {
+    transform: translateX(185%);
+  }
+}
+
+@keyframes nai-work-toast-scan {
+  50% {
+    opacity: 0.35;
+  }
 }
 
 @media (max-width: 700px) {
