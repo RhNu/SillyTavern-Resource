@@ -1,27 +1,50 @@
-import { readVariablesPath, updateVariablesPath } from '@util/variables';
-import { normalizeSettings, type Settings } from './schema';
+import { createScriptSettingsSync, type ScriptSettingsSync } from '@util/script-settings';
+import { DEFAULT_SETTINGS, SettingsSchema, normalizeSettings, type Settings } from './schema';
 
-const SETTINGS_PATH = 'novelaiImageHelper.settings';
+const SETTINGS_STORE_KEY = 'novelaiImageHelper';
+
+function createSettingsSync(): ScriptSettingsSync<Settings> {
+  return createScriptSettingsSync({
+    key: SETTINGS_STORE_KEY,
+    legacyPaths: [`${SETTINGS_STORE_KEY}.settings`],
+    parse: value => SettingsSchema.parse(value),
+    defaultValue: () => structuredClone(DEFAULT_SETTINGS),
+    debounceMs: 500,
+  });
+}
 
 export class SettingsStore {
   private value: Settings;
   private readonly listeners = new Set<(settings: Settings) => void>();
 
-  constructor() {
-    this.value = normalizeSettings(readVariablesPath({ type: 'script', script_id: getScriptId() }, SETTINGS_PATH));
+  constructor(private readonly sync: ScriptSettingsSync<Settings> = createSettingsSync()) {
+    this.value = this.sync.load();
   }
 
   get(): Settings {
     return structuredClone(this.value);
   }
 
-  update(updater: (draft: Settings) => void): Settings {
+  update(updater: (draft: Settings) => void, options: { debounced?: boolean } = {}): Settings {
     const draft = this.get();
     updater(draft);
     this.value = normalizeSettings(draft);
-    updateVariablesPath({ type: 'script', script_id: getScriptId() }, SETTINGS_PATH, this.value);
+    this.value = options.debounced ? this.sync.schedule(this.value) : this.sync.save(this.value);
     this.listeners.forEach(listener => listener(this.get()));
     return this.get();
+  }
+
+  replace(settings: Settings, options: { debounced?: boolean } = {}): Settings {
+    return this.update(draft => Object.assign(draft, settings), options);
+  }
+
+  flush(): void {
+    this.sync.flush();
+  }
+
+  destroy(): void {
+    this.sync.destroy();
+    this.listeners.clear();
   }
 
   subscribe(listener: (settings: Settings) => void): () => void {

@@ -10,6 +10,7 @@ import {
   removeCharacter,
   restoreSelectedTemplate,
   saveSettings,
+  scheduleSettingsSave,
   toggleCharacterBinding,
 } from './settings-model';
 
@@ -82,6 +83,10 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
       active = false;
     };
   }, [props.service]);
+
+  useEffect(() => {
+    scheduleSettingsSave(props.service, draft);
+  }, [draft, props.service]);
 
   const runAction = (action: () => Settings) => {
     try {
@@ -593,11 +598,19 @@ export default function SettingsPanel(props: { service: NovelAiImageService; onC
 
       {error && <pre className="nai-settings__error">{error}</pre>}
       <footer className="nai-settings__actions">
-        <button type="button" className="menu_button menu_button_cancel" onClick={props.onClose}>
-          取消
+        <span className="nai-settings__hint">更改会自动保存</span>
+        <button
+          type="button"
+          className="menu_button menu_button_cancel"
+          onClick={() => {
+            props.service.settings.flush();
+            props.onClose();
+          }}
+        >
+          关闭
         </button>
         <button type="button" className="menu_button" onClick={save}>
-          保存
+          保存并关闭
         </button>
       </footer>
     </div>

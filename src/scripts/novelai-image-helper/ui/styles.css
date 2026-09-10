@@ -177,6 +177,11 @@
   flex: 1 1 14rem;
 }
 
+.nai-settings__actions .nai-settings__hint {
+  align-self: center;
+  margin-right: auto;
+}
+
 .nai-character {
   display: grid;
   gap: 0;

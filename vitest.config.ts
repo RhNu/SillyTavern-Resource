@@ -1,8 +1,19 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
-const unitTestFiles = ['tools/**/*.test.ts', 'src/plugins/**/*.test.ts', 'src/scripts/**/*.test.ts'];
+const unitTestFiles = [
+  'tools/**/*.test.ts',
+  'util/**/*.test.ts',
+  'src/plugins/**/*.test.ts',
+  'src/scripts/**/*.test.ts',
+];
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@util': fileURLToPath(new URL('./util', import.meta.url)),
+    },
+  },
   test: {
     clearMocks: true,
     restoreMocks: true,

@@ -111,5 +111,6 @@ export class NovelAiImageService {
   destroy(): void {
     this.cancelAnalysis();
     this.queue.destroy();
+    this.settings.destroy();
   }
 }

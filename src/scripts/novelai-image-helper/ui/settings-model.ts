@@ -87,5 +87,12 @@ export function toggleCharacterBinding(
 export function saveSettings(service: NovelAiImageService, candidate: Settings): Settings {
   const parsed = SettingsSchema.safeParse(candidate);
   if (!parsed.success) throw new Error(z.prettifyError(parsed.error));
-  return service.settings.update(draft => Object.assign(draft, parsed.data));
+  return service.settings.replace(parsed.data);
+}
+
+export function scheduleSettingsSave(service: NovelAiImageService, candidate: Settings): boolean {
+  const parsed = SettingsSchema.safeParse(candidate);
+  if (!parsed.success) return false;
+  service.settings.replace(parsed.data, { debounced: true });
+  return true;
 }
