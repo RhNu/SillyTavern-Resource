@@ -1,20 +1,14 @@
 import { expect, test } from 'vitest';
-import { DEFAULT_SETTINGS, legacyAnchorTemplateWarning, normalizeSettings } from './schema';
+import { DEFAULT_SETTINGS, normalizeSettings } from './schema';
 
-test('v7 removes the obsolete threshold while preserving all user configuration', () => {
+test('keeps valid current settings unchanged', () => {
   const settings = structuredClone(DEFAULT_SETTINGS);
   settings.analysis.model = 'custom-model';
   settings.analysis.cleanup.extractRules = ['<scene>'];
-  settings.analysis.templates.v5 = 'custom after_paragraph rules';
   settings.generation.steps = 17;
-  const migrated = normalizeSettings({
-    ...settings,
-    schemaVersion: 7,
-    analysis: { ...settings.analysis, minimumParagraphLength: 1999 },
-  });
-  expect(migrated).toEqual(settings);
-  expect(migrated.analysis).not.toHaveProperty('minimumParagraphLength');
-  expect(legacyAnchorTemplateWarning(migrated)).toContain('anchor_id');
-  expect(normalizeSettings(migrated)).toEqual(migrated);
-  expect(legacyAnchorTemplateWarning(DEFAULT_SETTINGS)).toBeUndefined();
+  expect(normalizeSettings(settings)).toEqual(settings);
+});
+
+test('falls back to defaults for an obsolete settings schema', () => {
+  expect(normalizeSettings({ ...structuredClone(DEFAULT_SETTINGS), schemaVersion: 7 })).toEqual(DEFAULT_SETTINGS);
 });

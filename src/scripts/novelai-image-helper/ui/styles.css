@@ -637,9 +637,9 @@
   position: fixed;
   z-index: 2147483643;
   display: grid;
-  width: min(82vw, 260px);
-  gap: 8px;
-  padding: 9px;
+  width: min(82vw, 248px);
+  gap: 7px;
+  padding: 8px;
   border: 1px solid var(--SmartThemeBorderColor);
   border-radius: 10px;
   color: var(--SmartThemeBodyColor, #eee);
@@ -665,21 +665,41 @@
   gap: 8px;
 }
 
-.nai-work-close {
+.nai-work-tools {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.nai-work-icon-button {
   display: inline-flex;
-  width: 28px !important;
-  min-width: 28px !important;
-  height: 28px;
+  width: 26px !important;
+  min-width: 26px !important;
+  height: 26px;
   align-items: center;
   justify-content: center;
-  margin-left: auto;
   padding: 0 !important;
-  border: 1px solid var(--SmartThemeBorderColor);
-  border-radius: 7px;
+  border: 0;
+  border-radius: 6px;
   color: inherit;
   background: transparent;
   cursor: pointer;
   writing-mode: horizontal-tb !important;
+}
+
+.nai-work-icon-button:hover,
+.nai-work-icon-button:focus-visible {
+  background: color-mix(in srgb, var(--SmartThemeQuoteColor) 18%, transparent);
+}
+
+.nai-work-icon-button:focus-visible {
+  outline: 2px solid var(--SmartThemeQuoteColor);
+  outline-offset: 1px;
+}
+
+.nai-work-icon-button:disabled {
+  cursor: default;
+  opacity: 0.42;
 }
 
 .nai-work-focus {
@@ -707,6 +727,18 @@
   white-space: nowrap;
 }
 
+.nai-work-menu.is-idle .nai-work-focus {
+  display: flex;
+}
+
+.nai-work-menu.is-idle .nai-work-focus-title,
+.nai-work-menu.is-idle .nai-work-focus-detail,
+.nai-work-menu.is-idle .nai-work-progress,
+.nai-work-menu.is-idle .nai-work-more,
+.nai-work-menu.is-idle .nai-work-actions {
+  display: none;
+}
+
 .nai-work-focus-detail {
   grid-column: 1 / -1;
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #eee) 78%, transparent);
@@ -731,13 +763,13 @@
   animation: nai-work-menu-scan 1.2s ease-in-out infinite alternate;
 }
 
-.nai-work-list {
-  display: grid;
-  gap: 3px;
-  margin: 0;
-  padding-left: 20px;
+.nai-work-more {
+  display: block;
+  overflow: hidden;
   color: color-mix(in srgb, var(--SmartThemeBodyColor, #eee) 76%, transparent);
   font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nai-work-actions {
@@ -750,6 +782,7 @@
   min-width: 0;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
   white-space: nowrap !important;
   word-break: keep-all;
   writing-mode: horizontal-tb !important;

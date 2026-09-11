@@ -50,11 +50,19 @@ function requireElement<T extends Element>(parent: ParentNode, selector: string)
   return element;
 }
 
+type WorkIndicatorActions = {
+  analyzeLatest: () => Promise<void>;
+  openSettings: () => void;
+};
+
 /**
  * 统一工作悬浮窗。触发球保持固定尺寸，菜单独立挂载并按视口翻转，
  * 避免展开后改变拖拽根节点尺寸而在屏幕边缘错位。
  */
-export function mountWorkIndicator(service: NovelAiImageService): { destroy: () => void } {
+export function mountWorkIndicator(
+  service: NovelAiImageService,
+  actions: WorkIndicatorActions,
+): { destroy: () => void } {
   const { doc, win } = getHostDomContext();
   const sync = createIndicatorStateSync();
   let state = sync.load();
@@ -86,8 +94,18 @@ export function mountWorkIndicator(service: NovelAiImageService): { destroy: () 
   menu.setAttribute('script_id', getScriptId());
   menu.innerHTML = `
     <div class="nai-work-header">
-      <strong>NovelAI 工作进度</strong>
-      <button type="button" class="nai-work-close" data-nai-work-action="close" aria-label="关闭进度菜单">×</button>
+      <strong>图片助手</strong>
+      <div class="nai-work-tools">
+        <button type="button" class="nai-work-icon-button" data-nai-work-action="analyze" aria-label="提示生成" title="提示生成">
+          <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="nai-work-icon-button" data-nai-work-action="settings" aria-label="生成设置" title="生成设置">
+          <i class="fa-solid fa-gear" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="nai-work-icon-button" data-nai-work-action="close" aria-label="关闭" title="关闭">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
     </div>
     <div class="nai-work-focus">
       <span class="nai-work-status"></span>
@@ -95,9 +113,12 @@ export function mountWorkIndicator(service: NovelAiImageService): { destroy: () 
       <span class="nai-work-focus-detail"></span>
     </div>
     <div class="nai-work-progress"><span class="nai-work-progress-bar"></span></div>
-    <ul class="nai-work-list"></ul>
+    <span class="nai-work-more"></span>
     <div class="nai-work-actions">
-      <button type="button" class="menu_button menu_button_cancel" data-nai-work-action="cancel">中断当前工作</button>
+      <button type="button" class="menu_button menu_button_cancel" data-nai-work-action="cancel">
+        <i class="fa-solid fa-stop" aria-hidden="true"></i>
+        <span>中断</span>
+      </button>
     </div>
   `;
   (doc.body ?? doc.documentElement).append(menu);
@@ -109,8 +130,10 @@ export function mountWorkIndicator(service: NovelAiImageService): { destroy: () 
   const titleNode = requireElement<HTMLElement>(menu, '.nai-work-focus-title');
   const detailNode = requireElement<HTMLElement>(menu, '.nai-work-focus-detail');
   const progressBar = requireElement<HTMLElement>(menu, '.nai-work-progress-bar');
-  const list = requireElement<HTMLUListElement>(menu, '.nai-work-list');
+  const moreNode = requireElement<HTMLElement>(menu, '.nai-work-more');
+  const analyzeButton = requireElement<HTMLButtonElement>(menu, '[data-nai-work-action="analyze"]');
   const cancelButton = requireElement<HTMLButtonElement>(menu, '[data-nai-work-action="cancel"]');
+  const cancelLabel = requireElement<HTMLElement>(cancelButton, 'span');
 
   const floating = mountDraggableFloatingSurface({
     doc,
@@ -162,18 +185,18 @@ export function mountWorkIndicator(service: NovelAiImageService): { destroy: () 
     root.classList.toggle('is-indeterminate', Boolean(focus) && percent === undefined);
     root.classList.toggle('is-cancelling', focus?.status === 'cancelling');
     menu.classList.toggle('is-indeterminate', Boolean(focus) && percent === undefined);
+    menu.classList.toggle('is-idle', !focus);
     root.style.setProperty('--nai-work-progress', String(percent ?? 32));
+    analyzeButton.disabled = snapshot.items.some(item => item.kind === 'analysis');
     if (!focus) {
       percentNode.textContent = '';
       badgeNode.textContent = '0';
       badgeNode.classList.remove('has-count');
       statusNode.textContent = '空闲';
-      titleNode.textContent = '暂无进行中的工作';
-      detailNode.textContent = '开始工作后会显示实时进度。';
+      titleNode.textContent = '';
+      detailNode.textContent = '';
       progressBar.style.width = '0%';
-      list.replaceChildren();
-      list.hidden = true;
-      cancelButton.textContent = '暂无可中断工作';
+      moreNode.textContent = '';
       cancelButton.disabled = true;
       if (open) placeMenu();
       return;
@@ -187,16 +210,10 @@ export function mountWorkIndicator(service: NovelAiImageService): { destroy: () 
     detailNode.textContent = focus.detail;
     progressBar.style.width = percent === undefined ? '35%' : `${percent}%`;
 
-    list.replaceChildren();
-    snapshot.items
-      .filter(item => item.id !== focus?.id)
-      .forEach(item => {
-        const entry = doc.createElement('li');
-        entry.textContent = itemLabel(item);
-        list.append(entry);
-      });
-    list.hidden = snapshot.items.length <= 1;
-    cancelButton.textContent = focus.cancel?.label ?? '不可中断';
+    const otherItems = snapshot.items.filter(item => item.id !== focus?.id);
+    moreNode.textContent =
+      otherItems.length === 0 ? '' : `另有 ${otherItems.length} 项 · ${otherItems.map(itemLabel).join('、')}`;
+    cancelLabel.textContent = focus.cancel?.label ?? '不可中断';
     cancelButton.disabled = !focus.cancel || focus.status === 'cancelling';
     if (open) placeMenu();
   }
@@ -211,6 +228,11 @@ export function mountWorkIndicator(service: NovelAiImageService): { destroy: () 
     const action = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-nai-work-action]')?.dataset
       .naiWorkAction;
     if (action === 'close') setOpen(false);
+    if (action === 'settings') {
+      setOpen(false);
+      actions.openSettings();
+    }
+    if (action === 'analyze') void actions.analyzeLatest();
     if (action === 'cancel') {
       try {
         focus?.cancel?.run();

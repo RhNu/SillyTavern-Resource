@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_SETTINGS, normalizeSettings } from '../settings/schema';
+import { DEFAULT_SETTINGS } from '../settings/schema';
 import { deleteSelectedPromptPreset, savePromptPreset } from './settings-model';
 
 describe('image prompt preset editing', () => {
@@ -30,92 +30,5 @@ describe('image prompt preset editing', () => {
     expect(next.generation.promptPresets.items['第二套']).toBeUndefined();
     expect(next.generation.promptPresets.selected).toBe('NovelAI 默认');
     expect(() => deleteSelectedPromptPreset(next)).toThrow('至少需要保留一个提示词预设');
-  });
-});
-
-describe('settings migration', () => {
-  test('keeps the selected model template and legacy generation prompt fields', () => {
-    const legacy = {
-      ...structuredClone(DEFAULT_SETTINGS),
-      schemaVersion: 2,
-      analysis: {
-        ...structuredClone(DEFAULT_SETTINGS.analysis),
-        templates: {
-          selected: '自定义规则',
-          items: {
-            自定义规则: { v45: 'v45 custom', v5: 'v5 custom' },
-          },
-        },
-      },
-      generation: {
-        ...structuredClone(DEFAULT_SETTINGS.generation),
-        prefix: 'prefix custom',
-        suffix: 'suffix custom',
-        negative: 'negative custom',
-      },
-    };
-
-    const normalized = normalizeSettings(legacy);
-
-    expect(normalized.schemaVersion).toBe(8);
-    expect(normalized.analysis.templates).toEqual({ v45: 'v45 custom', v5: 'v5 custom' });
-    expect(normalized.generation.promptPresets.selected).toBe('NovelAI 默认');
-    expect(normalized.generation.promptPresets.items['NovelAI 默认']).toEqual({
-      prefix: 'prefix custom',
-      suffix: 'suffix custom',
-      negative: 'negative custom',
-    });
-  });
-
-  test('keeps the v3 API URL but removes Tavern Helper credentials', () => {
-    const legacy = {
-      ...structuredClone(DEFAULT_SETTINGS),
-      schemaVersion: 3,
-      analysis: {
-        ...structuredClone(DEFAULT_SETTINGS.analysis),
-        proxyPreset: 'legacy-proxy',
-        apiUrl: 'https://example.com/v1',
-        apiKey: 'must-not-survive',
-      },
-    };
-    delete (legacy.analysis as unknown as Record<string, unknown>).connection;
-
-    const normalized = normalizeSettings(legacy);
-
-    expect(normalized.schemaVersion).toBe(8);
-    expect(normalized.analysis.connection).toEqual({
-      providerId: 'custom',
-      credentialId: '',
-      baseUrl: 'https://example.com/v1',
-    });
-    expect(normalized.analysis).not.toHaveProperty('proxyPreset');
-    expect(normalized.analysis).not.toHaveProperty('apiKey');
-  });
-
-  test('adds empty script-local cleanup rules to the v5 settings shape', () => {
-    const legacy = structuredClone(DEFAULT_SETTINGS);
-    delete (legacy.analysis as unknown as Record<string, unknown>).cleanup;
-    (legacy as unknown as Record<string, unknown>).schemaVersion = 5;
-
-    const normalized = normalizeSettings(legacy);
-
-    expect(normalized.schemaVersion).toBe(8);
-    expect(normalized.analysis.cleanup).toEqual({ extractRules: [], filterRules: [] });
-  });
-
-  test('adds queue throttle and retry defaults to the v6 settings shape', () => {
-    const legacy = structuredClone(DEFAULT_SETTINGS) as unknown as Record<string, unknown>;
-    legacy.schemaVersion = 6;
-    const generation = legacy.generation as Record<string, unknown>;
-    delete generation.retryCount;
-    delete generation.requestIntervalMs;
-    delete generation.uploadTimeoutMs;
-
-    const normalized = normalizeSettings(legacy);
-
-    expect(normalized.schemaVersion).toBe(8);
-    expect(normalized.generation.retryCount).toBe(2);
-    expect(normalized.generation.requestIntervalMs).toBe(4_000);
-    expect(normalized.generation.uploadTimeoutMs).toBe(30_000);
   });
 });

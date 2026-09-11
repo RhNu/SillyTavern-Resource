@@ -8,7 +8,6 @@ const logger = createLogger('settings/store');
 function createSettingsSync(): ScriptSettingsSync<Settings> {
   return createScriptSettingsSync({
     key: SETTINGS_STORE_KEY,
-    legacyPaths: [`${SETTINGS_STORE_KEY}.settings`],
     parse: value => normalizeSettings(value),
     defaultValue: () => structuredClone(DEFAULT_SETTINGS),
     debounceMs: 500,

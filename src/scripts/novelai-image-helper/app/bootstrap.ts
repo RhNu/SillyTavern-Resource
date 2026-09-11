@@ -11,8 +11,6 @@ import { createLogger, serializeError } from './logger';
 import { destroyPreviousInstance, registerActiveInstance, unregisterActiveInstance } from './lifecycle';
 
 const SCRIPT_NAME = 'NovelAI 图片助手';
-const ANALYZE_BUTTON = '& 提示生成';
-const SETTINGS_BUTTON = '& 生成设置';
 const PROMPT_REGEX_NAME = '[NOVELAI_IMAGE_HELPER] 隐藏图片锚点';
 const PROMPT_REGEX = String.raw`/\[\[NovelAIImage\s+id=(?:"[^"\]]+"|'[^'\]]+')\s*\]\]/gsi`;
 const logger = createLogger('app/bootstrap');
@@ -76,50 +74,40 @@ export function bootstrap(): { destroy: () => void } {
   service.recoverImageRecords();
   const style = teleportStyle();
   const cards = mountMessageCards(service);
-  const workIndicator = mountWorkIndicator(service);
-  const progressToast = mountProgressToast(service);
-  const stops: Array<() => void> = [];
-  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-  let destroyed = false;
-
-  appendInexistentScriptButtons([
-    { name: ANALYZE_BUTTON, visible: true },
-    { name: SETTINGS_BUTTON, visible: true },
-  ]);
-  stops.push(
-    eventOn(getButtonEvent(ANALYZE_BUTTON), () => {
+  const workIndicator = mountWorkIndicator(service, {
+    analyzeLatest: async () => {
       try {
-        logger.info('点击手动分析按钮');
-        void service
-          .analyzeLatest(true)
-          .then(blocks => {
-            logger.info('手动分析完成', { blockCount: blocks.length });
-            if (blocks.length === 0) toastr.info('模型认为当前消息不需要插图', SCRIPT_NAME);
-            else toastr.success(`已创建 ${blocks.length} 个图片块`, SCRIPT_NAME);
-          })
-          .catch(error => {
-            if (isAnalysisCancelledError(error)) {
-              logger.info('手动分析已由用户中断', { messageId: error.messageId });
-              toastr.info(error.message, SCRIPT_NAME);
-              return;
-            }
-            logger.error('手动分析失败', error);
-            toastr.error(error instanceof Error ? error.message : String(error), SCRIPT_NAME);
-          });
+        logger.info('点击悬浮窗提示生成按钮');
+        const blocks = await service.analyzeLatest(true);
+        logger.info('手动分析完成', { blockCount: blocks.length });
+        if (blocks.length === 0) toastr.info('当前消息无需插图', SCRIPT_NAME);
+        else toastr.success(`已创建 ${blocks.length} 个图片块`, SCRIPT_NAME);
       } catch (error) {
-        logger.error('启动手动分析失败', error);
+        if (isAnalysisCancelledError(error)) {
+          logger.info('手动分析已由用户中断', { messageId: error.messageId });
+          toastr.info(error.message, SCRIPT_NAME);
+          return;
+        }
+        logger.error('手动分析失败', error);
         toastr.error(error instanceof Error ? error.message : String(error), SCRIPT_NAME);
       }
-    }).stop,
-    eventOn(getButtonEvent(SETTINGS_BUTTON), () => {
+    },
+    openSettings: () => {
       try {
-        logger.debug('打开图片助手设置');
+        logger.debug('从悬浮窗打开图片助手设置');
         openSettings(service);
       } catch (error) {
         logger.error('打开图片助手设置失败', error);
         toastr.error(error instanceof Error ? error.message : String(error), SCRIPT_NAME);
       }
-    }).stop,
+    },
+  });
+  const progressToast = mountProgressToast(service);
+  const stops: Array<() => void> = [];
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  let destroyed = false;
+
+  stops.push(
     eventOn(tavern_events.MESSAGE_RECEIVED, (messageId: number) => {
       try {
         const settings = service.settings.get();
