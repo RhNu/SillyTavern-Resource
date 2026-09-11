@@ -5,7 +5,7 @@ describe('PromptAnalysisResponseSchema', () => {
   const response = {
     insertions: [
       {
-        after_paragraph: 1,
+        anchor_id: 'A1',
         summary: 'Scene selection',
         prompt: {
           main: { positive: '1girl, outdoors', negative: '' },
@@ -36,7 +36,7 @@ describe('PromptAnalysisResponseSchema', () => {
           items: {
             type: 'object',
             properties: {
-              after_paragraph: { type: 'integer' },
+              anchor_id: { type: 'string' },
             },
           },
         },

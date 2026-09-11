@@ -136,6 +136,7 @@ function renderCard(
 function openEditor(service: NovelAiImageService, messageId: number, blockId: string): void {
   const block = service.repository.find(messageId, blockId);
   if (!block) return;
+  const assertCurrent = service.repository.captureTask(messageId, blockId);
   const $host = $('<div class="nai-image-editor">');
   const $positive = $('<textarea class="text_pole" rows="4">').val(block.prompt.main.positive);
   const $negative = $('<textarea class="text_pole" rows="2">').val(block.prompt.main.negative);
@@ -161,6 +162,7 @@ function openEditor(service: NovelAiImageService, messageId: number, blockId: st
   });
   $save.on('click', () => {
     try {
+      assertCurrent();
       const prompt = PromptBundleSchema.parse({
         main: { positive: String($positive.val() ?? ''), negative: String($negative.val() ?? '') },
         characters: JSON.parse(String($characters.val() ?? '[]')),
@@ -168,7 +170,6 @@ function openEditor(service: NovelAiImageService, messageId: number, blockId: st
       service.queue.cancel(messageId, blockId);
       service.repository.update(messageId, blockId, current => ({
         ...current,
-        revision: current.revision + 1,
         prompt,
         status: 'draft',
         error: undefined,

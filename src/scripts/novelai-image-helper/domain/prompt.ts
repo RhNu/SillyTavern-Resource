@@ -17,7 +17,10 @@ export const PromptBundleSchema = z.strictObject({
 });
 
 export const PromptInsertionSchema = z.strictObject({
-  after_paragraph: z.number().int().positive().describe('Latest-story paragraph number after which to insert.'),
+  anchor_id: z
+    .string()
+    .regex(/^A[1-9]\d*$/)
+    .describe('Exact candidate anchor ID shown between latest-story blocks, e.g. A2.'),
   summary: z.string().trim().max(500).describe('Short scene-selection rationale.'),
   prompt: PromptBundleSchema,
 });

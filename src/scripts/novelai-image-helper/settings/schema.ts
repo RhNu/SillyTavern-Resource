@@ -77,13 +77,12 @@ const GenerationPromptPresetCollectionSchema = z
   });
 
 export const SettingsSchema = z.strictObject({
-  schemaVersion: z.literal(7),
+  schemaVersion: z.literal(8),
   enabled: z.boolean(),
   analysis: z.strictObject({
     auto: z.boolean(),
     autoGenerate: z.boolean(),
     minimumFloor: z.number().int().nonnegative(),
-    minimumParagraphLength: z.number().int().min(1).max(2_000),
     historyCount: z.number().int().min(0).max(100),
     debounceMs: z.number().int().min(0).max(60_000),
     connection: z.strictObject({
@@ -235,13 +234,12 @@ export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   enabled: true,
   analysis: {
     auto: false,
     autoGenerate: false,
     minimumFloor: 0,
-    minimumParagraphLength: 40,
     historyCount: 8,
     debounceMs: 1_500,
     connection: { providerId: 'openrouter', credentialId: '', baseUrl: '' },
@@ -405,9 +403,27 @@ function migrateV6Settings(value: unknown): unknown {
   };
 }
 
+/** Short text is now always retained; the old threshold has no equivalent. */
+function migrateV7Settings(value: unknown): unknown {
+  if (!isRecord(value) || value.schemaVersion !== 7) return value;
+  return {
+    ...value,
+    schemaVersion: 8,
+    analysis: omitKeys(isRecord(value.analysis) ? value.analysis : {}, ['minimumParagraphLength']),
+  };
+}
+
+export function legacyAnchorTemplateWarning(settings: Settings): string | undefined {
+  return Object.values(settings.analysis.templates).some(text => /after_paragraph|\[P(?:\d+|#)\]/.test(text))
+    ? '自定义模板仍引用旧段落协议，请改为使用正文中的 A1、A2 锚点和 anchor_id。模板内容已保留。'
+    : undefined;
+}
+
 export function normalizeSettings(value: unknown): Settings {
   const parsed = SettingsSchema.safeParse(
-    migrateV6Settings(migrateV5Settings(migrateV4Settings(migrateV3Settings(migrateV2Settings(value))))),
+    migrateV7Settings(
+      migrateV6Settings(migrateV5Settings(migrateV4Settings(migrateV3Settings(migrateV2Settings(value))))),
+    ),
   );
   return parsed.success ? parsed.data : structuredClone(DEFAULT_SETTINGS);
 }

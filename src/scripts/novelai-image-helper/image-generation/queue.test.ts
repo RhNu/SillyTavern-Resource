@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { ImageBlock } from '../domain/block';
-import type { MessageBlockRepository } from '../message-blocks/repository';
+import type { ChatImageRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
 import { RequestError } from '../platform/request-error';
 import { registerGeneratedChatBackground } from '../platform/tavern/chat-background-registry';
@@ -19,6 +19,8 @@ vi.mock('../platform/tavern/chat-background-registry', () => ({
 
 type FakeRepository = {
   blocks: Map<string, ImageBlock>;
+  captureTask: () => () => void;
+  releaseRuntime: (blockId: string) => void;
   find: (messageId: number, blockId: string) => ImageBlock | undefined;
   update: (messageId: number, blockId: string, updater: (block: ImageBlock) => ImageBlock) => ImageBlock | undefined;
 };
@@ -28,12 +30,9 @@ type CapabilitiesResponse = { configured: boolean; models: Array<{ id: string; m
 const MODEL_ID = DEFAULT_SETTINGS.generation.model;
 const CAPABILITIES: CapabilitiesResponse = { configured: true, models: [{ id: MODEL_ID, maxCharacters: 22 }] };
 
-function createBlock(messageId: number, blockId: string): ImageBlock {
+function createBlock(_messageId: number, blockId: string): ImageBlock {
   return {
-    schemaVersion: 1,
     id: blockId,
-    revision: 0,
-    sourceMessageHash: `hash-${messageId}`,
     summary: '测试场景',
     prompt: {
       main: { positive: '1girl', negative: '' },
@@ -45,10 +44,12 @@ function createBlock(messageId: number, blockId: string): ImageBlock {
 }
 
 function createRepository(blocks: ImageBlock[]): FakeRepository {
-  const values = new Map(blocks.map(block => [`${block.sourceMessageHash}:${block.id}`, block]));
-  const key = (messageId: number, blockId: string) => `hash-${messageId}:${blockId}`;
+  const values = new Map(blocks.map(block => [block.id, block]));
+  const key = (_messageId: number, blockId: string) => blockId;
   return {
     blocks: values,
+    captureTask: () => () => {},
+    releaseRuntime: () => {},
     find(messageId, blockId) {
       return values.get(key(messageId, blockId));
     },
@@ -109,7 +110,7 @@ function createQueue(
   generation: Partial<Settings['generation']> = {},
 ): GenerationQueue {
   return new GenerationQueue(
-    repository as unknown as MessageBlockRepository,
+    repository as unknown as ChatImageRepository,
     createSettings(generation),
     client as unknown as NovelAiClient,
     { onQueueFinished, sleep: async () => {}, now: () => 0, random: () => 0.5, ...options },
@@ -384,6 +385,46 @@ describe('GenerationQueue retry policy', () => {
 });
 
 describe('GenerationQueue controls', () => {
+  test('discards an in-flight result when its captured message becomes stale', async () => {
+    const pending = deferred<CapabilitiesResponse>();
+    const client = createClient(pending.promise);
+    const repository = createRepository([createBlock(0, 'one')]);
+    let valid = true;
+    repository.captureTask = () => () => {
+      if (!valid) throw new Error('消息已编辑');
+    };
+    repository.releaseRuntime = vi.fn();
+    const finished = vi.fn();
+    const queue = createQueue(repository, client, finished);
+    queue.enqueue(0, 'one');
+    await vi.waitFor(() => expect(client.capabilities).toHaveBeenCalledOnce());
+    valid = false;
+    pending.resolve(CAPABILITIES);
+    await waitForSummary(finished);
+    expect(client.generate).not.toHaveBeenCalled();
+    expect(uploadGeneratedImage).not.toHaveBeenCalled();
+    expect(registerGeneratedChatBackground).not.toHaveBeenCalled();
+    expect(repository.releaseRuntime).toHaveBeenCalledWith('one');
+  });
+
+  test('resumes a persisted checkpoint even without a persisted failure', async () => {
+    const block = createBlock(0, 'one');
+    block.status = 'ready';
+    block.pendingAssociation = '/already-generated.png';
+    block.outputs = [{ url: '/already-generated.png', seed: 1, model: MODEL_ID, createdAt: '2026-09-11' }];
+    const repository = createRepository([block]);
+    const client = createClient();
+    const finished = vi.fn();
+    const queue = createQueue(repository, client, finished);
+    queue.enqueue(0, 'one');
+    await waitForSummary(finished);
+    expect(client.generate).not.toHaveBeenCalled();
+    expect(uploadGeneratedImage).not.toHaveBeenCalled();
+    expect(registerGeneratedChatBackground).toHaveBeenCalledOnce();
+    expect(repository.find(0, 'one')?.pendingAssociation).toBeUndefined();
+    expect(repository.find(0, 'one')?.outputs).toHaveLength(1);
+  });
+
   test('pause lets the running task finish and keeps the rest queued', async () => {
     const pending = deferred<CapabilitiesResponse>();
     const client = createClient(pending.promise);

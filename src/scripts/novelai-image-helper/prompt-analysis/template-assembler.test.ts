@@ -14,7 +14,11 @@ describe('prompt analysis message boundaries', () => {
     });
 
     const messages = assemblePromptAnalysisMessages(
-      { paragraphs: ['clean latest paragraph'], history: 'history', worldbook: 'worldbook' },
+      {
+        layout: { blocks: [{ text: 'clean latest paragraph', anchorId: 'A1', sourceEnd: 22 }] },
+        history: 'history',
+        worldbook: 'worldbook',
+      },
       DEFAULT_SETTINGS,
     );
 
@@ -25,6 +29,6 @@ describe('prompt analysis message boundaries', () => {
     expect(messages[0]?.content).toContain('early, middle, and late portions');
     expect(messages[0]?.content).toContain('Do not cluster all insertions');
     expect(messages[1]?.content).toContain('Wait for the next user message');
-    expect(messages[2]?.content).toContain('[P1] clean latest paragraph');
+    expect(messages[2]?.content).toContain('clean latest paragraph\n\n[插图锚点 A1]');
   });
 });

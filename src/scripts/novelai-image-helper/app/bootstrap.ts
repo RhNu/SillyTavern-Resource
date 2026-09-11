@@ -73,7 +73,7 @@ export function bootstrap(): { destroy: () => void } {
   const service = new NovelAiImageService({
     onGenerationQueueFinished: notifier.notifyQueueFinished,
   });
-  service.recoverInterruptedBlocks();
+  service.recoverImageRecords();
   const style = teleportStyle();
   const cards = mountMessageCards(service);
   const workIndicator = mountWorkIndicator(service);

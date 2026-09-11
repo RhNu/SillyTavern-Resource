@@ -1,6 +1,6 @@
 import type { ImageBlock } from '../domain/block';
 import { createLogger } from '../app/logger';
-import type { MessageBlockRepository } from '../message-blocks/repository';
+import type { ChatImageRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
 import { registerGeneratedChatBackground } from '../platform/tavern/chat-background-registry';
 import { uploadGeneratedImage } from '../platform/tavern/image-upload';
@@ -51,7 +51,7 @@ export type QueueSnapshot = {
   lastSummary?: GenerationQueueCompletionSummary;
 };
 
-type TaskRef = { messageId: number; blockId: string };
+type TaskRef = { messageId: number; blockId: string; assertCurrent?: () => void };
 type QueueTask = TaskRef & {
   summary: string;
   stage?: FailureStage;
@@ -78,7 +78,7 @@ function taskKey(task: TaskRef): string {
  * 职责边界：
  * - 队列持有调度状态（pending / active / 节流闸门 / 批次摘要）与全部块状态写入；
  * - 阶段流水线与最终结果落盘交给 task-runner.ts；
- * - 运行态只在内存中，刷新后由 service.recoverInterruptedBlocks() 收尾。
+ * - 运行态只在内存中，刷新后由持久化结果和登记检查点推导空闲状态。
  *
  * 节流：NovelAI 生图有限流，任何两次生成请求之间都要跨过 `nextDispatchAt`
  * （由生成阶段的结束时间推进），因此任务不会「结束后直接跑下一个」，自动重试也复用同一窗口。
@@ -97,7 +97,7 @@ export class GenerationQueue {
   private policy: RetryPolicy;
 
   constructor(
-    private readonly repository: MessageBlockRepository,
+    private readonly repository: ChatImageRepository,
     private readonly settings: SettingsStore,
     private readonly client: NovelAiClient,
     private readonly options: GenerationQueueOptions = {},
@@ -140,13 +140,15 @@ export class GenerationQueue {
       return { ok: false, reason: 'missing' };
     }
 
+    task.assertCurrent = this.repository.captureTask(messageId, blockId);
     const hadCompletion = Boolean(this.completion);
     try {
       this.policy = resolveRetryPolicy(this.settings.get().generation);
       this.ensureCompletion();
       this.known.add(key);
       const resumeAssociationPath =
-        block.status === 'failed' && block.error?.stage === 'associate' ? block.outputs.at(-1)?.url : undefined;
+        block.pendingAssociation ??
+        (block.status === 'failed' && block.error?.stage === 'associate' ? block.outputs.at(-1)?.url : undefined);
       this.pending.push({
         ...task,
         summary: block.summary || block.prompt.main.positive,
@@ -347,9 +349,9 @@ export class GenerationQueue {
   }
 
   private setStatus(task: TaskRef, status: ImageBlock['status'], error?: ImageBlock['error']): ImageBlock | undefined {
+    task.assertCurrent?.();
     const result = this.repository.update(task.messageId, task.blockId, block => ({
       ...block,
-      revision: block.revision + 1,
       status,
       error,
     }));
@@ -379,6 +381,8 @@ export class GenerationQueue {
         return;
       }
       this.setStatus(task, block.outputs.length > 0 ? 'ready' : 'draft');
+      this.repository.releaseRuntime(task.blockId);
+      this.emitBlocksChanged(task.messageId, 'restored');
     } catch (error) {
       logger.error('恢复图片块空闲状态失败', error, task);
     }
@@ -440,6 +444,7 @@ export class GenerationQueue {
         blockId: task.blockId,
         signal: controller.signal,
         repository: this.repository,
+        assertCurrent: task.assertCurrent!,
         client: this.client,
         upload: uploadGeneratedImage,
         associate: registerGeneratedChatBackground,
@@ -500,6 +505,7 @@ export class GenerationQueue {
       outcome = this.handleTaskError(task, error);
     } finally {
       this.known.delete(taskKey(task));
+      this.repository.releaseRuntime(task.blockId);
       this.active = undefined;
       if (outcome) this.recordOutcome(task, outcome);
       this.emitBlocksChanged(task.messageId, 'task-finally');
@@ -607,6 +613,8 @@ export class GenerationQueue {
     attempt: number,
     signal: AbortSignal,
   ): Promise<void> {
+    signal.throwIfAborted();
+    task.assertCurrent?.();
     task.stage = stage;
     task.attempt = attempt;
     this.notify();
@@ -619,6 +627,8 @@ export class GenerationQueue {
       }
     }
 
+    signal.throwIfAborted();
+    task.assertCurrent?.();
     if (stage !== 'commit' && stage !== 'associate') {
       const written = this.setStatus(task, stage === 'upload' ? 'uploading' : 'generating');
       if (!written) {

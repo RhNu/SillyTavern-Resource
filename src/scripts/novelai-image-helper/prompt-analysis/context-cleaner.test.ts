@@ -1,5 +1,6 @@
+import { planStoryLayout } from '../anchors/story-layout';
 import { describe, expect, test } from 'vitest';
-import { cleanContextText, collectCleanedStoryParagraphs, type ContextCleanupSettings } from './context-cleaner';
+import { cleanContextText, collectCleanedFragments, type ContextCleanupSettings } from './context-cleaner';
 
 const emptyCleanup: ContextCleanupSettings = { extractRules: [], filterRules: [] };
 
@@ -72,40 +73,36 @@ describe('context cleanup', () => {
 
   test('keeps cleaned paragraph text while mapping insertion positions to the original message', () => {
     const original = 'First <think>hidden</think> paragraph.\n\nSecond paragraph.';
-    const result = collectCleanedStoryParagraphs(original, 10, {
+    const result = collectCleanedFragments(original, {
       extractRules: [],
       filterRules: ['block:<think>'],
     });
 
-    expect(result.paragraphs.map(paragraph => paragraph.text)).toEqual(['First  paragraph.', 'Second paragraph.']);
-    expect(result.paragraphs[0]).toMatchObject({
-      sourceStart: 0,
-      sourceEnd: original.indexOf('\n\n'),
+    expect(result.fragments.map(fragment => fragment.text)).toEqual(['First  paragraph.', 'Second paragraph.']);
+    expect(result.fragments[0]).toMatchObject({
+      start: 0,
       end: original.indexOf('\n\n'),
     });
   });
 
   test('maps extracted paragraphs after their complete source wrapper', () => {
     const original = 'prefix <scene>selected illustration moment</scene> suffix';
-    const result = collectCleanedStoryParagraphs(original, 10, {
+    const result = collectCleanedFragments(original, {
       extractRules: ['<scene>'],
       filterRules: [],
     });
 
-    expect(result.paragraphs[0]).toMatchObject({
+    expect(result.fragments[0]).toMatchObject({
       text: 'selected illustration moment',
-      sourceEnd: original.indexOf('</scene>') + '</scene>'.length,
+      end: original.indexOf('</scene>') + '</scene>'.length,
     });
   });
 
-  test('falls back to single-newline paragraph boundaries for long text', () => {
-    const result = collectCleanedStoryParagraphs(
-      `${'a'.repeat(160)}\n${'b'.repeat(160)}\n${'c'.repeat(160)}`,
-      100,
-      emptyCleanup,
-    );
-
-    expect(result.paragraphs).toHaveLength(3);
-    expect(result.paragraphs.map(paragraph => paragraph.number)).toEqual([1, 2, 3]);
+  test('retains short lines without a minimum-length threshold', () => {
+    const original = '是。\n好。\n走吧。';
+    const result = collectCleanedFragments(original, emptyCleanup);
+    const layout = planStoryLayout(original, result.fragments);
+    expect(layout.blocks.map(block => block.text)).toEqual(['是。', '好。', '走吧。']);
+    expect(layout.blocks.map(block => block.anchorId)).toEqual(['A1', 'A2', 'A3']);
   });
 });

@@ -335,13 +335,6 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
                   onChange={value => edit(next => void (next.analysis.historyCount = value))}
                 />
                 <NumberField
-                  label="最短段落"
-                  value={draft.analysis.minimumParagraphLength}
-                  min={1}
-                  max={2000}
-                  onChange={value => edit(next => void (next.analysis.minimumParagraphLength = value))}
-                />
-                <NumberField
                   label="防抖毫秒"
                   value={draft.analysis.debounceMs}
                   min={0}

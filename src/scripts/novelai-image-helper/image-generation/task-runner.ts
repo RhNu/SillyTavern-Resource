@@ -1,6 +1,6 @@
 import type { ImageBlock, ImageOutput } from '../domain/block';
 import { createLogger, serializeError } from '../app/logger';
-import type { MessageBlockRepository } from '../message-blocks/repository';
+import type { ChatImageRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
 import type { Settings } from '../settings/schema';
 import { withStageTimeout } from './abort';
@@ -25,7 +25,8 @@ export type GenerationTaskDeps = {
   messageId: number;
   blockId: string;
   signal: AbortSignal;
-  repository: MessageBlockRepository;
+  repository: ChatImageRepository;
+  assertCurrent: () => void;
   client: NovelAiClient;
   upload: (blob: Blob, signal?: AbortSignal) => Promise<string>;
   associate: (imagePath: string, signal?: AbortSignal) => Promise<void>;
@@ -82,16 +83,23 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
   });
 
   const runStage = async <T>(stage: FailureStage, action: (stageSignal: AbortSignal) => Promise<T>): Promise<T> => {
+    let attempt = 0;
     for (;;) {
-      const attempt = (attempts.get(stage) ?? 0) + 1;
-      attempts.set(stage, attempt);
+      attempt += 1;
+      attempts.set(stage, (attempts.get(stage) ?? 0) + 1);
       logger.debug('开始执行任务阶段', { messageId, blockId, stage, attempt });
+      signal.throwIfAborted();
+      deps.assertCurrent();
       await deps.beginAttempt(stage, attempt);
 
       const timeoutMs = stageTimeoutMs(stage, generation);
       const scoped = withStageTimeout(signal, timeoutMs, stage);
       try {
+        scoped.signal.throwIfAborted();
+        deps.assertCurrent();
         const result = await action(scoped.signal);
+        scoped.signal.throwIfAborted();
+        deps.assertCurrent();
         logger.debug('任务阶段完成', { messageId, blockId, stage, attempt });
         return result;
       } catch (error) {
@@ -154,8 +162,8 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
       await runStage('commit', async () => {
         const saved = repository.update(messageId, blockId, current => ({
           ...current,
-          revision: current.revision + 1,
           status: 'ready',
+          pendingAssociation: undefined,
           error: undefined,
         }));
         if (!saved) throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除，无法完成背景登记');
@@ -210,15 +218,24 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
     await runStage('commit', async () => {
       const saved = repository.update(messageId, blockId, current => ({
         ...current,
-        revision: current.revision + 1,
         status: 'ready',
         error: undefined,
-        outputs: [...current.outputs, output],
+        outputs: current.outputs.some(item => item.url === output.url) ? current.outputs : [...current.outputs, output],
+        pendingAssociation: output.url,
       }));
       if (!saved) throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除，生成结果无法写回');
     });
 
     await runStage('associate', stageSignal => deps.associate(output.url, stageSignal));
+    await runStage('commit', async () => {
+      const saved = repository.update(messageId, blockId, current => ({
+        ...current,
+        pendingAssociation: undefined,
+        status: 'ready',
+        error: undefined,
+      }));
+      if (!saved) throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除');
+    });
 
     logger.info('图片任务流水线完成', {
       messageId,

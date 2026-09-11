@@ -3,7 +3,7 @@ import { PromptBundleSchema, type PromptBundle } from './prompt';
 
 export const BlockStatusSchema = z.enum(['prepared', 'draft', 'queued', 'generating', 'uploading', 'ready', 'failed']);
 
-/** 生图流水线的阶段。`INTERRUPTED` 这类系统级中断不带阶段。 */
+/** 生图流水线的阶段；界面运行状态与持久化图片结果分别管理。 */
 export const BlockFailureStageSchema = z.enum(['validate', 'generate', 'upload', 'commit', 'associate']);
 
 export const ImageOutputSchema = z.strictObject({
@@ -16,14 +16,13 @@ export const ImageOutputSchema = z.strictObject({
 export type ImageOutput = z.infer<typeof ImageOutputSchema>;
 
 export const ImageBlockSchema = z.strictObject({
-  schemaVersion: z.literal(1),
   id: z.string().trim().min(1),
-  revision: z.number().int().nonnegative(),
-  sourceMessageHash: z.string(),
-  summary: z.string(),
+  summary: z.string().max(500),
   prompt: PromptBundleSchema,
   status: BlockStatusSchema,
   outputs: z.array(ImageOutputSchema),
+  /** An uploaded result awaiting idempotent chat-background registration. */
+  pendingAssociation: z.string().trim().min(1).optional(),
   error: z
     .strictObject({
       code: z.string(),
@@ -39,25 +38,12 @@ export type ImageBlock = z.infer<typeof ImageBlockSchema>;
 export type BlockStatus = z.infer<typeof BlockStatusSchema>;
 export type BlockFailureStage = z.infer<typeof BlockFailureStageSchema>;
 
-export function createImageBlock(input: {
-  id: string;
-  sourceMessageHash: string;
-  summary: string;
-  prompt: PromptBundle;
-}): ImageBlock {
+export function createImageBlock(input: { id: string; summary: string; prompt: PromptBundle }): ImageBlock {
   return {
-    schemaVersion: 1,
     id: input.id,
-    revision: 0,
-    sourceMessageHash: input.sourceMessageHash,
     summary: input.summary,
     prompt: input.prompt,
     status: 'prepared',
     outputs: [],
   };
-}
-
-export async function hashText(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
 }

@@ -1,3 +1,6 @@
+import { captureMessageSnapshot } from '../platform/tavern/message-snapshot';
+import { planStoryLayout } from '../anchors/story-layout';
+import { legacyAnchorTemplateWarning } from '../settings/schema';
 import { matchAnchors } from '../domain/anchor';
 import type { ImageBlock } from '../domain/block';
 import { createLogger } from './logger';
@@ -9,9 +12,9 @@ import {
   type QueueSnapshot,
 } from '../image-generation/queue';
 import { commitAnalysis } from '../message-blocks/commit-analysis';
-import { MessageBlockRepository } from '../message-blocks/repository';
-import { buildHistory, buildWorldbook, paragraphTexts } from '../prompt-analysis/context';
-import { collectCleanedStoryParagraphs } from '../prompt-analysis/context-cleaner';
+import { ChatImageRepository } from '../message-blocks/repository';
+import { buildHistory, buildWorldbook } from '../prompt-analysis/context';
+import { collectCleanedFragments } from '../prompt-analysis/context-cleaner';
 import { PromptModelClient } from '../prompt-analysis/model-client';
 import { NovelAiClient } from '../platform/imggen-novelai/client';
 import { SettingsStore } from '../settings/store';
@@ -26,7 +29,7 @@ export type NovelAiImageServiceOptions = {
 
 export class NovelAiImageService {
   readonly settings = new SettingsStore();
-  readonly repository = new MessageBlockRepository();
+  readonly repository = new ChatImageRepository();
   readonly backend = new NovelAiClient();
   readonly llmRequester = new LlmRequesterClient();
   readonly queue: GenerationQueue;
@@ -47,61 +50,12 @@ export class NovelAiImageService {
     logger.info('图片助手服务已创建');
   }
 
-  recoverInterruptedBlocks(): void {
-    let messages;
+  recoverImageRecords(): void {
     try {
-      messages = getChatMessages('0-{{lastMessageId}}');
+      this.repository.reconcile();
     } catch (error) {
-      logger.error('恢复中断图片块失败：读取聊天消息异常', error);
-      return;
+      logger.error('恢复图片仓储失败', error);
     }
-
-    let changedMessages = 0;
-    let interruptedBlocks = 0;
-    let removedPreparedBlocks = 0;
-    messages.forEach(message => {
-      try {
-        const anchorIds = new Set(matchAnchors(message.message).map(anchor => anchor.id));
-        const payload = this.repository.read(message.message_id);
-        let changed = false;
-        const blocks: ImageBlock[] = [];
-        Object.values(payload.blocks).forEach(block => {
-          if (block.status === 'prepared' && !anchorIds.has(block.id)) {
-            changed = true;
-            removedPreparedBlocks += 1;
-            return;
-          }
-          if (!['prepared', 'queued', 'generating', 'uploading'].includes(block.status)) {
-            blocks.push(block);
-            return;
-          }
-          changed = true;
-          interruptedBlocks += 1;
-          blocks.push({
-            ...block,
-            revision: block.revision + 1,
-            status: 'failed',
-            error: {
-              code: 'INTERRUPTED',
-              message: '上次任务在脚本卸载或页面重载时中断，可手动重试',
-              retryable: true,
-            },
-          });
-        });
-        if (changed) {
-          this.repository.write(message.message_id, blocks);
-          changedMessages += 1;
-        }
-      } catch (error) {
-        logger.error('恢复单条消息中的图片块失败', error, { messageId: message.message_id });
-      }
-    });
-    logger.info('中断任务恢复检查完成', {
-      messageCount: messages.length,
-      changedMessages,
-      interruptedBlocks,
-      removedPreparedBlocks,
-    });
   }
 
   async analyzeMessage(messageId: number, generateAfterAnalysis: boolean): Promise<ImageBlock[]> {
@@ -138,12 +92,8 @@ export class NovelAiImageService {
       throw new Error('这条消息已经包含 NovelAI 图片块');
     }
 
-    const cleanedStory = collectCleanedStoryParagraphs(
-      message.message,
-      settings.analysis.minimumParagraphLength,
-      settings.analysis.cleanup,
-    );
-    const paragraphs = cleanedStory.paragraphs;
+    const cleanedStory = collectCleanedFragments(message.message, settings.analysis.cleanup);
+    const layout = planStoryLayout(message.message, cleanedStory.fragments);
     if (cleanedStory.diagnostics.length > 0) {
       logger.warn('忽略无效正文清洗规则', {
         messageId,
@@ -151,11 +101,14 @@ export class NovelAiImageService {
         diagnostics: cleanedStory.diagnostics,
       });
     }
-    if (paragraphs.length === 0) {
-      logger.warn('拒绝分析：没有找到达到最小长度的剧情段落', { messageId });
-      throw new Error('没有找到达到最小长度的剧情段落');
+    if (!layout.blocks.some(block => block.anchorId)) {
+      logger.warn('拒绝分析：没有找到可插图的正文块', { messageId });
+      throw new Error('没有找到可插图的正文块');
     }
 
+    const assertCurrent = captureMessageSnapshot(messageId);
+    const warning = legacyAnchorTemplateWarning(settings);
+    if (warning) toastr.warning(warning, 'NovelAI 图片助手');
     const generationId = `nai-analysis-${crypto.randomUUID()}`;
     const analysis = { generationId, messageId, cancelled: false };
     this.activeAnalysis = analysis;
@@ -172,7 +125,7 @@ export class NovelAiImageService {
       logger.debug('开始构建提示词分析上下文', {
         messageId,
         generationId,
-        paragraphCount: paragraphs.length,
+        anchorCount: layout.blocks.length,
         historyCount: settings.analysis.historyCount,
       });
       const worldbook = await buildWorldbook();
@@ -188,7 +141,7 @@ export class NovelAiImageService {
       });
       const response = await this.promptModel.analyze(
         {
-          paragraphs: paragraphTexts(paragraphs),
+          layout,
           history: buildHistory(messageId, settings.analysis.historyCount, settings.analysis.cleanup),
           worldbook,
         },
@@ -201,18 +154,6 @@ export class NovelAiImageService {
         insertionCount: response.insertions.length,
       });
       if (response.insertions.length === 0) return [];
-
-      response.insertions.forEach(insertion => {
-        if (insertion.after_paragraph > paragraphs.length) {
-          logger.error('提示词模型返回了不存在的段落编号', new Error(`P${insertion.after_paragraph}`), {
-            messageId,
-            generationId,
-            paragraphCount: paragraphs.length,
-            afterParagraph: insertion.after_paragraph,
-          });
-          throw new Error(`模型返回的段落 P${insertion.after_paragraph} 不存在`);
-        }
-      });
 
       if (analysis.cancelled) throw new AnalysisCancelledError(messageId);
       this.progress.upsert({
@@ -227,7 +168,8 @@ export class NovelAiImageService {
       const blocks = await commitAnalysis({
         messageId,
         originalText: message.message,
-        paragraphs,
+        layout,
+        assertCurrent,
         response,
         repository: this.repository,
       });
@@ -314,7 +256,8 @@ export class NovelAiImageService {
         try {
           const anchorIds = new Set(matchAnchors(message.message).map(anchor => anchor.id));
           Object.values(this.repository.read(message.message_id).blocks).forEach(block => {
-            if (block.status !== 'failed' || block.error?.retryable === false || !anchorIds.has(block.id)) return;
+            if (!anchorIds.has(block.id)) return;
+            if (!block.pendingAssociation && (block.status !== 'failed' || block.error?.retryable === false)) return;
             if (this.queue.enqueue(message.message_id, block.id).ok) enqueued += 1;
             else skipped += 1;
           });
@@ -353,6 +296,7 @@ export class NovelAiImageService {
     this.cancelAnalysis();
     this.unsubscribeQueueProgress();
     this.queue.destroy();
+    this.repository.destroy();
     this.progress.destroy();
     this.settings.destroy();
     logger.debug('图片助手服务已销毁');

@@ -1,3 +1,4 @@
+import type { StoryLayout } from '../anchors/story-layout';
 import { PromptAnalysisResponseSchema, promptAnalysisJsonSchema, type PromptAnalysisResponse } from '../domain/prompt';
 import { createLogger } from '../app/logger';
 import type { Settings } from '../settings/schema';
@@ -7,7 +8,7 @@ import { LlmRequesterClient } from '../../../../util/llm-requester/client';
 const logger = createLogger('prompt-analysis/model-client');
 
 type AnalysisInput = {
-  paragraphs: string[];
+  layout: StoryLayout;
   history: string;
   worldbook: string;
 };
@@ -24,7 +25,7 @@ export class PromptModelClient {
       generationId,
       providerId: connection.providerId || '(empty)',
       model: model || '(empty)',
-      paragraphCount: input.paragraphs.length,
+      anchorCount: input.layout.blocks.length,
       historyLength: input.history.length,
       worldbookLength: input.worldbook.length,
       maxTokens: settings.analysis.maxTokens,

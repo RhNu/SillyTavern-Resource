@@ -1,4 +1,4 @@
-import { ANCHOR_SOURCE, type StoryParagraph } from '../domain/anchor';
+import { ANCHOR_SOURCE } from '../domain/anchor';
 
 export type ContextCleanupSettings = {
   extractRules: readonly string[];
@@ -13,11 +13,6 @@ export type CleanupDiagnostic = {
 
 export type CleanContextResult = {
   text: string;
-  diagnostics: CleanupDiagnostic[];
-};
-
-export type CleanedParagraphsResult = {
-  paragraphs: StoryParagraph[];
   diagnostics: CleanupDiagnostic[];
 };
 
@@ -47,7 +42,7 @@ type MappedRange = {
   end: number;
 };
 
-const CODE_FENCE_REGEX = /```[\s\S]*?```/g;
+const CODE_FENCE_REGEX = /^ {0,3}(`{3,}|~{3,})[^\r\n]*(?:\r?\n|$)[\s\S]*?(?:^ {0,3}\1[ \t]*$|(?![\s\S]))/gm;
 const HTML_CODE_REGEX = /<code\b[^>]*>[\s\S]*?<\/code\s*>/gi;
 const XML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
 // Old chat messages may still contain the old anchor text. This is content cleanup, not settings migration.
@@ -343,7 +338,14 @@ function applyExtractRules(value: MappedText, rules: readonly ExtractRule[]): Ma
 
   if (parts.length === 0) return value;
   const joined: MappedText = { chars: [], origins: [] };
-  parts.forEach((part, index) => {
+  // Rules are selectors, not ordering instructions. Prefer outer captures and deduplicate overlaps.
+  const selected = parts
+    .sort((a, b) => a.origins[0]!.start - b.origins[0]!.start || b.origins[0]!.end - a.origins[0]!.end)
+    .filter(
+      (part, index, sorted) =>
+        !sorted.slice(0, index).some(previous => previous.origins[0]!.end > part.origins[0]!.start),
+    );
+  selected.forEach((part, index) => {
     if (index > 0) {
       const previous = joined.origins.at(-1) ?? { start: 0, end: 0 };
       joined.chars.push('\n', '\n');
@@ -415,48 +417,14 @@ function splitMappedRanges(value: MappedText, separator: RegExp): MappedRange[] 
   return ranges;
 }
 
-function paragraphFromRange(
-  value: MappedText,
-  range: MappedRange,
-  minimumLength: number,
-  number: number,
-): StoryParagraph | undefined {
-  const trimmed = trimMapped(sliceMapped(value, range.start, range.end));
-  const text = textOf(trimmed);
-  if (text.length < minimumLength || text === '[CODE_BLOCK]' || text.startsWith('```')) return undefined;
-  const visibleOrigin = originForRange(trimmed.origins, 0, trimmed.chars.length);
-  if (!visibleOrigin) return undefined;
-  return {
-    number,
-    text,
-    sourceStart: visibleOrigin.start,
-    sourceEnd: visibleOrigin.end,
-    end: visibleOrigin.end,
-  };
-}
-
-export function collectCleanedStoryParagraphs(
-  raw: string,
-  minimumLength: number,
-  settings: ContextCleanupSettings,
-): CleanedParagraphsResult {
+/** Cleaned fragments retain source ranges; choosing insertion boundaries belongs to story-layout. */
+export function collectCleanedFragments(raw: string, settings: ContextCleanupSettings) {
   const cleaned = cleanMappedContext(raw, settings);
-  let ranges = splitMappedRanges(cleaned.mapped, /\n\s*\n/g);
-  const initialParagraphs = ranges
-    .map((range, index) => paragraphFromRange(cleaned.mapped, range, minimumLength, index + 1))
-    .filter((paragraph): paragraph is StoryParagraph => Boolean(paragraph));
-
-  if (initialParagraphs.length <= 2 && textOf(cleaned.mapped).length > 300) {
-    const fallbackRanges = splitMappedRanges(cleaned.mapped, /\n/g);
-    const fallbackParagraphs = fallbackRanges
-      .map((range, index) => paragraphFromRange(cleaned.mapped, range, minimumLength, index + 1))
-      .filter((paragraph): paragraph is StoryParagraph => Boolean(paragraph));
-    if (fallbackParagraphs.length > initialParagraphs.length) ranges = fallbackRanges;
-  }
-
-  const paragraphs = ranges
-    .map((range, index) => paragraphFromRange(cleaned.mapped, range, minimumLength, index + 1))
-    .filter((paragraph): paragraph is StoryParagraph => Boolean(paragraph))
-    .map((paragraph, index) => ({ ...paragraph, number: index + 1 }));
-  return { paragraphs, diagnostics: cleaned.diagnostics };
+  const fragments = splitMappedRanges(cleaned.mapped, /\n+/g).flatMap(range => {
+    const part = trimMapped(sliceMapped(cleaned.mapped, range.start, range.end));
+    const text = textOf(part);
+    const origin = originForRange(part.origins, 0, part.origins.length);
+    return text && text !== '[CODE_BLOCK]' && origin ? [{ text, ...origin }] : [];
+  });
+  return { fragments, diagnostics: cleaned.diagnostics };
 }

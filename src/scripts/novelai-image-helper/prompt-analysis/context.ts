@@ -1,4 +1,3 @@
-import type { StoryParagraph } from '../domain/anchor';
 import { createLogger, serializeError } from '../app/logger';
 import { cleanContextText, type ContextCleanupSettings } from './context-cleaner';
 
@@ -71,8 +70,4 @@ export async function buildWorldbook(): Promise<string> {
     logger.error('构建世界书上下文失败', error);
     throw error;
   }
-}
-
-export function paragraphTexts(paragraphs: StoryParagraph[]): string[] {
-  return paragraphs.map(paragraph => paragraph.text);
 }

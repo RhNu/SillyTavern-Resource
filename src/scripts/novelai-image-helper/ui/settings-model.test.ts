@@ -57,7 +57,7 @@ describe('settings migration', () => {
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(7);
+    expect(normalized.schemaVersion).toBe(8);
     expect(normalized.analysis.templates).toEqual({ v45: 'v45 custom', v5: 'v5 custom' });
     expect(normalized.generation.promptPresets.selected).toBe('NovelAI 默认');
     expect(normalized.generation.promptPresets.items['NovelAI 默认']).toEqual({
@@ -82,7 +82,7 @@ describe('settings migration', () => {
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(7);
+    expect(normalized.schemaVersion).toBe(8);
     expect(normalized.analysis.connection).toEqual({
       providerId: 'custom',
       credentialId: '',
@@ -99,7 +99,7 @@ describe('settings migration', () => {
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(7);
+    expect(normalized.schemaVersion).toBe(8);
     expect(normalized.analysis.cleanup).toEqual({ extractRules: [], filterRules: [] });
   });
 
@@ -113,7 +113,7 @@ describe('settings migration', () => {
 
     const normalized = normalizeSettings(legacy);
 
-    expect(normalized.schemaVersion).toBe(7);
+    expect(normalized.schemaVersion).toBe(8);
     expect(normalized.generation.retryCount).toBe(2);
     expect(normalized.generation.requestIntervalMs).toBe(4_000);
     expect(normalized.generation.uploadTimeoutMs).toBe(30_000);
