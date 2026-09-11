@@ -1,9 +1,6 @@
-import {
-  mountExtensionSettingsHost,
-  type ExtensionSettingsHostOptions,
-  type ExtensionSettingsHostSession,
-} from '@util/st/ui/extension-settings';
-import { teleportStyle } from '@util/script';
+import { mountExtensionSettingsHost } from '@util/st/ui/extension-settings/host';
+import type { ExtensionSettingsHostOptions, ExtensionSettingsHostSession } from '@util/st/ui/extension-settings/types';
+import { teleportStyle } from '@util/tavern-helper/dom/styles';
 import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 

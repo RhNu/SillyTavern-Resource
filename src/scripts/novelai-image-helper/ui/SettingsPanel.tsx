@@ -1,4 +1,4 @@
-import { HelpMarker } from '@util/components/HelpMarker';
+import { HelpMarker } from '@util/react/components/HelpMarker';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { LlmCapabilities, LlmModel } from '../../../../util/llm-requester/contract';
 import { createLogger, getErrorMessage, serializeError } from '../app/logger';

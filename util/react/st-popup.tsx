@@ -1,5 +1,6 @@
 import { getHostDocument } from '@util/host';
-import { popup, type PopupPresentationOptions, type PopupSession } from '@util/st/ui/popup';
+import { popup } from '@util/st/ui/popup/builder';
+import type { PopupPresentationOptions, PopupSession } from '@util/st/ui/popup/types';
 import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 

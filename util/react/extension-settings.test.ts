@@ -10,8 +10,8 @@ const mocks = vi.hoisted(() => ({
   destroyStyle: vi.fn(),
 }));
 
-vi.mock('@util/st/ui/extension-settings', () => ({ mountExtensionSettingsHost: mocks.mountHost }));
-vi.mock('@util/script', () => ({ teleportStyle: mocks.teleportStyle }));
+vi.mock('@util/st/ui/extension-settings/host', () => ({ mountExtensionSettingsHost: mocks.mountHost }));
+vi.mock('@util/tavern-helper/dom/styles', () => ({ teleportStyle: mocks.teleportStyle }));
 vi.mock('react-dom/client', () => ({ createRoot: mocks.createRoot }));
 
 import { mountReactExtensionSettings } from './extension-settings';

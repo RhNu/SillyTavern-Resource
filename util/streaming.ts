@@ -1,4 +1,5 @@
-import { createScriptIdDiv, createScriptIdIframe, teleportStyle } from '@util/script';
+import { createScriptIdDiv, createScriptIdIframe } from '@util/tavern-helper/dom/script-host';
+import { teleportStyle } from '@util/tavern-helper/dom/styles';
 import { createContext, createElement, useContext, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { uuidv4 } from './common';

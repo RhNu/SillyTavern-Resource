@@ -1,3 +1,3 @@
-import { reloadOnChatChange } from '@util/script';
+import { reloadOnChatChange } from '@util/tavern-helper/lifecycle/chat';
 
 reloadOnChatChange();

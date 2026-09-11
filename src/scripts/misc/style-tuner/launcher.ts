@@ -1,6 +1,7 @@
 import { createLogger } from '@util/common';
 import { openReactPopup, type ReactPopupSession } from '@util/react/st-popup';
-import { ensureExtensionsMenuButtonWithRetry, teleportStyle } from '@util/script';
+import { extensionMenuItem } from '@util/st/ui/extension-menu/builder';
+import { teleportStyle } from '@util/tavern-helper/dom/styles';
 import { createElement } from 'react';
 import { SCRIPT_DISPLAY_NAME, STYLE_TUNER_IDS } from './constants';
 import SettingsPanel from './SettingsPanel';
@@ -41,16 +42,13 @@ export function openStyleTunerPopup(): void {
 /** 在魔法棒扩展菜单添加按钮并初始化设置弹窗 */
 export function initializeStyleTunerLauncher() {
   const { destroy: destroyTeleportedStyle } = teleportStyle();
-  const menuButton = ensureExtensionsMenuButtonWithRetry({
-    parent$: $,
-    containerId: STYLE_TUNER_IDS.buttonContainer,
-    buttonId: STYLE_TUNER_IDS.button,
-    title: SCRIPT_DISPLAY_NAME,
-    label: SCRIPT_DISPLAY_NAME,
-    iconClass: 'fa-fw fa-solid fa-palette',
-    clickNamespace: '.styletuner',
-    onClick: openStyleTunerPopup,
-  });
+  const menuButton = extensionMenuItem(STYLE_TUNER_IDS.button)
+    .containerId(STYLE_TUNER_IDS.buttonContainer)
+    .title(SCRIPT_DISPLAY_NAME)
+    .label(SCRIPT_DISPLAY_NAME)
+    .icon('fa-fw fa-solid fa-palette')
+    .onClick(openStyleTunerPopup)
+    .mount();
 
   return {
     open: openStyleTunerPopup,

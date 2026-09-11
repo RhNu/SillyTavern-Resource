@@ -1,6 +1,6 @@
-import { displayPopup } from '@util/st/ui/popup';
+import { displayPopup } from '@util/st/ui/popup/shortcuts';
 
-type HelpMarkerProps = {
+export type HelpMarkerProps = {
   text: string;
   title?: string;
   className?: string;

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { HelpMarker } from '@util/components/HelpMarker';
+import { HelpMarker } from '@util/react/components/HelpMarker';
 import { diagnoseCleanupRules } from '../prompt-analysis/context-cleaner';
 import type { ContextCleanup } from '../settings/schema';
 

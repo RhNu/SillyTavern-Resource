@@ -1,5 +1,5 @@
 import { getHostDomContext } from '@util/host';
-import { createScriptIdDiv } from '@util/script';
+import { createScriptIdDiv } from '@util/tavern-helper/dom/script-host';
 
 /**
  * 共享的浮动元素绝对位置。
@@ -182,7 +182,7 @@ export function fromFloatingPercentPosition(
  *
  * 不适用范围：
  * - 不负责菜单对齐、业务状态或弹窗语义。
- * - 不替代用于隔离渲染的 `createScriptIdIframe()`。
+ * - 不替代 `tavern-helper/dom/script-host` 中用于隔离渲染的 `createScriptIdIframe()`。
  */
 export function mountDraggableFloatingSurface(
   options: MountDraggableFloatingSurfaceOptions = {},

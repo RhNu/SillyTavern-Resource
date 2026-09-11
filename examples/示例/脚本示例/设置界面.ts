@@ -1,4 +1,5 @@
-import { createScriptIdDiv, teleportStyle } from '@util/script';
+import { createScriptIdDiv } from '@util/tavern-helper/dom/script-host';
+import { teleportStyle } from '@util/tavern-helper/dom/styles';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import 界面 from './设置界面组件';
