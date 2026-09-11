@@ -10,8 +10,8 @@ describe('prompt analysis context boundaries', () => {
 
     expect(
       buildHistory(2, 2, {
-        extractRules: [],
-        filterRules: ['block:<think>'],
+        storyRules: [],
+        cleanupRules: ['block:<think>'],
       }),
     ).toBe('AI: visible\n\nUser: question');
   });

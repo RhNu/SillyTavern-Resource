@@ -1,7 +1,7 @@
 import { createLogger, serializeError } from '../app/logger';
 import { cleanContextText, type ContextCleanupSettings } from './context-cleaner';
 
-const NO_CONTEXT_CLEANUP: ContextCleanupSettings = { extractRules: [], filterRules: [] };
+const NO_CONTEXT_CLEANUP: ContextCleanupSettings = { storyRules: [], cleanupRules: [] };
 const logger = createLogger('prompt-analysis/context');
 
 export function buildHistory(

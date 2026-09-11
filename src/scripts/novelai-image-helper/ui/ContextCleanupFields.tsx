@@ -39,8 +39,8 @@ function RuleField(props: {
 
 export function ContextCleanupFields(props: { value: ContextCleanup; onChange: (value: ContextCleanup) => void }) {
   const diagnostics = useMemo(() => diagnoseCleanupRules(props.value), [props.value]);
-  const extractCount = props.value.extractRules.filter(rule => rule.trim()).length;
-  const filterCount = props.value.filterRules.filter(rule => rule.trim()).length;
+  const storyCount = props.value.storyRules.filter(rule => rule.trim()).length;
+  const cleanupCount = props.value.cleanupRules.filter(rule => rule.trim()).length;
 
   return (
     <section className="nai-settings__cleanup">
@@ -52,33 +52,33 @@ export function ContextCleanupFields(props: { value: ContextCleanup; onChange: (
         />
       </div>
       <p className="nai-settings__empty">
-        每行一条规则 · 当前提取 {extractCount} 条，过滤 {filterCount} 条
+        每行一条规则 · 当前正文 {storyCount} 条，清洗 {cleanupCount} 条
         {diagnostics.length > 0 ? ` · ${diagnostics.length} 条无效规则将被忽略` : ''}
       </p>
       <div className="nai-settings__grid nai-settings__cleanup-grid">
         <RuleField
-          label="提取规则"
-          help="匹配后只保留标记内部内容。支持 <tag>、[tag]、前缀|后缀；每行也可以用逗号分隔多个普通规则。还支持 regex:/pattern/flags，使用第一个捕获组（没有捕获组时使用整个匹配）。"
-          value={props.value.extractRules}
+          label="正文规则"
+          help="任一规则命中时，按原文顺序提取并合并全部匹配区域；全部未命中时使用完整文本。支持 <tag>、[tag]、前缀|后缀；正则使用第一个捕获组，没有捕获组时使用完整匹配。"
+          value={props.value.storyRules}
           rows={6}
           commaSeparated
           placeholder={'<thinking>\n[visible]\n<scene>|</scene>\nregex:/<keep>([\\s\\S]*?)<\\/keep>/i'}
-          onChange={extractRules => props.onChange({ ...props.value, extractRules })}
+          onChange={storyRules => props.onChange({ ...props.value, storyRules })}
         />
         <RuleField
-          label="过滤规则"
-          help="按填写顺序执行。支持 block:<tag>、before:</tag>、after:<tag>、pair:前缀|后缀、text:文字；正则写作 regex:/pattern/flags，可在末尾追加 =>字面替换文本。"
-          value={props.value.filterRules}
+          label="清洗规则"
+          help="按填写顺序执行。支持 block:<tag>、before:</tag>、after:<tag>、pair:前缀|后缀、text:文字；正则写作 regex:/pattern/flags，可在末尾追加不含换行的 =>字面替换文本。"
+          value={props.value.cleanupRules}
           rows={6}
           placeholder={'block:<think>\nbefore:</analysis>\ntext:旁白\nregex:/\\[debug\\][\\s\\S]*?\\[\\/debug\\]/gi'}
-          onChange={filterRules => props.onChange({ ...props.value, filterRules })}
+          onChange={cleanupRules => props.onChange({ ...props.value, cleanupRules })}
         />
       </div>
       {diagnostics.length > 0 && (
         <div className="nai-settings__cleanup-errors" role="status">
           {diagnostics.map((diagnostic, index) => (
             <div key={`${diagnostic.phase}:${diagnostic.rule}:${index}`}>
-              {diagnostic.phase === 'extract' ? '提取' : '过滤'}：{diagnostic.rule}（{diagnostic.message}）
+              {diagnostic.phase === 'story' ? '正文' : '清洗'}：{diagnostic.rule}（{diagnostic.message}）
             </div>
           ))}
         </div>

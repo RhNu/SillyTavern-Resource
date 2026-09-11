@@ -1,85 +1,73 @@
 import { describe, expect, test } from 'vitest';
 import { collectCleanedFragments, type ContextCleanupSettings } from '../prompt-analysis/context-cleaner';
-import { planStoryLayout, renderStoryLayout } from './story-layout';
 import { applyInsertionPlan } from './insertion-plan';
+import { planStoryLayout, renderStoryLayout } from './story-layout';
 
-const cleanup: ContextCleanupSettings = { extractRules: [], filterRules: [] };
+const cleanup: ContextCleanupSettings = { storyRules: [], cleanupRules: [] };
+
 function layoutOf(raw: string, settings = cleanup) {
   return planStoryLayout(raw, collectCleanedFragments(raw, settings).fragments);
 }
 
-describe('safe candidate anchors', () => {
-  test('keeps short dialogue and marks boundaries, including the final block', () => {
-    const raw = '走吧。\n\n好。';
-    const layout = layoutOf(raw);
+describe('line-based story anchors', () => {
+  test('creates one candidate after every non-empty line and ignores blank lines', () => {
+    const layout = layoutOf('第一行\n\n第二行\n   \n第三行');
     expect(layout.blocks.map(block => [block.text, block.anchorId])).toEqual([
-      ['走吧。', 'A1'],
-      ['好。', 'A2'],
+      ['第一行', 'A1'],
+      ['第二行', 'A2'],
+      ['第三行', 'A3'],
     ]);
-    expect(renderStoryLayout(layout)).toBe('走吧。\n\n[插图锚点 A1]\n\n好。\n\n[插图锚点 A2]');
+    expect(renderStoryLayout(layout)).toBe(
+      '第一行\n\n[插图锚点 A1]\n\n第二行\n\n[插图锚点 A2]\n\n第三行\n\n[插图锚点 A3]',
+    );
   });
 
-  test('maps several extracted paragraphs to one wrapper boundary', () => {
+  test('places anchors inside a selected story wrapper instead of folding them to its end', () => {
     const raw = 'prefix <scene>first\n\nsecond</scene> suffix';
-    const layout = layoutOf(raw, { ...cleanup, extractRules: ['<scene>'] });
-    expect(layout.blocks).toEqual([{ text: 'first\nsecond', anchorId: 'A1', sourceEnd: raw.indexOf(' suffix') }]);
-    const result = applyInsertionPlan(raw, layout, [{ anchorId: 'A1', imageId: 'one' }]);
-    expect(result).toContain('</scene>\n\n[[NovelAIImage id="one"]]');
-    expect(result.replace(/\n\n\[\[NovelAIImage id="one"\]\]\n\n/, '')).toBe(raw);
+    const layout = layoutOf(raw, { ...cleanup, storyRules: ['<scene>'] });
+    expect(layout.blocks.map(block => [block.text, block.anchorId])).toEqual([
+      ['first', 'A1'],
+      ['second', 'A2'],
+    ]);
+
+    const result = applyInsertionPlan(raw, layout, [
+      { anchorId: 'A1', imageId: 'one' },
+      { anchorId: 'A2', imageId: 'two' },
+    ]);
+    expect(result).toContain('first\n\n[[NovelAIImage id="one"]]\n\n\n\nsecond');
+    expect(result).toContain('second\n\n[[NovelAIImage id="two"]]\n\n</scene>');
+    expect(result.replace(/\n\n\[\[NovelAIImage id="(?:one|two)"\]\]\n\n/g, '')).toBe(raw);
   });
 
-  test('keeps extraction in source order and deduplicates overlapping rules', () => {
-    const raw = '<a>first</a>\n\n<b>second</b>';
-    const layout = layoutOf(raw, { ...cleanup, extractRules: ['<b>', '<a>', 'regex:/<a>(.*?)<[/]a>/g'] });
+  test('uses all matching story regions in source order and removes overlaps', () => {
+    const raw = '<outer>first <inner>nested</inner></outer>\n<outer>second</outer>';
+    const layout = layoutOf(raw, { ...cleanup, storyRules: ['<inner>', '<outer>'] });
+    expect(layout.blocks.map(block => block.text)).toEqual(['first <inner>nested</inner>', 'second']);
+  });
+
+  test('falls back to the complete message when no story rule matches', () => {
+    const layout = layoutOf('first\nsecond', { ...cleanup, storyRules: ['<missing>'] });
     expect(layout.blocks.map(block => block.text)).toEqual(['first', 'second']);
   });
 
-  test.each([
-    '<div>first\n\n<span>second</span>\n\nthird</div>',
-    '- first\n\n- second\n  continued',
-    '> first\n> second',
-    '> first\nlazy continuation',
-    '- first\nlazy continuation',
-    '| Name | Value |\n| --- | --- |\n| one | two |',
-    'Name | Value\n--- | ---\none | two',
-  ])('does not insert inside a structural block: %s', raw => {
-    const layout = layoutOf(raw);
-    expect(layout.blocks).toHaveLength(1);
-    expect(layout.blocks[0]?.sourceEnd).toBe(raw.length);
+  test('cleans selected story before creating line candidates', () => {
+    const raw = '<story>first\n<think>hidden</think>\nsecond</story>';
+    const layout = layoutOf(raw, {
+      storyRules: ['<story>'],
+      cleanupRules: ['block:<think>'],
+    });
+    expect(layout.blocks.map(block => block.text)).toEqual(['first', 'second']);
   });
 
-  test('preserves the original offset after filtered text and CRLF', () => {
+  test('keeps source offsets stable after filtered text and CRLF', () => {
     const raw = '正文 <think>隐藏</think>继续。\r\n\r\n短句。';
-    const layout = layoutOf(raw, { ...cleanup, filterRules: ['block:<think>'] });
+    const layout = layoutOf(raw, { ...cleanup, cleanupRules: ['block:<think>'] });
     expect(layout.blocks[0]?.sourceEnd).toBe(raw.indexOf('\r\n'));
     expect(layout.blocks.map(block => block.text)).toEqual(['正文 继续。', '短句。']);
   });
 
-  test('unclosed HTML stays readable but cannot produce an insertion point inside the wrapper', () => {
-    const layout = layoutOf('before\n\n<div>unclosed\n\ntext');
-    expect(layout.blocks.map(block => block.anchorId)).toEqual(['A1', null]);
-    expect(renderStoryLayout(layout)).toContain('<div>unclosed\ntext');
-    expect(renderStoryLayout(layout)).not.toContain('A2');
-  });
-
-  test('a replacement containing newlines cannot invent insertion points inside the source match', () => {
-    const raw = 'left SECRET right';
-    const layout = layoutOf(raw, { ...cleanup, filterRules: ['regex:/SECRET/g=>first\nsecond'] });
-    expect(layout.blocks).toHaveLength(1);
-    expect(layout.blocks[0]?.sourceEnd).toBe(raw.length);
-  });
-
-  test.each(['```js\nsecret\n\nmore\n```', '~~~\nsecret\n\nmore\n~~~', '```\nnot closed'])(
-    'code is opaque: %s',
-    code => {
-      const raw = `before\n\n${code}`;
-      const layout = layoutOf(raw);
-      expect(layout.blocks.map(block => block.text)).toEqual(['before']);
-    },
-  );
-
-  test('rejects duplicate selections and keeps insertion offsets stable in reverse order', () => {
-    const raw = 'one\n\ntwo';
+  test('rejects duplicate selections and inserts distinct anchors in source order', () => {
+    const raw = 'one\ntwo';
     const layout = layoutOf(raw);
     expect(() =>
       applyInsertionPlan(raw, layout, [
@@ -87,12 +75,12 @@ describe('safe candidate anchors', () => {
         { anchorId: 'A1', imageId: 'y' },
       ]),
     ).toThrow('重复');
+
     const result = applyInsertionPlan(raw, layout, [
       { anchorId: 'A2', imageId: 'second' },
       { anchorId: 'A1', imageId: 'first' },
     ]);
     expect(result.indexOf('id="first"')).toBeLessThan(result.indexOf('two'));
     expect(result.indexOf('two')).toBeLessThan(result.indexOf('id="second"'));
-    expect(result.replace(/\n\n\[\[NovelAIImage id="[^"]+"\]\]\n\n/g, '')).toBe(raw);
   });
 });

@@ -1,12 +1,12 @@
 import { ANCHOR_SOURCE } from '../domain/anchor';
 
 export type ContextCleanupSettings = {
-  extractRules: readonly string[];
-  filterRules: readonly string[];
+  storyRules: readonly string[];
+  cleanupRules: readonly string[];
 };
 
 export type CleanupDiagnostic = {
-  phase: 'extract' | 'filter';
+  phase: 'story' | 'cleanup';
   rule: string;
   message: string;
 };
@@ -29,13 +29,13 @@ type RegexRule = {
   replacement?: string;
 };
 
-type FilterRule =
+type CleanupRule =
   | { kind: 'block' | 'pair'; pattern: RegExp }
   | { kind: 'before' | 'after'; marker: RegExp }
   | { kind: 'text'; value: string }
   | RegexRule;
 
-type ExtractRule = { kind: 'capture'; pattern: RegExp } | RegexRule;
+type StoryRule = { kind: 'capture'; pattern: RegExp } | RegexRule;
 
 type MappedRange = {
   start: number;
@@ -45,8 +45,6 @@ type MappedRange = {
 const CODE_FENCE_REGEX = /^ {0,3}(`{3,}|~{3,})[^\r\n]*(?:\r?\n|$)[\s\S]*?(?:^ {0,3}\1[ \t]*$|(?![\s\S]))/gm;
 const HTML_CODE_REGEX = /<code\b[^>]*>[\s\S]*?<\/code\s*>/gi;
 const XML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
-// Old chat messages may still contain the old anchor text. This is content cleanup, not settings migration.
-const LEGACY_IMAGE_ANCHOR_REGEX = /\[\[ImageGenRef\s+id=(?:"[^"\]]+"|'[^'\]]+')\s*\]\]/gi;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -121,8 +119,21 @@ function replaceMapped(value: MappedText, pattern: RegExp, replacement: string):
   return { chars, origins };
 }
 
-function normalizeMapped(value: MappedText): MappedText {
-  return trimMapped(replaceMapped(value, /\n{3,}/g, '\n\n'));
+function compactMappedLines(value: MappedText): MappedText {
+  const result: MappedText = { chars: [], origins: [] };
+  splitMappedRanges(value, /\r?\n/g)
+    .map(range => trimMapped(sliceMapped(value, range.start, range.end)))
+    .filter(line => line.chars.length > 0)
+    .forEach((line, index) => {
+      if (index > 0) {
+        const boundary = result.origins.at(-1) ?? { start: 0, end: 0 };
+        result.chars.push('\n');
+        result.origins.push(boundary);
+      }
+      result.chars.push(...line.chars);
+      result.origins.push(...line.origins);
+    });
+  return result;
 }
 
 function findRegexDelimiter(value: string): number {
@@ -165,6 +176,7 @@ function parseRegexRule(value: string): RegexRule | undefined {
   if (!/^[dgimsuvy]*$/.test(flags)) throw new Error(`正则 flags 无效：${flags}`);
 
   const replacement = replacementSeparator < 0 ? undefined : rest.slice(replacementSeparator + 2);
+  if (replacement?.includes('\n') || replacement?.includes('\r')) throw new Error('正则替换文本不能包含换行');
   const normalizedFlags = flags.includes('g') ? flags : `${flags}g`;
   let pattern: RegExp;
   try {
@@ -215,10 +227,14 @@ function createPairRegex(prefix: string, suffix: string): RegExp {
   return new RegExp(`${escapeRegExp(prefix)}([\\s\\S]*?)${escapeRegExp(suffix)}`, 'gi');
 }
 
-function parseCaptureRule(rule: string): ExtractRule | undefined {
+function parseStoryRule(rule: string): StoryRule | undefined {
   const value = rule.trim();
   if (!value) return undefined;
-  if (value.startsWith('regex:')) return parseRegexRule(value);
+  if (value.startsWith('regex:')) {
+    const parsed = parseRegexRule(value);
+    if (parsed?.replacement !== undefined) throw new Error('正文正则只用于选择内容，不能包含替换文本');
+    return parsed;
+  }
 
   const pair = splitPair(value.replace(/^pair:/i, '').trim());
   if (pair) return { kind: 'capture', pattern: createPairRegex(pair[0], pair[1]) };
@@ -232,7 +248,7 @@ function parseCaptureRule(rule: string): ExtractRule | undefined {
   throw new Error('提取规则应为 <tag>、[tag]、prefix|suffix 或 regex:/pattern/flags');
 }
 
-function parseFilterRule(rule: string): FilterRule | undefined {
+function parseCleanupRule(rule: string): CleanupRule | undefined {
   const separator = rule.indexOf(':');
   if (separator <= 0) throw new Error('过滤规则缺少类型前缀 block/before/after/pair/text/regex');
   const kind = rule.slice(0, separator).trim().toLowerCase();
@@ -284,13 +300,13 @@ function activeRules(input: readonly string[], commaSeparated: boolean): string[
 }
 
 function compileRules(settings: ContextCleanupSettings): {
-  extract: ExtractRule[];
-  filter: FilterRule[];
+  story: StoryRule[];
+  cleanup: CleanupRule[];
   diagnostics: CleanupDiagnostic[];
 } {
   const diagnostics: CleanupDiagnostic[] = [];
-  const extract: ExtractRule[] = [];
-  const filter: FilterRule[] = [];
+  const story: StoryRule[] = [];
+  const cleanup: CleanupRule[] = [];
   const compile = <T>(phase: CleanupDiagnostic['phase'], source: string, target: T[], parser: (value: string) => T) => {
     try {
       const rule = parser(source);
@@ -303,18 +319,18 @@ function compileRules(settings: ContextCleanupSettings): {
       });
     }
   };
-  activeRules(settings.extractRules, true).forEach(rule => compile('extract', rule, extract, parseCaptureRule));
-  activeRules(settings.filterRules, false).forEach(rule => compile('filter', rule, filter, parseFilterRule));
-  return { extract, filter, diagnostics };
+  activeRules(settings.storyRules, true).forEach(rule => compile('story', rule, story, parseStoryRule));
+  activeRules(settings.cleanupRules, false).forEach(rule => compile('cleanup', rule, cleanup, parseCleanupRule));
+  return { story, cleanup, diagnostics };
 }
 
 export function diagnoseCleanupRules(settings: ContextCleanupSettings): CleanupDiagnostic[] {
   return compileRules(settings).diagnostics;
 }
 
-function applyExtractRules(value: MappedText, rules: readonly ExtractRule[]): MappedText {
+function selectStory(value: MappedText, rules: readonly StoryRule[]): MappedText {
   if (rules.length === 0) return value;
-  const parts: MappedText[] = [];
+  const parts: Array<{ content: MappedText; selection: Origin }> = [];
   const source = textOf(value);
 
   for (const rule of rules) {
@@ -328,36 +344,34 @@ function applyExtractRules(value: MappedText, rules: readonly ExtractRule[]): Ma
       const capture = match[1] === undefined ? match[0] : match[1];
       const localStart = match[1] === undefined ? 0 : Math.max(0, match[0].indexOf(match[1]));
       const captured = trimMapped(sliceMapped(value, fullStart + localStart, fullStart + localStart + capture.length));
-      // Anchor after the complete source match, including the wrapper removed by extraction.
-      const matchOrigin = originForRange(value.origins, fullStart, fullStart + match[0].length);
-      const part = matchOrigin ? { ...captured, origins: captured.origins.map(() => matchOrigin) } : captured;
-      if (textOf(part)) parts.push(part);
+      // Selection bounds remove overlapping rules; captured characters keep exact source positions for anchors.
+      const selection = originForRange(value.origins, fullStart, fullStart + match[0].length);
+      if (textOf(captured) && selection) parts.push({ content: captured, selection });
       if (match[0].length === 0) regex.lastIndex += 1;
     }
   }
 
   if (parts.length === 0) return value;
   const joined: MappedText = { chars: [], origins: [] };
-  // Rules are selectors, not ordering instructions. Prefer outer captures and deduplicate overlaps.
+  // Rules are selectors, not ordering instructions. Keep the first outermost match when selections overlap.
   const selected = parts
-    .sort((a, b) => a.origins[0]!.start - b.origins[0]!.start || b.origins[0]!.end - a.origins[0]!.end)
+    .sort((a, b) => a.selection.start - b.selection.start || b.selection.end - a.selection.end)
     .filter(
-      (part, index, sorted) =>
-        !sorted.slice(0, index).some(previous => previous.origins[0]!.end > part.origins[0]!.start),
+      (part, index, sorted) => !sorted.slice(0, index).some(previous => previous.selection.end > part.selection.start),
     );
   selected.forEach((part, index) => {
     if (index > 0) {
       const previous = joined.origins.at(-1) ?? { start: 0, end: 0 };
-      joined.chars.push('\n', '\n');
-      joined.origins.push(previous, previous);
+      joined.chars.push('\n');
+      joined.origins.push(previous);
     }
-    joined.chars.push(...part.chars);
-    joined.origins.push(...part.origins);
+    joined.chars.push(...part.content.chars);
+    joined.origins.push(...part.content.origins);
   });
   return joined;
 }
 
-function applyFilterRules(value: MappedText, rules: readonly FilterRule[]): MappedText {
+function applyCleanupRules(value: MappedText, rules: readonly CleanupRule[]): MappedText {
   return rules.reduce((current, rule) => {
     switch (rule.kind) {
       case 'block':
@@ -388,13 +402,12 @@ function cleanMappedContext(
   const compiled = compileRules(settings);
   let mapped = createMappedText(raw);
   mapped = replaceMapped(mapped, new RegExp(ANCHOR_SOURCE, 'gi'), '');
-  mapped = replaceMapped(mapped, LEGACY_IMAGE_ANCHOR_REGEX, '');
   mapped = replaceMapped(mapped, XML_COMMENT_REGEX, '');
-  mapped = applyExtractRules(mapped, compiled.extract);
-  mapped = applyFilterRules(mapped, compiled.filter);
+  mapped = selectStory(mapped, compiled.story);
+  mapped = applyCleanupRules(mapped, compiled.cleanup);
   mapped = replaceMapped(mapped, CODE_FENCE_REGEX, '[CODE_BLOCK]');
   mapped = replaceMapped(mapped, HTML_CODE_REGEX, '[CODE_BLOCK]');
-  return { mapped: normalizeMapped(mapped), diagnostics: compiled.diagnostics };
+  return { mapped: compactMappedLines(mapped), diagnostics: compiled.diagnostics };
 }
 
 export function cleanContextText(raw: string, settings: ContextCleanupSettings): CleanContextResult {
@@ -420,7 +433,7 @@ function splitMappedRanges(value: MappedText, separator: RegExp): MappedRange[] 
 /** Cleaned fragments retain source ranges; choosing insertion boundaries belongs to story-layout. */
 export function collectCleanedFragments(raw: string, settings: ContextCleanupSettings) {
   const cleaned = cleanMappedContext(raw, settings);
-  const fragments = splitMappedRanges(cleaned.mapped, /\n+/g).flatMap(range => {
+  const fragments = splitMappedRanges(cleaned.mapped, /\n/g).flatMap(range => {
     const part = trimMapped(sliceMapped(cleaned.mapped, range.start, range.end));
     const text = textOf(part);
     const origin = originForRange(part.origins, 0, part.origins.length);

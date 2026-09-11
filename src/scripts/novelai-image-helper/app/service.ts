@@ -1,6 +1,5 @@
 import { captureMessageSnapshot } from '../platform/tavern/message-snapshot';
 import { planStoryLayout } from '../anchors/story-layout';
-import { legacyAnchorTemplateWarning } from '../settings/schema';
 import { matchAnchors } from '../domain/anchor';
 import type { ImageBlock } from '../domain/block';
 import { createLogger } from './logger';
@@ -101,14 +100,12 @@ export class NovelAiImageService {
         diagnostics: cleanedStory.diagnostics,
       });
     }
-    if (!layout.blocks.some(block => block.anchorId)) {
+    if (layout.blocks.length === 0) {
       logger.warn('拒绝分析：没有找到可插图的正文块', { messageId });
       throw new Error('没有找到可插图的正文块');
     }
 
     const assertCurrent = captureMessageSnapshot(messageId);
-    const warning = legacyAnchorTemplateWarning(settings);
-    if (warning) toastr.warning(warning, 'NovelAI 图片助手');
     const generationId = `nai-analysis-${crypto.randomUUID()}`;
     const analysis = { generationId, messageId, cancelled: false };
     this.activeAnalysis = analysis;

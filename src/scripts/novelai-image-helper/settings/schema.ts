@@ -52,8 +52,8 @@ const PromptTemplateSchema = z.strictObject({
 
 const ContextCleanupSchema = z.strictObject({
   /** One rule per line in the settings UI. These rules are local to this script. */
-  extractRules: z.array(z.string().max(2_000)).max(64).default([]),
-  filterRules: z.array(z.string().max(2_000)).max(128).default([]),
+  storyRules: z.array(z.string().max(2_000)).max(64).default([]),
+  cleanupRules: z.array(z.string().max(2_000)).max(128).default([]),
 });
 
 const GenerationPromptPresetSchema = z.strictObject({
@@ -77,7 +77,7 @@ const GenerationPromptPresetCollectionSchema = z
   });
 
 export const SettingsSchema = z.strictObject({
-  schemaVersion: z.literal(8),
+  schemaVersion: z.literal(9),
   enabled: z.boolean(),
   notifications: z
     .strictObject({
@@ -240,7 +240,7 @@ export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 8,
+  schemaVersion: 9,
   enabled: true,
   notifications: {
     progressToast: true,
@@ -256,8 +256,8 @@ export const DEFAULT_SETTINGS: Settings = {
     maxTokens: 4_096,
     templates: DEFAULT_PROMPT_TEMPLATE,
     cleanup: {
-      extractRules: [],
-      filterRules: [],
+      storyRules: [],
+      cleanupRules: [],
     },
   },
   generation: {
@@ -280,12 +280,6 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   characters: [],
 };
-
-export function legacyAnchorTemplateWarning(settings: Settings): string | undefined {
-  return Object.values(settings.analysis.templates).some(text => /after_paragraph|\[P(?:\d+|#)\]/.test(text))
-    ? '自定义模板仍引用旧段落协议，请改为使用正文中的 A1、A2 锚点和 anchor_id。模板内容已保留。'
-    : undefined;
-}
 
 export function normalizeSettings(value: unknown): Settings {
   const parsed = SettingsSchema.safeParse(value);

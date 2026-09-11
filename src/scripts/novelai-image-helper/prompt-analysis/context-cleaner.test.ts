@@ -2,15 +2,15 @@ import { planStoryLayout } from '../anchors/story-layout';
 import { describe, expect, test } from 'vitest';
 import { cleanContextText, collectCleanedFragments, type ContextCleanupSettings } from './context-cleaner';
 
-const emptyCleanup: ContextCleanupSettings = { extractRules: [], filterRules: [] };
+const emptyCleanup: ContextCleanupSettings = { storyRules: [], cleanupRules: [] };
 
 describe('context cleanup', () => {
-  test('supports the legacy tag-oriented filter operations locally', () => {
+  test('supports tag-oriented cleanup operations locally', () => {
     const result = cleanContextText(
       'keep <think>hidden</think> START remove until END visible [debug]gone[/debug] REMOVE',
       {
-        extractRules: [],
-        filterRules: ['block:<think>', 'pair:START|END', 'block:[debug]', 'text:REMOVE'],
+        storyRules: [],
+        cleanupRules: ['block:<think>', 'pair:START|END', 'block:[debug]', 'text:REMOVE'],
       },
     );
 
@@ -18,17 +18,15 @@ describe('context cleanup', () => {
     expect(result.diagnostics).toEqual([]);
   });
 
-  test('removes both current and old image anchors from story context', () => {
-    expect(
-      cleanContextText('before [[NovelAIImage id="new"]] middle [[ImageGenRef id="old"]] after', emptyCleanup).text,
-    ).toBe('before  middle  after');
+  test('removes current image anchors from story context', () => {
+    expect(cleanContextText('before [[NovelAIImage id="new"]] after', emptyCleanup).text).toBe('before  after');
   });
 
   test('supports before and after boundaries in rule order', () => {
     expect(
       cleanContextText('discard </analysis> keep <cut>discard', {
         ...emptyCleanup,
-        filterRules: ['before:</analysis>', 'after:<cut>'],
+        cleanupRules: ['before:</analysis>', 'after:<cut>'],
       }).text,
     ).toBe('keep');
   });
@@ -36,25 +34,25 @@ describe('context cleanup', () => {
   test('extracts HTML, bracket, and paired regions', () => {
     expect(
       cleanContextText('<scene>first</scene> [scene]second[/scene] prefixthirdsuffix', {
-        extractRules: ['<scene>', '[scene]', 'prefix|suffix'],
-        filterRules: [],
+        storyRules: ['<scene>', '[scene]', 'prefix|suffix'],
+        cleanupRules: [],
       }).text,
-    ).toBe('first\n\nsecond\n\nthird');
+    ).toBe('first\nsecond\nthird');
   });
 
   test('accepts comma-separated ordinary extraction rules while preserving regex literals', () => {
     expect(
       cleanContextText('<scene>first</scene>[scene]second[/scene]', {
-        extractRules: ['<scene>,[scene]'],
-        filterRules: [],
+        storyRules: ['<scene>,[scene]'],
+        cleanupRules: [],
       }).text,
-    ).toBe('first\n\nsecond');
+    ).toBe('first\nsecond');
   });
 
   test('supports internal regex rules and literal replacement text', () => {
     const result = cleanContextText('A <debug id="1">secret</debug> B  C', {
-      extractRules: [],
-      filterRules: ['regex:/<debug\\b[^>]*>[\\s\\S]*?<\\/debug>/gi', 'regex:/\\s+/g=> '],
+      storyRules: [],
+      cleanupRules: ['regex:/<debug\\b[^>]*>[\\s\\S]*?<\\/debug>/gi', 'regex:/[ \\t]+/g=> '],
     });
 
     expect(result.text).toBe('A B C');
@@ -63,19 +61,31 @@ describe('context cleanup', () => {
 
   test('reports invalid internal regex without throwing during cleanup', () => {
     const result = cleanContextText('visible', {
-      extractRules: [],
-      filterRules: ['regex:/[/g', 'text:visible'],
+      storyRules: [],
+      cleanupRules: ['regex:/[/g', 'text:visible'],
     });
 
     expect(result.text).toBe('');
-    expect(result.diagnostics).toEqual([expect.objectContaining({ phase: 'filter', rule: 'regex:/[/g' })]);
+    expect(result.diagnostics).toEqual([expect.objectContaining({ phase: 'cleanup', rule: 'regex:/[/g' })]);
+  });
+
+  test('rejects replacement syntax in story selectors', () => {
+    const result = cleanContextText('visible', {
+      storyRules: ['regex:/visible/g=>changed'],
+      cleanupRules: [],
+    });
+
+    expect(result.text).toBe('visible');
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({ phase: 'story', message: expect.stringContaining('不能包含替换文本') }),
+    ]);
   });
 
   test('keeps cleaned paragraph text while mapping insertion positions to the original message', () => {
     const original = 'First <think>hidden</think> paragraph.\n\nSecond paragraph.';
     const result = collectCleanedFragments(original, {
-      extractRules: [],
-      filterRules: ['block:<think>'],
+      storyRules: [],
+      cleanupRules: ['block:<think>'],
     });
 
     expect(result.fragments.map(fragment => fragment.text)).toEqual(['First  paragraph.', 'Second paragraph.']);
@@ -88,13 +98,13 @@ describe('context cleanup', () => {
   test('maps extracted paragraphs after their complete source wrapper', () => {
     const original = 'prefix <scene>selected illustration moment</scene> suffix';
     const result = collectCleanedFragments(original, {
-      extractRules: ['<scene>'],
-      filterRules: [],
+      storyRules: ['<scene>'],
+      cleanupRules: [],
     });
 
     expect(result.fragments[0]).toMatchObject({
       text: 'selected illustration moment',
-      end: original.indexOf('</scene>') + '</scene>'.length,
+      end: original.indexOf('</scene>'),
     });
   });
 
