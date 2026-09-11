@@ -40,8 +40,26 @@ const CharacterSchema = z
   })
   .strict();
 
+const StoredOutputSchema = z
+  .object({
+    mode: z.literal('stored'),
+    storage: z
+      .object({
+        characterName: z.string().optional(),
+        filename: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+const BinaryOutputSchema = z.object({ mode: z.literal('binary') }).strict();
+
+export const OutputRequestSchema = z.discriminatedUnion('mode', [StoredOutputSchema, BinaryOutputSchema]);
+
 export const GenerateRequestSchema = z
   .object({
+    operationId: z.uuid(),
     model: z.enum(MODEL_IDS),
     prompt: z.string().trim().min(1).max(100_000),
     uc: z.string().trim().max(100_000),
@@ -61,6 +79,7 @@ export const GenerateRequestSchema = z
         seed: z.number().int().min(1).max(9_999_999_999).nullable().optional(),
       })
       .strict(),
+    output: OutputRequestSchema,
   })
   .strict()
   .superRefine((request, context) => {
@@ -113,9 +132,14 @@ export const GenerateRequestSchema = z
 export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;
 
 export const CAPABILITIES = {
-  apiVersion: 1,
+  apiVersion: 2,
   configured: false,
-  output: { count: 1, formats: ['image/png'] },
+  output: {
+    count: 1,
+    modes: ['stored', 'binary'],
+    defaultMode: null,
+    formats: ['image/png', 'image/webp'],
+  },
   limits: {
     size: { min: 64, max: 1600, multiple: 64, maxPixels: MAX_IMAGE_PIXELS },
     steps: { min: 1, max: 50 },

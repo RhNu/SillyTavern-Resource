@@ -25,6 +25,20 @@ test('falls back to defaults for an obsolete settings schema', () => {
   expect(normalizeSettings({ ...structuredClone(DEFAULT_SETTINGS), schemaVersion: 8 })).toEqual(DEFAULT_SETTINGS);
 });
 
+test('migrates v9 settings while dropping the browser upload timeout', () => {
+  const settings = structuredClone(DEFAULT_SETTINGS) as typeof DEFAULT_SETTINGS & {
+    generation: typeof DEFAULT_SETTINGS.generation & { uploadTimeoutMs?: number };
+  };
+  settings.schemaVersion = 9 as 10;
+  settings.analysis.model = 'kept-model';
+  settings.generation.uploadTimeoutMs = 45_000;
+
+  expect(normalizeSettings(settings)).toEqual({
+    ...DEFAULT_SETTINGS,
+    analysis: { ...DEFAULT_SETTINGS.analysis, model: 'kept-model' },
+  });
+});
+
 test('adds the progress toast preference without discarding existing settings', () => {
   const settings = structuredClone(DEFAULT_SETTINGS);
   settings.analysis.model = 'custom-model';

@@ -1,13 +1,18 @@
 import { z } from 'zod';
 import { PromptBundleSchema, type PromptBundle } from './prompt';
 
-export const BlockStatusSchema = z.enum(['prepared', 'draft', 'queued', 'generating', 'uploading', 'ready', 'failed']);
+export const BlockStatusSchema = z.enum(['prepared', 'draft', 'queued', 'generating', 'ready', 'failed']);
 
 /** 生图流水线的阶段；界面运行状态与持久化图片结果分别管理。 */
-export const BlockFailureStageSchema = z.enum(['validate', 'generate', 'upload', 'commit', 'associate']);
+export const BlockFailureStageSchema = z.enum(['validate', 'generate', 'commit', 'associate']);
 
 export const ImageOutputSchema = z.strictObject({
   url: z.string().trim().min(1),
+  mime: z
+    .string()
+    .regex(/^image\//)
+    .optional(),
+  bytes: z.number().int().nonnegative().optional(),
   seed: z.number().int().positive(),
   model: z.string().trim().min(1),
   createdAt: z.string().trim().min(1),

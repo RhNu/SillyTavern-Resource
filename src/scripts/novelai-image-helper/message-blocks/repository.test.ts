@@ -32,7 +32,7 @@ describe('chat image repository', () => {
     repository.prepare([imageBlock('one')]);
     repository.finalize(['one']);
     host.write.mockClear();
-    for (const status of ['queued', 'generating', 'uploading'] as const) {
+    for (const status of ['queued', 'generating'] as const) {
       repository.update(0, 'one', block => ({ ...block, status }));
       expect(repository.find(0, 'one')?.status).toBe(status);
     }

@@ -73,6 +73,7 @@
     "postcss-load-config": "^6.0.1",
     "postcss-loader": "^8.2.1",
     "postcss-minify": "^1.2.0",
+    "sanitize-filename": "1.6.3",
     "sass": "^1.104.0",
     "tailwindcss": "^4.3.3",
     "terser": "^5.51.2",

@@ -60,13 +60,17 @@ describe('classifyFailure', () => {
     });
   });
 
-  test('labels upload failures by stage', () => {
-    expect(classifyFailure(new RequestError('上传图片失败 (503)', { statusCode: 503 }), 'upload')).toMatchObject({
-      code: 'UPLOAD_FAILED',
+  test('classifies backend storage failures without a browser upload stage', () => {
+    expect(
+      classifyFailure(new RequestError('后端存储失败', { statusCode: 500, code: 'STORAGE_FAILED' }), 'generate'),
+    ).toMatchObject({
+      code: 'STORAGE_FAILED',
       retryable: true,
     });
-    expect(classifyFailure(new RequestError('上传图片失败 (413)', { statusCode: 413 }), 'upload')).toMatchObject({
-      code: 'UPLOAD_FAILED',
+    expect(
+      classifyFailure(new RequestError('无效存储路径', { statusCode: 400, code: 'STORAGE_INVALID_PATH' }), 'generate'),
+    ).toMatchObject({
+      code: 'INVALID_REQUEST',
       retryable: false,
     });
   });

@@ -5,7 +5,7 @@ import type { Settings } from '../../settings/schema';
 import { createLogger, serializeError } from '../../app/logger';
 import { RequestError } from '../request-error';
 
-const BASE_URL = '/api/plugins/imggen-novelai/v1';
+const BASE_URL = '/api/plugins/imggen-novelai/v2';
 const logger = createLogger('platform/imggen-novelai');
 
 const CapabilitiesSchema = z
@@ -13,7 +13,7 @@ const CapabilitiesSchema = z
     ok: z.literal(true),
     plugin: z.literal('imggen-novelai'),
     version: z.string(),
-    apiVersion: z.literal(1),
+    apiVersion: z.literal(2),
     configured: z.boolean(),
     models: z.array(
       z.object({
@@ -28,12 +28,35 @@ const CapabilitiesSchema = z
 
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
-export type GeneratedImage = {
+export type BinaryGeneratedImage = {
   blob: Blob;
   seed: number;
   model: string;
   requestId?: string;
 };
+
+export type StoredGeneratedImage = {
+  path: string;
+  mime: string;
+  bytes: number;
+  seed: number;
+  model: string;
+  requestId: string;
+  operationId: string;
+};
+
+const StoredGenerateResponseSchema = z.strictObject({
+  requestId: z.string().trim().min(1),
+  operationId: z.uuid(),
+  seed: z.number().int().positive(),
+  model: z.string().trim().min(1),
+  output: z.strictObject({
+    mode: z.literal('stored'),
+    path: z.string().trim().min(1),
+    mime: z.string().regex(/^image\//),
+    bytes: z.number().int().nonnegative(),
+  }),
+});
 
 function headers(): Record<string, string> {
   return SillyTavern.getRequestHeaders() as Record<string, string>;
@@ -82,11 +105,12 @@ export class NovelAiClient {
     }
   }
 
-  async generate(
+  async generateStored(
     bundle: PromptBundle,
     settings: Settings['generation'],
+    operationId: string,
     signal?: AbortSignal,
-  ): Promise<GeneratedImage> {
+  ): Promise<StoredGeneratedImage> {
     const endpoint = `${BASE_URL}/generate`;
     logger.debug('开始请求图片生成', {
       endpoint,
@@ -102,37 +126,52 @@ export class NovelAiClient {
         method: 'POST',
         headers: { ...headers(), 'Content-Type': 'application/json' },
         signal,
-        body: JSON.stringify(buildGenerateRequest(bundle, settings)),
+        body: JSON.stringify({
+          ...buildGenerateRequest(bundle, settings),
+          operationId,
+          output: {
+            mode: 'stored',
+            storage: {
+              characterName: SillyTavern.name2?.trim() || undefined,
+              filename: `novelai_${operationId}`,
+            },
+          },
+        }),
       });
       if (!response.ok) throw await readError(response);
-      const contentType = response.headers.get('Content-Type')?.toLowerCase() ?? '';
-      if (!contentType.startsWith('image/')) {
-        throw new RequestError('图片后端返回了非图片响应', {
+      let raw: unknown;
+      try {
+        raw = await response.json();
+      } catch {
+        throw new RequestError('图片后端返回了无效 JSON', {
           statusCode: response.status,
-          code: 'NON_IMAGE_RESPONSE',
+          code: 'INVALID_STORED_RESPONSE',
         });
       }
-
-      const seed = Number(response.headers.get('X-Imggen-Seed'));
-      if (!Number.isSafeInteger(seed) || seed <= 0) {
-        throw new RequestError('图片后端没有返回有效 seed', {
+      const parsed = StoredGenerateResponseSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new RequestError('图片后端返回了无效的存储描述符', {
           statusCode: response.status,
-          code: 'MISSING_SEED',
+          code: 'INVALID_STORED_RESPONSE',
         });
       }
-      const blob = await response.blob();
+      const payload = parsed.data;
       const result = {
-        blob,
-        seed,
-        model: response.headers.get('X-Imggen-Model')?.trim() || settings.model,
-        requestId: response.headers.get('X-Request-Id')?.trim() || undefined,
+        path: payload.output.path,
+        mime: payload.output.mime,
+        bytes: payload.output.bytes,
+        seed: payload.seed,
+        model: payload.model,
+        requestId: payload.requestId,
+        operationId: payload.operationId,
       };
       logger.info('图片生成请求完成', {
         requestId: result.requestId,
         seed: result.seed,
         model: result.model,
-        contentType,
-        size: blob.size,
+        mime: result.mime,
+        size: result.bytes,
+        path: result.path,
       });
       return result;
     } catch (error) {
@@ -143,5 +182,45 @@ export class NovelAiClient {
       });
       throw error;
     }
+  }
+
+  async generateBinary(
+    bundle: PromptBundle,
+    settings: Settings['generation'],
+    operationId: string,
+    signal?: AbortSignal,
+  ): Promise<BinaryGeneratedImage> {
+    const endpoint = `${BASE_URL}/generate`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { ...headers(), 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({
+        ...buildGenerateRequest(bundle, settings),
+        operationId,
+        output: { mode: 'binary' },
+      }),
+    });
+    if (!response.ok) throw await readError(response);
+    const contentType = response.headers.get('Content-Type')?.toLowerCase() ?? '';
+    if (!contentType.startsWith('image/')) {
+      throw new RequestError('图片后端返回了非图片响应', {
+        statusCode: response.status,
+        code: 'NON_IMAGE_RESPONSE',
+      });
+    }
+    const seed = Number(response.headers.get('X-Imggen-Seed'));
+    if (!Number.isSafeInteger(seed) || seed <= 0) {
+      throw new RequestError('图片后端没有返回有效 seed', {
+        statusCode: response.status,
+        code: 'MISSING_SEED',
+      });
+    }
+    return {
+      blob: await response.blob(),
+      seed,
+      model: response.headers.get('X-Imggen-Model')?.trim() || settings.model,
+      requestId: response.headers.get('X-Request-Id')?.trim() || undefined,
+    };
   }
 }

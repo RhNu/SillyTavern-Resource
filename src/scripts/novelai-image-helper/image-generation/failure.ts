@@ -7,7 +7,7 @@ export type FailureStage = BlockFailureStage;
 /**
  * 结构化失败码。展示与重试判定都以此为准，不再解析错误文本。
  *
- * - 可重试：TIMEOUT / NETWORK / RATE_LIMITED / UPSTREAM / INVALID_RESPONSE / UPLOAD_FAILED / ASSOCIATION_FAILED
+ * - 可重试：TIMEOUT / NETWORK / RATE_LIMITED / UPSTREAM / INVALID_RESPONSE / STORAGE_FAILED / ASSOCIATION_FAILED
  * - 不可重试：凭证、参数、内容审核、模型与角色约束、块缺失
  */
 export type FailureCode =
@@ -21,7 +21,7 @@ export type FailureCode =
   | 'TOKEN_NOT_CONFIGURED'
   | 'MODEL_UNSUPPORTED'
   | 'CHARACTER_LIMIT'
-  | 'UPLOAD_FAILED'
+  | 'STORAGE_FAILED'
   | 'ASSOCIATION_FAILED'
   | 'BLOCK_MISSING'
   | 'UNKNOWN';
@@ -39,7 +39,7 @@ const RETRYABLE_CODES = new Set<FailureCode>([
   'RATE_LIMITED',
   'UPSTREAM',
   'INVALID_RESPONSE',
-  'UPLOAD_FAILED',
+  'STORAGE_FAILED',
   'ASSOCIATION_FAILED',
 ]);
 
@@ -72,11 +72,14 @@ const PLUGIN_FAILURE_CODES: Record<string, ClassifiedFailure> = {
   INTERNAL_ERROR: { code: 'UPSTREAM', message: '', retryable: true },
   NON_IMAGE_RESPONSE: { code: 'INVALID_RESPONSE', message: '', retryable: true },
   MISSING_SEED: { code: 'INVALID_RESPONSE', message: '', retryable: true },
-  UPLOAD_INVALID_PAYLOAD: { code: 'INVALID_RESPONSE', message: '', retryable: true },
+  INVALID_STORED_RESPONSE: { code: 'INVALID_RESPONSE', message: '', retryable: true },
+  STORAGE_FAILED: { code: 'STORAGE_FAILED', message: '', retryable: true },
+  STORAGE_INVALID_PATH: { code: 'INVALID_REQUEST', message: '', retryable: false },
+  OPERATION_CONFLICT: { code: 'INVALID_REQUEST', message: '', retryable: false },
   ASSOCIATION_FAILED: { code: 'ASSOCIATION_FAILED', message: '', retryable: true },
 };
 
-function classifyRequestError(error: RequestError, stage: FailureStage): ClassifiedFailure {
+function classifyRequestError(error: RequestError): ClassifiedFailure {
   const known = error.code ? PLUGIN_FAILURE_CODES[error.code] : undefined;
   if (known) return { ...known, message: error.message };
 
@@ -86,10 +89,10 @@ function classifyRequestError(error: RequestError, stage: FailureStage): Classif
   if (status === 401 || status === 403) return { code: 'AUTH', message: error.message, retryable: false };
   if (status === 408 || status === 504) return { code: 'TIMEOUT', message: error.message, retryable: true };
   if (status >= 500) {
-    return { code: stage === 'upload' ? 'UPLOAD_FAILED' : 'UPSTREAM', message: error.message, retryable: true };
+    return { code: 'UPSTREAM', message: error.message, retryable: true };
   }
   // 上游 4xx：参数错误与内容审核拒绝都落在这里，重试只会继续被拒。
-  return { code: stage === 'upload' ? 'UPLOAD_FAILED' : 'INVALID_REQUEST', message: error.message, retryable: false };
+  return { code: 'INVALID_REQUEST', message: error.message, retryable: false };
 }
 
 function errorMessage(error: unknown): string {
@@ -110,7 +113,7 @@ export function classifyFailure(error: unknown, stage: FailureStage): Generation
     return { code: error.code, message: error.message, retryable: error.retryable, stage };
   }
   if (isRequestError(error)) {
-    return { ...classifyRequestError(error, stage), stage };
+    return { ...classifyRequestError(error), stage };
   }
   if (isAbortLike(error)) {
     return { code: 'TIMEOUT', message: '请求已中止', retryable: true, stage };

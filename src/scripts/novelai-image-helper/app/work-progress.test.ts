@@ -28,7 +28,7 @@ test('queue projection exposes aggregate progress and cancellation', () => {
     {
       mode: 'running',
       cancelling: false,
-      active: { messageId: 2, blockId: 'b', summary: '雨夜', stage: 'upload', attempt: 1, maxAttempts: 3 },
+      active: { messageId: 2, blockId: 'b', summary: '雨夜', stage: 'generate', attempt: 1, maxAttempts: 3 },
       pending: [{ messageId: 2, blockId: 'c', summary: '街灯', attempt: 0, maxAttempts: 3 }],
       nextDispatchAt: 0,
       batch: { succeededCount: 2, failedCount: 0, cancelledCount: 0, retriedCount: 1 },
@@ -36,7 +36,7 @@ test('queue projection exposes aggregate progress and cancellation', () => {
     cancel,
   );
 
-  expect(item).toMatchObject({ completed: 2, total: 4, detail: '雨夜 · 上传图片' });
+  expect(item).toMatchObject({ completed: 2, total: 4, detail: '雨夜 · 生成并保存图片' });
   expect(workProgressPercent(item!)).toBe(50);
   item?.cancel?.run();
   expect(cancel).toHaveBeenCalledOnce();

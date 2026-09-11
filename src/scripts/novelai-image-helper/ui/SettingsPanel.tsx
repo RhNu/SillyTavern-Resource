@@ -560,14 +560,6 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
                   onChange={value => edit(next => void (next.generation.timeoutMs = value))}
                 />
                 <NumberField
-                  label="上传超时毫秒"
-                  value={draft.generation.uploadTimeoutMs}
-                  min={5000}
-                  max={120000}
-                  step={1000}
-                  onChange={value => edit(next => void (next.generation.uploadTimeoutMs = value))}
-                />
-                <NumberField
                   label="自动重试次数"
                   value={draft.generation.retryCount}
                   min={0}

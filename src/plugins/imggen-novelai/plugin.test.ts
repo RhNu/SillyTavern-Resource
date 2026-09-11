@@ -1,6 +1,6 @@
 import { zipSync } from 'fflate';
 import { describe, expect, test } from 'vitest';
-import { GenerateRequestSchema } from './api.ts';
+import { CAPABILITIES, GenerateRequestSchema } from './api.ts';
 import { PluginError } from './errors.ts';
 import { decodeNovelAiImage } from './response.ts';
 import { buildNovelAiRequest } from './wire.ts';
@@ -9,6 +9,7 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 function request(overrides: Record<string, unknown> = {}) {
   return {
+    operationId: '11111111-1111-4111-8111-111111111111',
     model: 'nai-diffusion-5-full',
     prompt: '2girls, café',
     uc: 'lowres, bad anatomy',
@@ -24,11 +25,26 @@ function request(overrides: Record<string, unknown> = {}) {
       schedule: 'karras',
       seed: 123456789,
     },
+    output: { mode: 'stored', storage: { characterName: 'Alice', filename: 'novelai_test' } },
     ...overrides,
   };
 }
 
 describe('imggen-novelai plugin protocol', () => {
+  test('advertises the breaking v2 stored and binary output contract', () => {
+    expect(CAPABILITIES).toMatchObject({
+      apiVersion: 2,
+      output: { modes: ['stored', 'binary'], defaultMode: null },
+    });
+  });
+
+  test('requires an explicit output mode and rejects storage options for binary output', () => {
+    expect(GenerateRequestSchema.safeParse(request({ output: undefined })).success).toBe(false);
+    expect(
+      GenerateRequestSchema.safeParse(request({ output: { mode: 'binary', storage: { filename: 'bad' } } })).success,
+    ).toBe(false);
+  });
+
   test('rejects unknown legacy fields instead of silently ignoring them', () => {
     const result = GenerateRequestSchema.safeParse({ ...request(), negative_prompt: 'legacy', sm: true });
     expect(result.success).toBe(false);

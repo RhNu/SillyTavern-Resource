@@ -77,7 +77,7 @@ const GenerationPromptPresetCollectionSchema = z
   });
 
 export const SettingsSchema = z.strictObject({
-  schemaVersion: z.literal(9),
+  schemaVersion: z.literal(10),
   enabled: z.boolean(),
   notifications: z
     .strictObject({
@@ -111,13 +111,12 @@ export const SettingsSchema = z.strictObject({
     schedule: z.enum(SCHEDULES),
     seed: z.number().int().min(1).max(9_999_999_999).nullable(),
     promptPresets: GenerationPromptPresetCollectionSchema,
-    /** 生成阶段超时；上传阶段由 uploadTimeoutMs 控制。 */
+    /** 覆盖上游生成、解包以及后端存储。 */
     timeoutMs: z.number().int().min(10_000).max(180_000),
     /** 每个阶段的自动重试次数（首次尝试之外）。 */
     retryCount: z.number().int().min(0).max(5),
     /** 任务之间与重试之前的节流基准窗口，实际会在 ±25% 内抖动。 */
     requestIntervalMs: z.number().int().min(0).max(30_000),
-    uploadTimeoutMs: z.number().int().min(5_000).max(120_000),
   }),
   characters: z.array(CharacterLibraryEntrySchema).max(100),
 });
@@ -242,7 +241,7 @@ export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 9,
+  schemaVersion: 10,
   enabled: true,
   notifications: {
     progressToast: true,
@@ -278,12 +277,18 @@ export const DEFAULT_SETTINGS: Settings = {
     timeoutMs: 130_000,
     retryCount: 2,
     requestIntervalMs: 4_000,
-    uploadTimeoutMs: 30_000,
   },
   characters: [],
 };
 
 export function normalizeSettings(value: unknown): Settings {
-  const parsed = SettingsSchema.safeParse(value);
+  let candidate = value;
+  if (candidate && typeof candidate === 'object' && (candidate as { schemaVersion?: unknown }).schemaVersion === 9) {
+    candidate = structuredClone(candidate);
+    const legacy = candidate as { schemaVersion: number; generation?: Record<string, unknown> };
+    legacy.schemaVersion = 10;
+    if (legacy.generation) delete legacy.generation.uploadTimeoutMs;
+  }
+  const parsed = SettingsSchema.safeParse(candidate);
   return parsed.success ? parsed.data : structuredClone(DEFAULT_SETTINGS);
 }

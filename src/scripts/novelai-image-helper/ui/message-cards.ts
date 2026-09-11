@@ -17,7 +17,6 @@ const STATUS_LABELS: Record<string, string> = {
   draft: '等待生成',
   queued: '已排队',
   generating: '生成中',
-  uploading: '上传中',
   ready: '已完成',
   failed: '失败',
 };

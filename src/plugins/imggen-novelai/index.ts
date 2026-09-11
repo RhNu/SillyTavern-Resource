@@ -8,10 +8,10 @@ import type {
   PluginRouter,
 } from '../@types/sillytavern-plugin.js';
 import { CAPABILITIES, GenerateRequestSchema } from './api.ts';
-import { requestNovelAiImage } from './client.ts';
 import { PluginError, sendError, validationError } from './errors.ts';
-import { decodeNovelAiImage } from './response.ts';
-import { buildNovelAiRequest } from './wire.ts';
+import { generateAsset, type GeneratedAsset } from './generation-service.ts';
+import { OperationRegistry } from './operation-registry.ts';
+import { storeGeneratedImage, type StoredImage } from './storage.ts';
 
 export const info: PluginInfo = {
   id: 'imggen-novelai',
@@ -19,7 +19,19 @@ export const info: PluginInfo = {
   description: '仅支持 NovelAI V4.5/V5 的严格结构化 text-to-image 后端。',
 };
 
-const PLUGIN_VERSION = '1.0.0';
+const PLUGIN_VERSION = '2.0.0';
+
+type StoredOperationResult = {
+  mode: 'stored';
+  seed: number;
+  model: GeneratedAsset['model'];
+  stored: StoredImage;
+};
+type BinaryOperationResult = GeneratedAsset & { mode: 'binary' };
+type OperationResult = StoredOperationResult | BinaryOperationResult;
+
+const generatedOperations = new OperationRegistry<GeneratedAsset>(5 * 60_000, 8);
+const completedOperations = new OperationRegistry<OperationResult>();
 
 function configuredToken(): string | undefined {
   const token = process.env.NOVELAI_TOKEN?.trim();
@@ -52,19 +64,50 @@ async function handleGenerate(req: PluginRequest, res: PluginResponse): Promise<
     }
 
     const startedAt = Date.now();
-    const built = buildNovelAiRequest(parsed.data);
-    const payload = await requestNovelAiImage(token, built.body);
-    const image = decodeNovelAiImage(payload);
+    const fingerprint = JSON.stringify(parsed.data);
+    const operationKey = `${req.user.profile.handle}:${parsed.data.operationId}`;
+    const result = await completedOperations.run(operationKey, fingerprint, async () => {
+      const controller = new AbortController();
+      const abort = () => controller.abort(new Error('Client disconnected'));
+      req.once('aborted', abort);
+      try {
+        // Keep a small byte cache so a local storage retry does not spend NovelAI quota twice.
+        const generated = await generatedOperations.run(operationKey, fingerprint, () =>
+          generateAsset(token, parsed.data, controller.signal),
+        );
+        if (parsed.data.output.mode === 'binary') return { ...generated, mode: 'binary' };
+        const stored = await storeGeneratedImage(req.user.directories, generated.image, parsed.data.output.storage);
+        generatedOperations.delete(operationKey);
+        return { mode: 'stored', seed: generated.seed, model: generated.model, stored };
+      } finally {
+        req.removeListener('aborted', abort);
+      }
+    });
 
     console.info(
-      `[imggen-novelai] request=${requestId} model=${parsed.data.model} size=${parsed.data.size.width}x${parsed.data.size.height} duration=${Date.now() - startedAt}ms status=ok`,
+      `[imggen-novelai] request=${requestId} operation=${parsed.data.operationId} model=${parsed.data.model} output=${parsed.data.output.mode} size=${parsed.data.size.width}x${parsed.data.size.height} duration=${Date.now() - startedAt}ms status=ok`,
     );
 
-    res.set('Content-Type', image.mime);
-    res.set('Content-Length', String(image.bytes.byteLength));
-    res.set('X-Imggen-Model', parsed.data.model);
-    res.set('X-Imggen-Seed', String(built.seed));
-    res.send(Buffer.from(image.bytes.buffer, image.bytes.byteOffset, image.bytes.byteLength));
+    if (parsed.data.output.mode === 'stored') {
+      if (result.mode !== 'stored') throw new PluginError(500, 'INTERNAL_ERROR', '存储输出模式不匹配');
+      res.json({
+        requestId,
+        operationId: parsed.data.operationId,
+        seed: result.seed,
+        model: result.model,
+        output: result.stored,
+      });
+      return;
+    }
+
+    if (result.mode !== 'binary') throw new PluginError(500, 'INTERNAL_ERROR', '二进制输出模式不匹配');
+
+    res.set('Content-Type', result.image.mime);
+    res.set('Content-Length', String(result.image.bytes.byteLength));
+    res.set('X-Operation-Id', parsed.data.operationId);
+    res.set('X-Imggen-Model', result.model);
+    res.set('X-Imggen-Seed', String(result.seed));
+    res.send(Buffer.from(result.image.bytes.buffer, result.image.bytes.byteOffset, result.image.bytes.byteLength));
   } catch (error) {
     console.warn(
       `[imggen-novelai] request=${requestId} status=error code=${error instanceof PluginError ? error.code : 'INTERNAL_ERROR'}`,
@@ -74,8 +117,8 @@ async function handleGenerate(req: PluginRequest, res: PluginResponse): Promise<
 }
 
 export const init: PluginInit = async (router: PluginRouter) => {
-  router.get('/v1/capabilities', handleCapabilities);
-  router.post('/v1/generate', handleGenerate);
+  router.get('/v2/capabilities', handleCapabilities);
+  router.post('/v2/generate', handleGenerate);
 };
 
 export const exit: PluginExit = async () => {};

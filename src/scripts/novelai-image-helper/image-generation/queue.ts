@@ -3,7 +3,6 @@ import { createLogger } from '../app/logger';
 import type { ChatImageRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
 import { registerGeneratedChatBackground } from '../platform/tavern/chat-background-registry';
-import { uploadGeneratedImage } from '../platform/tavern/image-upload';
 import type { SettingsStore } from '../settings/store';
 import { isTaskAbortReason, readAbortReason, sleepWithSignal, type TaskAbortReason } from './abort';
 import { classifyFailure, GenerationFailureError, type FailureStage, type GenerationFailure } from './failure';
@@ -446,7 +445,6 @@ export class GenerationQueue {
         repository: this.repository,
         assertCurrent: task.assertCurrent!,
         client: this.client,
-        upload: uploadGeneratedImage,
         associate: registerGeneratedChatBackground,
         resumeAssociationPath: task.resumeAssociationPath,
         generation,
@@ -604,7 +602,7 @@ export class GenerationQueue {
   /**
    * 一次阶段尝试开始前的统一入口：先跨过节流闸门，再写入块状态。
    *
-   * 只有真正请求 NovelAI 的生成阶段需要节流：上传与写回走的是酒馆本地接口。
+   * 只有真正请求 NovelAI 的生成阶段需要节流：写回与背景登记走的是酒馆本地接口。
    * 闸门必须先于状态切换，否则等待期间卡片会错误地显示「生成中」。
    */
   private async beginAttempt(
@@ -630,7 +628,7 @@ export class GenerationQueue {
     signal.throwIfAborted();
     task.assertCurrent?.();
     if (stage !== 'commit' && stage !== 'associate') {
-      const written = this.setStatus(task, stage === 'upload' ? 'uploading' : 'generating');
+      const written = this.setStatus(task, 'generating');
       if (!written) {
         logger.warn('阶段开始失败：图片块已被删除', { ...task, stage, attempt });
         throw new GenerationFailureError('BLOCK_MISSING', '图片块已被删除，已跳过生成');

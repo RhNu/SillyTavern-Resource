@@ -22,8 +22,7 @@ export type WorkProgressInput = Omit<WorkProgressItem, 'updatedAt'>;
 
 const STAGE_LABELS: Record<FailureStage, string> = {
   validate: '检查后端',
-  generate: '请求 NovelAI 生图',
-  upload: '上传图片',
+  generate: '生成并保存图片',
   commit: '写入楼层',
   associate: '登记聊天背景',
 };

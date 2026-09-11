@@ -521,8 +521,7 @@
 
 /* 生成中 / 排队中的卡片用主题强调色，失败卡片用警示色，避免只靠文字区分状态。 */
 .nai-image-card[data-status='queued'] .nai-image-card__placeholder,
-.nai-image-card[data-status='generating'] .nai-image-card__placeholder,
-.nai-image-card[data-status='uploading'] .nai-image-card__placeholder {
+.nai-image-card[data-status='generating'] .nai-image-card__placeholder {
   color: var(--SmartThemeQuoteColor);
 }
 

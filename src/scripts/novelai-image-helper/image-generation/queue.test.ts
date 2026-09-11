@@ -4,14 +4,9 @@ import type { ChatImageRepository } from '../message-blocks/repository';
 import type { NovelAiClient } from '../platform/imggen-novelai/client';
 import { RequestError } from '../platform/request-error';
 import { registerGeneratedChatBackground } from '../platform/tavern/chat-background-registry';
-import { uploadGeneratedImage } from '../platform/tavern/image-upload';
 import { DEFAULT_SETTINGS, type Settings } from '../settings/schema';
 import type { SettingsStore } from '../settings/store';
 import { GenerationQueue, type GenerationQueueCompletionSummary, type GenerationQueueOptions } from './queue';
-
-vi.mock('../platform/tavern/image-upload', () => ({
-  uploadGeneratedImage: vi.fn(),
-}));
 
 vi.mock('../platform/tavern/chat-background-registry', () => ({
   registerGeneratedChatBackground: vi.fn(),
@@ -89,17 +84,21 @@ function abortable<T>(signal: AbortSignal | undefined, promise: Promise<T>): Pro
 
 function createClient(capabilities: Promise<CapabilitiesResponse> = Promise.resolve(CAPABILITIES)) {
   const capabilitiesMock = vi.fn((signal?: AbortSignal) => abortable(signal, capabilities));
-  const generate = vi.fn((_bundle: unknown, _settings: unknown, signal?: AbortSignal) =>
+  const generateStored = vi.fn((_bundle: unknown, _settings: unknown, operationId: string, signal?: AbortSignal) =>
     abortable(
       signal,
       Promise.resolve({
-        blob: new Blob(['png'], { type: 'image/png' }),
+        path: '/uploads/one.png',
+        mime: 'image/png',
+        bytes: 3,
         seed: 123,
         model: MODEL_ID,
+        requestId: 'request-id',
+        operationId,
       }),
     ),
   );
-  return { capabilities: capabilitiesMock, generate };
+  return { capabilities: capabilitiesMock, generateStored };
 }
 
 function createQueue(
@@ -128,8 +127,6 @@ beforeEach(() => {
     vi.fn(() => Promise.resolve()),
   );
   vi.stubGlobal('toastr', { success: vi.fn(), error: vi.fn(), info: vi.fn() });
-  vi.mocked(uploadGeneratedImage).mockReset();
-  vi.mocked(uploadGeneratedImage).mockResolvedValue('/uploads/one.png');
   vi.mocked(registerGeneratedChatBackground).mockReset();
   vi.mocked(registerGeneratedChatBackground).mockResolvedValue();
 });
@@ -160,7 +157,7 @@ describe('GenerationQueue completion reporting', () => {
   test('includes failed task details while retaining successful tasks in the summary', async () => {
     const repository = createRepository([createBlock(2, 'failed'), createBlock(2, 'succeeded')]);
     const client = createClient();
-    client.generate.mockRejectedValueOnce(new RequestError('内容审核拒绝', { statusCode: 400 }));
+    client.generateStored.mockRejectedValueOnce(new RequestError('内容审核拒绝', { statusCode: 400 }));
     const onQueueFinished = vi.fn();
     const queue = createQueue(repository, client, onQueueFinished);
 
@@ -223,7 +220,7 @@ describe('GenerationQueue throttling', () => {
     const sleeps: number[] = [];
     const repository = createRepository([createBlock(1, 'one')]);
     const client = createClient();
-    client.generate.mockRejectedValueOnce(new RequestError('上游限流', { statusCode: 429 }));
+    client.generateStored.mockRejectedValueOnce(new RequestError('上游限流', { statusCode: 429 }));
     const onQueueFinished = vi.fn();
     const queue = createQueue(repository, client, onQueueFinished, {
       sleep: async ms => {
@@ -235,7 +232,7 @@ describe('GenerationQueue throttling', () => {
     queue.enqueue(1, 'one');
     await waitForSummary(onQueueFinished);
 
-    expect(client.generate).toHaveBeenCalledTimes(2);
+    expect(client.generateStored).toHaveBeenCalledTimes(2);
     expect(sleeps.length).toBeGreaterThan(0);
     expect(sleeps.every(ms => ms === 4_000)).toBe(true);
   });
@@ -245,7 +242,7 @@ describe('GenerationQueue retry policy', () => {
   test('retries retryable failures and succeeds within the budget', async () => {
     const repository = createRepository([createBlock(4, 'one')]);
     const client = createClient();
-    client.generate
+    client.generateStored
       .mockRejectedValueOnce(new RequestError('上游暂时不可用', { statusCode: 502 }))
       .mockRejectedValueOnce(new RequestError('上游暂时不可用', { statusCode: 503 }));
     const onQueueFinished = vi.fn();
@@ -254,7 +251,7 @@ describe('GenerationQueue retry policy', () => {
     queue.enqueue(4, 'one');
     const summary = await waitForSummary(onQueueFinished);
 
-    expect(client.generate).toHaveBeenCalledTimes(3);
+    expect(client.generateStored).toHaveBeenCalledTimes(3);
     expect(summary).toMatchObject({ succeededCount: 1, failedCount: 0, retriedCount: 2 });
     expect(repository.find(4, 'one')?.status).toBe('ready');
     expect(repository.find(4, 'one')?.error).toBeUndefined();
@@ -263,14 +260,14 @@ describe('GenerationQueue retry policy', () => {
   test('gives up after the retry budget and keeps the failure retryable', async () => {
     const repository = createRepository([createBlock(5, 'one')]);
     const client = createClient();
-    client.generate.mockRejectedValue(new RequestError('上游暂时不可用', { statusCode: 503 }));
+    client.generateStored.mockRejectedValue(new RequestError('上游暂时不可用', { statusCode: 503 }));
     const onQueueFinished = vi.fn();
     const queue = createQueue(repository, client, onQueueFinished, {}, { retryCount: 1 });
 
     queue.enqueue(5, 'one');
     const summary = await waitForSummary(onQueueFinished);
 
-    expect(client.generate).toHaveBeenCalledTimes(2);
+    expect(client.generateStored).toHaveBeenCalledTimes(2);
     expect(summary).toMatchObject({ succeededCount: 0, failedCount: 1, retriedCount: 1 });
     expect(repository.find(5, 'one')?.error).toMatchObject({
       code: 'UPSTREAM',
@@ -283,34 +280,34 @@ describe('GenerationQueue retry policy', () => {
   test('does not retry non-retryable failures', async () => {
     const repository = createRepository([createBlock(6, 'one')]);
     const client = createClient();
-    client.generate.mockRejectedValue(new RequestError('内容审核拒绝', { statusCode: 400 }));
+    client.generateStored.mockRejectedValue(new RequestError('内容审核拒绝', { statusCode: 400 }));
     const onQueueFinished = vi.fn();
     const queue = createQueue(repository, client, onQueueFinished, {}, { retryCount: 3 });
 
     queue.enqueue(6, 'one');
     const summary = await waitForSummary(onQueueFinished);
 
-    expect(client.generate).toHaveBeenCalledTimes(1);
+    expect(client.generateStored).toHaveBeenCalledTimes(1);
     expect(summary.retriedCount).toBe(0);
     expect(repository.find(6, 'one')?.error).toMatchObject({ code: 'INVALID_REQUEST', retryable: false });
   });
 
-  test('reuses the generated image when a retry only needs to upload again', async () => {
+  test('reuses the operation id when backend storage needs to retry', async () => {
     const repository = createRepository([createBlock(7, 'one')]);
     const client = createClient();
-    vi.mocked(uploadGeneratedImage)
-      .mockRejectedValueOnce(new RequestError('上传服务不可用', { statusCode: 503 }))
-      .mockResolvedValueOnce('/uploads/retried.png');
+    client.generateStored.mockRejectedValueOnce(
+      new RequestError('后端存储暂时不可用', { statusCode: 500, code: 'STORAGE_FAILED' }),
+    );
     const onQueueFinished = vi.fn();
     const queue = createQueue(repository, client, onQueueFinished, {}, { retryCount: 1 });
 
     queue.enqueue(7, 'one');
     const summary = await waitForSummary(onQueueFinished);
 
-    expect(client.generate).toHaveBeenCalledTimes(1);
-    expect(uploadGeneratedImage).toHaveBeenCalledTimes(2);
+    expect(client.generateStored).toHaveBeenCalledTimes(2);
+    expect(client.generateStored.mock.calls[0]?.[2]).toBe(client.generateStored.mock.calls[1]?.[2]);
     expect(summary.succeededCount).toBe(1);
-    expect(repository.find(7, 'one')?.outputs[0]?.url).toBe('/uploads/retried.png');
+    expect(repository.find(7, 'one')?.outputs[0]?.url).toBe('/uploads/one.png');
   });
 
   test('commits the output before registering it and retries only the registration step', async () => {
@@ -330,8 +327,7 @@ describe('GenerationQueue retry policy', () => {
     queue.enqueue(13, 'one');
     const summary = await waitForSummary(onQueueFinished);
 
-    expect(client.generate).toHaveBeenCalledTimes(1);
-    expect(uploadGeneratedImage).toHaveBeenCalledTimes(1);
+    expect(client.generateStored).toHaveBeenCalledTimes(1);
     expect(registerGeneratedChatBackground).toHaveBeenCalledTimes(2);
     expect(repository.find(13, 'one')?.outputs).toHaveLength(1);
     expect(summary).toMatchObject({ succeededCount: 1, failedCount: 0, retriedCount: 1 });
@@ -361,8 +357,7 @@ describe('GenerationQueue retry policy', () => {
     const secondSummary = await waitForSummary(secondFinished);
 
     expect(secondSummary.succeededCount).toBe(1);
-    expect(client.generate).toHaveBeenCalledTimes(1);
-    expect(uploadGeneratedImage).toHaveBeenCalledTimes(1);
+    expect(client.generateStored).toHaveBeenCalledTimes(1);
     expect(registerGeneratedChatBackground).toHaveBeenCalledTimes(2);
     expect(repository.find(14, 'one')).toMatchObject({ status: 'ready', error: undefined });
     expect(repository.find(14, 'one')?.outputs).toHaveLength(1);
@@ -378,7 +373,7 @@ describe('GenerationQueue retry policy', () => {
     const summary = await waitForSummary(onQueueFinished);
 
     expect(client.capabilities).toHaveBeenCalledTimes(1);
-    expect(client.generate).not.toHaveBeenCalled();
+    expect(client.generateStored).not.toHaveBeenCalled();
     expect(summary.failedCount).toBe(1);
     expect(repository.find(8, 'one')?.error).toMatchObject({ code: 'TOKEN_NOT_CONFIGURED', retryable: false });
   });
@@ -401,8 +396,7 @@ describe('GenerationQueue controls', () => {
     valid = false;
     pending.resolve(CAPABILITIES);
     await waitForSummary(finished);
-    expect(client.generate).not.toHaveBeenCalled();
-    expect(uploadGeneratedImage).not.toHaveBeenCalled();
+    expect(client.generateStored).not.toHaveBeenCalled();
     expect(registerGeneratedChatBackground).not.toHaveBeenCalled();
     expect(repository.releaseRuntime).toHaveBeenCalledWith('one');
   });
@@ -418,8 +412,7 @@ describe('GenerationQueue controls', () => {
     const queue = createQueue(repository, client, finished);
     queue.enqueue(0, 'one');
     await waitForSummary(finished);
-    expect(client.generate).not.toHaveBeenCalled();
-    expect(uploadGeneratedImage).not.toHaveBeenCalled();
+    expect(client.generateStored).not.toHaveBeenCalled();
     expect(registerGeneratedChatBackground).toHaveBeenCalledOnce();
     expect(repository.find(0, 'one')?.pendingAssociation).toBeUndefined();
     expect(repository.find(0, 'one')?.outputs).toHaveLength(1);
@@ -477,7 +470,7 @@ describe('GenerationQueue controls', () => {
   test('fails the rest of the queue immediately when the backend rejects credentials', async () => {
     const repository = createRepository([createBlock(12, 'one'), createBlock(12, 'two'), createBlock(12, 'three')]);
     const client = createClient();
-    client.generate.mockRejectedValue(new RequestError('凭证已失效', { statusCode: 401 }));
+    client.generateStored.mockRejectedValue(new RequestError('凭证已失效', { statusCode: 401 }));
     const onQueueFinished = vi.fn();
     const queue = createQueue(repository, client, onQueueFinished, {}, { retryCount: 3 });
 
@@ -487,7 +480,7 @@ describe('GenerationQueue controls', () => {
     const summary = await waitForSummary(onQueueFinished);
 
     // 后端拒绝凭证时继续请求只会重复失败：只实际调用一次，剩下两个直接标失败。
-    expect(client.generate).toHaveBeenCalledTimes(1);
+    expect(client.generateStored).toHaveBeenCalledTimes(1);
     expect(summary).toMatchObject({ succeededCount: 0, failedCount: 3, retriedCount: 0 });
     ['one', 'two', 'three'].forEach(blockId => {
       expect(repository.find(12, blockId)?.status).toBe('failed');

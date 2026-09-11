@@ -28,7 +28,6 @@ export type GenerationTaskDeps = {
   repository: ChatImageRepository;
   assertCurrent: () => void;
   client: NovelAiClient;
-  upload: (blob: Blob, signal?: AbortSignal) => Promise<string>;
   associate: (imagePath: string, signal?: AbortSignal) => Promise<void>;
   /** 上次仅登记失败时直接重用已经提交的输出，不重新生成或上传。 */
   resumeAssociationPath?: string;
@@ -57,17 +56,16 @@ class StageFailed extends Error {
 function stageTimeoutMs(stage: FailureStage, generation: Settings['generation']): number {
   if (stage === 'validate') return CAPABILITIES_TIMEOUT_MS;
   if (stage === 'generate') return generation.timeoutMs;
-  if (stage === 'upload') return generation.uploadTimeoutMs;
   return 0;
 }
 
 /**
- * 执行一个图片块的完整流水线：validate → generate → upload → commit → associate。
+ * 执行一个图片块的完整流水线：validate → generate-and-store → commit → associate。
  *
  * 3–5 秒节流与自动重试共用同一套等待：每次尝试结束后调用 `finishAttempt` 推进闸门，
  * 下一次尝试前由 `beginAttempt` 等待，因此「任务之间」与「重试之前」的间隔完全一致。
- * 上传阶段的自动重试复用已经生成好的图片，不会再次消耗 NovelAI 配额；登记阶段在
- * outputs 成为事实来源后单独重试，也不会重新生成或上传图片。
+ * 生成阶段的自动重试复用 operationId，由后端保证模糊响应不会重复生成；登记阶段在
+ * outputs 成为事实来源后单独重试，也不会重新生成图片。
  *
  * 取消 / 暂停 / 销毁会以 abort reason 的形式直接抛出，不在这里转成失败。
  */
@@ -194,8 +192,9 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
       }
     });
 
+    const operationId = crypto.randomUUID();
     const generated = await runStage('generate', stageSignal =>
-      deps.client.generate(block.prompt, generation, stageSignal),
+      deps.client.generateStored(block.prompt, generation, operationId, stageSignal),
     );
     logger.info('任务生成阶段完成', {
       messageId,
@@ -203,14 +202,14 @@ export async function runGenerationTask(deps: GenerationTaskDeps): Promise<TaskO
       requestId: generated.requestId,
       seed: generated.seed,
       model: generated.model,
-      size: generated.blob.size,
+      size: generated.bytes,
+      path: generated.path,
     });
 
-    // 复用同一个 blob：上传阶段的重试不应重新生成图片。
-    const url = await runStage('upload', stageSignal => deps.upload(generated.blob, stageSignal));
-
     const output: ImageOutput = {
-      url,
+      url: generated.path,
+      mime: generated.mime,
+      bytes: generated.bytes,
       seed: generated.seed,
       model: generated.model,
       createdAt: new Date().toISOString(),
