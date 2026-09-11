@@ -1,5 +1,5 @@
 import { createLogger } from '@util/common';
-import { ExtensionSettingDrawer } from '@util/components/ExtensionSettingDrawer';
+import { ExtensionSettingDrawer } from '@util/react/components/ExtensionSettingDrawer';
 import { HelpMarker } from '@util/components/HelpMarker';
 import { useState } from 'react';
 import { SCRIPT_DISPLAY_NAME } from './constants';

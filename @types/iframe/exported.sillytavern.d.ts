@@ -428,6 +428,47 @@ declare namespace SillyTavern {
     completeNegative: () => Promise<PopupValue | undefined>;
     completeCancelled: () => Promise<PopupValue | undefined>;
   };
+
+  type ActionLoaderToastMode = 'none' | 'static' | 'stoppable';
+
+  type ActionLoaderOptions = {
+    blocking?: boolean;
+    toastMode?: ActionLoaderToastMode;
+    slug?: string | null;
+    message?: string;
+    title?: string;
+    stopTooltip?: string;
+    overlayContent?: HTMLElement | string | null;
+    onStop?: (() => void | Promise<void>) | null;
+    onHide?: (() => void | Promise<void>) | null;
+  };
+
+  type ActionLoaderHandle = {
+    readonly id: string | undefined;
+    readonly slug: string | null;
+    readonly isActive: boolean;
+    readonly isBlocking: boolean;
+    stop: () => Promise<void>;
+    hide: () => Promise<void>;
+  };
+
+  type ActionLoaderApi = {
+    show: (options?: ActionLoaderOptions) => ActionLoaderHandle;
+    hide: (handle?: ActionLoaderHandle | null) => Promise<boolean>;
+    active: () => ActionLoaderHandle[];
+    get: (id: string) => ActionLoaderHandle | undefined;
+    isBlocking: () => boolean;
+    readonly ToastMode: {
+      readonly NONE: 'none';
+      readonly STATIC: 'static';
+      readonly STOPPABLE: 'stoppable';
+    };
+    readonly Handle: {
+      new (options?: ActionLoaderOptions): ActionLoaderHandle;
+      readonly EMPTY: ActionLoaderHandle;
+    };
+    createOverlay: () => HTMLDivElement;
+  };
 }
 
 /**
@@ -606,8 +647,11 @@ declare const SillyTavern: {
     localize?: boolean,
   ) => Promise<string>;
   readonly registerDataBankScraper: (scraper: any) => Promise<void>;
+  readonly loader: SillyTavern.ActionLoaderApi;
+  /** @deprecated Use `loader.show()` instead. */
   readonly showLoader: () => void;
-  readonly hideLoader: () => Promise<any>;
+  /** @deprecated Use `loader.hide()` instead. */
+  readonly hideLoader: () => Promise<void>;
   readonly mainApi: any;
   /** extension_settings */
   readonly extensionSettings: Record<string, any>;

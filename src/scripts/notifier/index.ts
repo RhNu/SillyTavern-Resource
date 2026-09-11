@@ -1,5 +1,5 @@
 import { createLogger } from '@util/common';
-import { mountExtensionSetting } from '@util/ui';
+import { mountReactExtensionSettings } from '@util/react/extension-settings';
 import { createElement } from 'react';
 import { SCRIPT_DISPLAY_NAME } from './constants';
 import './index.scss';
@@ -17,7 +17,7 @@ function initialize() {
   activeDestroy?.();
 
   const runtime = createNotifierRuntime();
-  const panel = mountExtensionSetting(createElement(SettingsPanel, { runtime }));
+  const panel = mountReactExtensionSettings(createElement(SettingsPanel, { runtime }));
   logger.info('Settings panel mounted.');
 
   const destroy = () => {
