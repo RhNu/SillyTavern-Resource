@@ -1,5 +1,17 @@
 import { expect, test } from 'vitest';
-import { DEFAULT_SETTINGS, normalizeSettings } from './schema';
+import { DEFAULT_PROMPT_TEMPLATE, DEFAULT_SETTINGS, normalizeSettings } from './schema';
+
+test('keeps both default prompt templates concise and separates scene from character details', () => {
+  expect(DEFAULT_PROMPT_TEMPLATE.v45).toContain('Keep the main prompt compact');
+  expect(DEFAULT_PROMPT_TEMPLATE.v45).toContain('Keep each character prompt about that character alone');
+  expect(DEFAULT_PROMPT_TEMPLATE.v45).toContain('In every positive and negative field');
+  expect(DEFAULT_PROMPT_TEMPLATE.v5).toContain('prompt fields must still stay short and direct');
+  expect(DEFAULT_PROMPT_TEMPLATE.v5).toContain('compact Danbooru-style tags, or a mixture of both');
+  expect(DEFAULT_PROMPT_TEMPLATE.v5).toContain('Avoid overlap between all prompt fields');
+  expect(DEFAULT_PROMPT_TEMPLATE.v5).toContain(
+    'Omit quality and rendering-quality terms from every positive and negative field',
+  );
+});
 
 test('keeps valid current settings unchanged', () => {
   const settings = structuredClone(DEFAULT_SETTINGS);

@@ -478,7 +478,7 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
               label="V5 模板"
               help={{
                 title: 'V5 模板说明',
-                text: '自然语言（可含中文）为主，重点描述取景、机位、人物站位与光影；标签只用于数量、专名与精确动作。当前生图模型为 V5 时使用。',
+                text: '使用简短自然语言、标签式描述或两者混合；主提示词只写构图、基本动作与场景，逐角色提示词只写角色本身。当前生图模型为 V5 时使用。',
               }}
             >
               <textarea
