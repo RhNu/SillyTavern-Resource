@@ -79,6 +79,12 @@ const GenerationPromptPresetCollectionSchema = z
 export const SettingsSchema = z.strictObject({
   schemaVersion: z.literal(8),
   enabled: z.boolean(),
+  notifications: z
+    .strictObject({
+      /** 仅控制持续更新的进行中 toast；成功与失败通知始终展示。 */
+      progressToast: z.boolean().default(true),
+    })
+    .default({ progressToast: true }),
   analysis: z.strictObject({
     auto: z.boolean(),
     autoGenerate: z.boolean(),
@@ -236,6 +242,9 @@ export const DEFAULT_GENERATION_PROMPT_PRESET: GenerationPromptPreset = {
 export const DEFAULT_SETTINGS: Settings = {
   schemaVersion: 8,
   enabled: true,
+  notifications: {
+    progressToast: true,
+  },
   analysis: {
     auto: false,
     autoGenerate: false,

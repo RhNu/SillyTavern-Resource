@@ -318,6 +318,11 @@ export default function SettingsPanel(props: { service: NovelAiImageService }) {
                   checked={draft.analysis.autoGenerate}
                   onChange={value => edit(next => void (next.analysis.autoGenerate = value))}
                 />
+                <Check
+                  label="显示实时进度 Toast"
+                  checked={draft.notifications.progressToast}
+                  onChange={value => edit(next => void (next.notifications.progressToast = value))}
+                />
               </div>
               <div className="nai-settings__grid">
                 <NumberField

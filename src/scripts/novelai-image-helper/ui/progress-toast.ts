@@ -1,6 +1,11 @@
 import { createLogger } from '../app/logger';
 import type { NovelAiImageService } from '../app/service';
-import { pickFocusedWork, type WorkProgressItem, workProgressPercent } from '../app/work-progress';
+import {
+  pickFocusedWork,
+  type WorkProgressItem,
+  type WorkProgressSnapshot,
+  workProgressPercent,
+} from '../app/work-progress';
 
 const TITLE = 'NovelAI 图片助手';
 const logger = createLogger('ui/progress-toast');
@@ -26,10 +31,12 @@ function buildMarkup(item: WorkProgressItem, workCount: number): string {
   </div>`;
 }
 
-/** 持久进度 toast；同一个节点原位更新，完成后立即清理，不堆叠通知。 */
+/** 可选的持久进度 toast；成功与失败通知由执行层独立展示，不受此开关影响。 */
 export function mountProgressToast(service: NovelAiImageService): { destroy: () => void } {
   let toast: JQuery | undefined;
   let cleanupAction: (() => void) | undefined;
+  let snapshot: WorkProgressSnapshot = service.progress.snapshot();
+  let enabled = service.settings.get().notifications.progressToast;
 
   function clear(): void {
     cleanupAction?.();
@@ -54,8 +61,12 @@ export function mountProgressToast(service: NovelAiImageService): { destroy: () 
     cleanupAction = () => $button.off('click.nai-work-progress', onClick);
   }
 
-  const unsubscribe = service.progress.subscribe(snapshot => {
+  function render(): void {
     try {
+      if (!enabled) {
+        clear();
+        return;
+      }
       const focus = pickFocusedWork(snapshot.items);
       if (!focus) {
         clear();
@@ -80,7 +91,22 @@ export function mountProgressToast(service: NovelAiImageService): { destroy: () 
     } catch (error) {
       logger.error('更新持久进度 toast 失败', error);
     }
+  }
+
+  const unsubscribeProgress = service.progress.subscribe(next => {
+    snapshot = next;
+    render();
+  });
+  const unsubscribeSettings = service.settings.subscribe(settings => {
+    enabled = settings.notifications.progressToast;
+    render();
   });
 
-  return { destroy: () => (unsubscribe(), clear()) };
+  return {
+    destroy: () => {
+      unsubscribeProgress();
+      unsubscribeSettings();
+      clear();
+    },
+  };
 }
