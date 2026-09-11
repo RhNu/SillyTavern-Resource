@@ -1,3 +1,5 @@
+import { displayPopup } from '@util/st/ui/popup';
+
 type HelpMarkerProps = {
   text: string;
   title?: string;
@@ -5,29 +7,26 @@ type HelpMarkerProps = {
 };
 
 export function openHelpPopup(title: string, text: string) {
-  if (typeof SillyTavern?.callGenericPopup === 'function' && typeof SillyTavern?.POPUP_TYPE !== 'undefined') {
-    const $content = $('<div>')
-      .css({
-        whiteSpace: 'pre-wrap',
-        lineHeight: '1.4',
-        fontSize: '0.95rem',
-        padding: '0.5rem',
-      })
-      .text(text);
-
-    void SillyTavern.callGenericPopup($content, SillyTavern.POPUP_TYPE.DISPLAY, title, {
-      wider: true,
-      leftAlign: true,
-      allowVerticalScrolling: true,
+  try {
+    const session = displayPopup({
+      title,
+      content: text,
+      popup: {
+        wider: true,
+        leftAlign: true,
+        allowVerticalScrolling: true,
+      },
     });
-    return;
+    void session.closed.catch(error => {
+      console.error(`[HelpMarker] Popup failed: ${title}`, error);
+    });
+  } catch (error) {
+    toastr.info(text, title, {
+      timeOut: 8000,
+      extendedTimeOut: 1500,
+    });
+    console.warn(`[HelpMarker] Popup API unavailable: ${title}`, error);
   }
-
-  toastr.info(text, title, {
-    timeOut: 8000,
-    extendedTimeOut: 1500,
-  });
-  console.warn(`[HelpMarker] Popup API unavailable: ${title}`);
 }
 
 export function HelpMarker({ text, title = '说明', className }: HelpMarkerProps) {

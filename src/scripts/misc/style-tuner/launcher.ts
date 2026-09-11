@@ -1,89 +1,41 @@
 import { createLogger } from '@util/common';
-import { getHostDocument } from '@util/host';
+import { openReactPopup, type ReactPopupSession } from '@util/react/st-popup';
 import { ensureExtensionsMenuButtonWithRetry, teleportStyle } from '@util/script';
-import { createTemporaryHost } from '@util/ui';
 import { createElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
 import { SCRIPT_DISPLAY_NAME, STYLE_TUNER_IDS } from './constants';
 import SettingsPanel from './SettingsPanel';
 
 const logger = createLogger(SCRIPT_DISPLAY_NAME);
 
-type ActivePopup = {
-  root: Root;
-  cleanup: () => void;
-  $host: JQuery<HTMLDivElement>;
-};
-
-let activePopup: ActivePopup | undefined;
+let activePopup: ReactPopupSession | undefined;
 
 function cleanupActivePopup(): void {
-  activePopup?.cleanup();
+  if (!activePopup || activePopup.isClosed) return;
+  void activePopup.cancel().catch(error => logger.error('关闭设置弹窗失败', error));
 }
 
 /** 打开样式调整设置弹窗 */
 export function openStyleTunerPopup(): void {
-  const hostDoc = getHostDocument();
-
-  if (activePopup && hostDoc.body.contains(activePopup.$host[0])) {
-    return;
-  }
+  if (activePopup && !activePopup.isClosed) return;
 
   cleanupActivePopup();
-
-  if (typeof SillyTavern?.callGenericPopup !== 'function' || typeof SillyTavern?.POPUP_TYPE === 'undefined') {
-    logger.error('弹窗接口不可用，请检查酒馆版本。');
-    return;
-  }
-
-  let cleaned = false;
-  let cleanup = () => undefined;
-  const hostHandle = createTemporaryHost({
-    doc: hostDoc,
+  const session = openReactPopup({
+    title: SCRIPT_DISPLAY_NAME,
     id: STYLE_TUNER_IDS.popupContent,
     className: 'styletuner-host styletuner-popup-host',
-    attributes: {
-      'data-styletuner-host': 'settings-popup',
-    },
-    onDisconnected: () => cleanup(),
-  });
-  const $host = hostHandle.$host;
-  const root = createRoot($host[0]);
-  root.render(createElement(SettingsPanel));
-
-  cleanup = () => {
-    if (cleaned) {
-      return;
-    }
-
-    cleaned = true;
-    root.unmount();
-    hostHandle.destroy();
-    if (activePopup?.$host[0] === $host[0]) {
-      activePopup = undefined;
-    }
-  };
-
-  activePopup = {
-    root,
-    cleanup,
-    $host,
-  };
-
-  try {
-    const popupRequest = SillyTavern.callGenericPopup($host, SillyTavern.POPUP_TYPE.DISPLAY, SCRIPT_DISPLAY_NAME, {
-      // 窄弹窗：仅保留纵向滚动，不使用 wide/large 放大
+    attributes: { 'data-styletuner-host': 'settings-popup' },
+    popup: {
       allowVerticalScrolling: true,
       leftAlign: true,
+    },
+    render: () => createElement(SettingsPanel),
+  });
+  activePopup = session;
+  void session.closed
+    .catch(error => logger.error('设置弹窗异常结束', error))
+    .finally(() => {
+      if (activePopup === session) activePopup = undefined;
     });
-
-    if (popupRequest && typeof popupRequest.finally === 'function') {
-      void popupRequest.finally(cleanup);
-    }
-  } catch (error) {
-    cleanup();
-    throw error;
-  }
 }
 
 /** 在魔法棒扩展菜单添加按钮并初始化设置弹窗 */
