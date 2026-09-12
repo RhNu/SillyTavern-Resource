@@ -787,42 +787,6 @@
   writing-mode: horizontal-tb !important;
 }
 
-.toast.nai-work-toast .nai-work-toast__body {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.toast.nai-work-toast .nai-work-toast__body > span,
-.toast.nai-work-toast .nai-work-toast__body > small {
-  overflow-wrap: anywhere;
-  opacity: 0.82;
-}
-
-.toast.nai-work-toast .nai-work-toast__button {
-  justify-self: end;
-  width: auto;
-  margin-top: 0.35rem;
-  padding: 0.3rem 0.65rem;
-  border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
-  border-radius: 999px;
-  color: inherit;
-  background: color-mix(in srgb, currentColor 9%, transparent);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.toast.nai-work-toast .nai-work-toast__button:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-.toast.nai-work-toast .toast-progress {
-  width: 100% !important;
-  opacity: 0.9;
-  background: var(--SmartThemeQuoteColor);
-  animation: nai-work-toast-scan 1.5s linear infinite;
-}
-
 @keyframes nai-work-ring-scan {
   0% {
     transform: translateX(-80%) scaleX(0.25);
@@ -841,12 +805,6 @@
   }
   to {
     transform: translateX(185%);
-  }
-}
-
-@keyframes nai-work-toast-scan {
-  50% {
-    opacity: 0.35;
   }
 }
 

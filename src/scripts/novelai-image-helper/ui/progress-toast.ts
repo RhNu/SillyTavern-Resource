@@ -1,3 +1,5 @@
+import { showLoader } from '@util/ui/loader/loader';
+import type { LoaderSession } from '@util/ui/loader/types';
 import { createLogger } from '../app/logger';
 import type { NovelAiImageService } from '../app/service';
 import {
@@ -10,86 +12,67 @@ import {
 const TITLE = 'NovelAI 图片助手';
 const logger = createLogger('ui/progress-toast');
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, character => {
-    const entities: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-    return entities[character] ?? character;
-  });
-}
-
-function buildMarkup(item: WorkProgressItem, workCount: number): string {
+function buildMessage(item: WorkProgressItem, workCount: number): string {
   const percent = workProgressPercent(item);
-  const status = item.status === 'cancelling' ? '正在中断' : item.status === 'paused' ? '已暂停' : '处理中';
-  const action = item.cancel
-    ? `<button type="button" class="nai-work-toast__button" data-nai-work-cancel ${item.status === 'cancelling' ? 'disabled' : ''}>${escapeHtml(item.cancel.label)}</button>`
-    : '';
-  return `<div class="nai-work-toast__body">
-    <strong>${escapeHtml(item.title)} · ${status}${percent === undefined ? '' : ` · ${percent}%`}</strong>
-    <span>${escapeHtml(item.detail)}</span>
-    ${workCount > 1 ? `<small>另有 ${workCount - 1} 组工作同时进行</small>` : ''}
-    ${action}
-  </div>`;
+  const status = { queued: '排队中', running: '处理中', cancelling: '正在中断', paused: '已暂停' }[item.status];
+  return [
+    `${item.title} · ${status}${percent === undefined ? '' : ` · ${percent}%`}`,
+    item.detail,
+    workCount > 1 ? `另有 ${workCount - 1} 组工作同时进行` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
-/** 可选的持久进度 toast；成功与失败通知由执行层独立展示，不受此开关影响。 */
+/** 可选的原生 loader toast；成功与失败通知由执行层独立展示。 */
 export function mountProgressToast(service: NovelAiImageService): { destroy: () => void } {
-  let toast: JQuery | undefined;
-  let cleanupAction: (() => void) | undefined;
+  let current: { session: LoaderSession; stoppable: boolean } | undefined;
   let snapshot: WorkProgressSnapshot = service.progress.snapshot();
   let enabled = service.settings.get().notifications.progressToast;
+  let destroyed = false;
 
   function clear(): void {
-    cleanupAction?.();
-    cleanupAction = undefined;
-    if (toast?.length) {
-      toastr.clear(toast, { force: true });
-      toastr.remove(toast);
-    }
-    toast = undefined;
-  }
-
-  function bindAction(item: WorkProgressItem): void {
-    cleanupAction?.();
-    cleanupAction = undefined;
-    if (!toast?.length || !item.cancel) return;
-    const $button = toast.find('[data-nai-work-cancel]');
-    const onClick = (event: JQuery.ClickEvent) => {
-      event.preventDefault();
-      item.cancel?.run();
-    };
-    $button.on('click.nai-work-progress', onClick);
-    cleanupAction = () => $button.off('click.nai-work-progress', onClick);
+    const previous = current;
+    current = undefined;
+    if (previous) void previous.session.hide().catch(error => logger.error('关闭进度 loader 失败', error));
   }
 
   function render(): void {
     try {
-      if (!enabled) {
-        clear();
-        return;
-      }
       const focus = pickFocusedWork(snapshot.items);
-      if (!focus) {
+      if (destroyed || !enabled || !focus) {
         clear();
         return;
       }
-      const markup = buildMarkup(focus, snapshot.items.length);
-      if (toast?.length && toast[0]?.isConnected) {
-        toast.find('.toast-title').text(TITLE);
-        toast.find('.toast-message').html(markup);
-      } else {
-        toast = toastr.info(markup, TITLE, {
-          timeOut: 0,
-          extendedTimeOut: 0,
-          closeButton: true,
-          progressBar: true,
-          tapToDismiss: false,
-          escapeHtml: false,
+      const message = buildMessage(focus, snapshot.items.length);
+      const stoppable = Boolean(focus.cancel) && focus.status !== 'cancelling';
+      if (current && (!current.session.active || current.stoppable !== stoppable)) clear();
+      if (!current) {
+        const session = showLoader({
+          blocking: false,
+          toast: stoppable ? 'stoppable' : 'static',
+          slug: 'novelai-image-helper-progress',
+          title: TITLE,
+          message,
+          stopTooltip: focus.cancel?.label,
+          onStop: stopped => {
+            if (destroyed || current?.session !== stopped) return;
+            // 原生 stop 在回调后销毁旧 handle。先释放引用，让同步进度通知创建收尾提示。
+            current = undefined;
+            const work = pickFocusedWork(snapshot.items);
+            try {
+              if (work?.status !== 'cancelling') work?.cancel?.run();
+            } finally {
+              render();
+            }
+          },
         });
-        toast?.addClass('nai-work-toast');
+        current = { session, stoppable };
+      } else {
+        current.session.update({ message, stopTooltip: focus.cancel?.label });
       }
-      bindAction(focus);
     } catch (error) {
-      logger.error('更新持久进度 toast 失败', error);
+      logger.error('更新进度 loader 失败', error);
     }
   }
 
@@ -104,6 +87,7 @@ export function mountProgressToast(service: NovelAiImageService): { destroy: () 
 
   return {
     destroy: () => {
+      destroyed = true;
       unsubscribeProgress();
       unsubscribeSettings();
       clear();

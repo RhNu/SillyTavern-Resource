@@ -1,4 +1,4 @@
-import { getSillyTavernLoaderApi } from './native';
+import { getSillyTavernLoaderApi, updateSillyTavernLoaderToast } from './native';
 import type { LoaderOptions, LoaderSession, LoaderState } from './types';
 
 function createAbortReason(): Error {
@@ -65,6 +65,9 @@ export function showLoader(options: LoaderOptions = {}): LoaderSession {
       return state;
     },
     signal: abortController.signal,
+    update: options => {
+      if (native.isActive && state === 'active' && native.id) updateSillyTavernLoaderToast(native.id, options);
+    },
     stop: () => runOnce('stop'),
     hide: () => runOnce('hide'),
   };
