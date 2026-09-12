@@ -1,6 +1,7 @@
 import { teleportStyle } from '@util/tavern-helper/script/styles';
 import { matchAnchors } from '../domain/anchor';
 import { mountMessageCards } from '../ui/message-cards';
+import { mountChatInputWork } from '../ui/chat-input-work';
 import { mountProgressToast } from '../ui/progress-toast';
 import { mountWorkIndicator } from '../ui/work-indicator';
 import { openSettings } from '../ui/settings';
@@ -74,6 +75,7 @@ export function bootstrap(): { destroy: () => void } {
   service.recoverImageRecords();
   const style = teleportStyle();
   const cards = mountMessageCards(service);
+  const chatInputWork = mountChatInputWork(service);
   const workIndicator = mountWorkIndicator(service, {
     analyzeLatest: async () => {
       try {
@@ -173,6 +175,7 @@ export function bootstrap(): { destroy: () => void } {
     if (debounceTimer) clearTimeout(debounceTimer);
     stops.forEach(stop => stop());
     [
+      ['chat input work', () => chatInputWork.destroy()],
       ['progress toast', () => progressToast.destroy()],
       ['work indicator', () => workIndicator.destroy()],
       ['message cards', () => cards.destroy()],
