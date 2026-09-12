@@ -1,4 +1,4 @@
-import { getHostDocument } from '@util/host';
+import { getHostDocument } from './host';
 
 export type TemporaryHostOptions = {
   document?: Document;

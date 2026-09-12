@@ -1,4 +1,4 @@
-import { useStreamingMessageContext } from '@util/streaming';
+import { useStreamingMessageContext } from '@util/ui/streaming-messages/context';
 
 export default function App() {
   const context = useStreamingMessageContext();

@@ -8,7 +8,7 @@ const reactRootMocks = vi.hoisted(() => ({
 
 vi.mock('react-dom/client', () => ({ createRoot: reactRootMocks.createRoot }));
 
-import { openReactPopup } from './st-popup';
+import { openReactPopup } from './react';
 
 type FakeElement = {
   id: string;

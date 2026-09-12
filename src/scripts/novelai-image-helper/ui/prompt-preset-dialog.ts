@@ -1,4 +1,4 @@
-import { inputPopup } from '@util/st/ui/popup/shortcuts';
+import { inputPopup } from '@util/ui/popup/shortcuts';
 import { createLogger } from '../app/logger';
 
 const logger = createLogger('ui/prompt-preset-dialog');

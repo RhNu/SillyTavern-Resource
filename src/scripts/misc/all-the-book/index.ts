@@ -1,4 +1,4 @@
-import { createLogger } from '@util/common';
+import { createLogger } from '@util/core/logger';
 
 import { PAGEHIDE_NAMESPACE, SCRIPT_DISPLAY_NAME } from './constants';
 import { createAllTheBookRuntime } from './runtime';

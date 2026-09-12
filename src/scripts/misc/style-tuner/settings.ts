@@ -1,5 +1,5 @@
-import { createLogger } from '@util/common';
-import { readVariablesRecord, updateVariablesPath } from '@util/variables';
+import { createLogger } from '@util/core/logger';
+import { readVariablesRecord, updateVariablesPath } from '@util/tavern-helper/state/variables';
 import { klona } from 'klona';
 import { z } from 'zod';
 import { SCRIPT_DISPLAY_NAME, STORE_KEY } from './constants';

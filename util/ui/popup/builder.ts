@@ -1,4 +1,4 @@
-import { getHostDocument } from '@util/host';
+import { getHostDocument } from '@util/st/dom/host';
 import { getSillyTavernPopupApi } from './native';
 import type {
   AddPopupField,

@@ -1,4 +1,4 @@
-import type { Logger } from '@util/common';
+import type { Logger } from '@util/core/logger';
 
 import { normalizeWorldbookName } from './text';
 

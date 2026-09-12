@@ -1,4 +1,4 @@
-import { createScriptSettingsSync, type ScriptSettingsSync } from '@util/script-settings';
+import { createScriptSettingsSync, type ScriptSettingsSync } from '@util/tavern-helper/state/script-settings';
 import { createLogger } from '../app/logger';
 import { DEFAULT_SETTINGS, normalizeSettings, type Settings } from './schema';
 

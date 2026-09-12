@@ -1,4 +1,4 @@
-import { getHostWindow } from '@util/host';
+import { getHostWindow } from '@util/st/dom/host';
 
 const LIFECYCLE_KEY = '__novelAiImageHelperActiveDestroy';
 type HostWithLifecycle = Window & { [LIFECYCLE_KEY]?: () => void };

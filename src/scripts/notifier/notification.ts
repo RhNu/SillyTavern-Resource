@@ -1,5 +1,5 @@
-import { createLogger } from '@util/common';
-import { getHostWindow } from '@util/host';
+import { createLogger } from '@util/core/logger';
+import { getHostWindow } from '@util/st/dom/host';
 import { NOTIFICATION_ICON_URL, SCRIPT_DISPLAY_NAME } from './constants';
 import type { NotificationPermissionState } from './store';
 

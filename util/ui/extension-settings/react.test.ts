@@ -10,11 +10,11 @@ const mocks = vi.hoisted(() => ({
   destroyStyle: vi.fn(),
 }));
 
-vi.mock('@util/st/ui/extension-settings/host', () => ({ mountExtensionSettingsHost: mocks.mountHost }));
-vi.mock('@util/tavern-helper/dom/styles', () => ({ teleportStyle: mocks.teleportStyle }));
+vi.mock('./host', () => ({ mountExtensionSettingsHost: mocks.mountHost }));
+vi.mock('@util/tavern-helper/script/styles', () => ({ teleportStyle: mocks.teleportStyle }));
 vi.mock('react-dom/client', () => ({ createRoot: mocks.createRoot }));
 
-import { mountReactExtensionSettings } from './extension-settings';
+import { mountReactExtensionSettings } from './react';
 
 function stubAdapters() {
   const element = {} as HTMLDivElement;

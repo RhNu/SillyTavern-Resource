@@ -1,5 +1,5 @@
-import { createLogger } from '@util/common';
-import { getHostDomContext, getInteractionDocuments } from '@util/host';
+import { createLogger } from '@util/core/logger';
+import { getHostDomContext, getInteractionDocuments } from '@util/st/dom/host';
 import { SCRIPT_BUTTON_START, SCRIPT_BUTTON_STOP, SCRIPT_DISPLAY_NAME, SILENT_AUDIO_URL } from './constants';
 
 const logger = createLogger(SCRIPT_DISPLAY_NAME);

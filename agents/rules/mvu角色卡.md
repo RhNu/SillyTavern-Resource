@@ -87,7 +87,7 @@ $(() => {
 
 MVU 角色卡可能会设置状态栏界面, 因此`初始模板/角色卡/新建为src文件夹中的文件夹/界面`中提供了状态栏模板.
 
-此外, 模板在 `util/mvu.ts` 中定义了 `defineMvuDataStore` 函数, 这是模板推荐的 Vue 访问 MVU 变量方式:
+此外, 模板在 `util/tavern-helper/state/mvu-store.ts` 中定义了 `defineMvuDataStore` 函数, 这是模板推荐的 React 访问 MVU 变量方式:
 
 ```ts
 function defineMvuDataStore<T extends z.ZodObject>(
@@ -102,7 +102,7 @@ function defineMvuDataStore<T extends z.ZodObject>(
 例如, `示例/角色卡示例示例/store.ts` 中定义了访问 `useDataStore` 函数:
 
 ```ts
-import { defineMvuDataStore } from '@util/mvu';
+import { defineMvuDataStore } from '@util/tavern-helper/state/mvu-store';
 export const useDataStore = defineMvuDataStore(Schema, { type: 'message', message_id: getCurrentMessageId() });
 ```
 

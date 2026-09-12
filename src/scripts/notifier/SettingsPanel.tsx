@@ -1,6 +1,6 @@
-import { createLogger } from '@util/common';
-import { ExtensionSettingDrawer } from '@util/react/components/ExtensionSettingDrawer';
-import { HelpMarker } from '@util/react/components/HelpMarker';
+import { createLogger } from '@util/core/logger';
+import { ExtensionSettingDrawer } from '@util/ui/extension-settings/ExtensionSettingDrawer';
+import { HelpMarker } from '@util/ui/popup/HelpMarker';
 import { useState } from 'react';
 import { SCRIPT_DISPLAY_NAME } from './constants';
 import type { NotifierRuntime } from './runtime';

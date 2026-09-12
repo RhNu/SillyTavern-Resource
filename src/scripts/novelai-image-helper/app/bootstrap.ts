@@ -1,4 +1,4 @@
-import { teleportStyle } from '@util/tavern-helper/dom/styles';
+import { teleportStyle } from '@util/tavern-helper/script/styles';
 import { matchAnchors } from '../domain/anchor';
 import { mountMessageCards } from '../ui/message-cards';
 import { mountProgressToast } from '../ui/progress-toast';

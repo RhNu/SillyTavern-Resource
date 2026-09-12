@@ -1,4 +1,4 @@
-import type { Logger } from '@util/common';
+import type { Logger } from '@util/core/logger';
 
 import { LAST_SCAN_TTL_MS, SCAN_PROMPT_ID_PREFIX } from './constants';
 import { registerAllTheBookCommand } from './command';

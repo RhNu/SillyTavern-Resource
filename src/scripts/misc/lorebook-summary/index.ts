@@ -1,5 +1,5 @@
 import { openPanel } from './actions';
-import { extensionMenuItem } from '@util/st/ui/extension-menu/builder';
+import { extensionMenuItem } from '@util/ui/extension-menu/builder';
 import { BUTTON_CONTAINER_ID, BUTTON_ID } from './constants';
 
 const init = (): void => {

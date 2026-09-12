@@ -1,4 +1,4 @@
-import { createLogger } from '@util/common';
+import { createLogger } from '@util/core/logger';
 import { SCRIPT_DISPLAY_NAME } from './constants';
 
 const logger = createLogger(SCRIPT_DISPLAY_NAME);

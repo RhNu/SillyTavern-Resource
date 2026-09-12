@@ -1,4 +1,4 @@
-import { displayPopup } from '@util/st/ui/popup/shortcuts';
+import { displayPopup } from './shortcuts';
 
 export type HelpMarkerProps = {
   text: string;

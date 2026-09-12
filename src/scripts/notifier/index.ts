@@ -1,5 +1,5 @@
-import { createLogger } from '@util/common';
-import { mountReactExtensionSettings } from '@util/react/extension-settings';
+import { createLogger } from '@util/core/logger';
+import { mountReactExtensionSettings } from '@util/ui/extension-settings/react';
 import { createElement } from 'react';
 import { SCRIPT_DISPLAY_NAME } from './constants';
 import './index.scss';

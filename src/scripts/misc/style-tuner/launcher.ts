@@ -1,7 +1,7 @@
-import { createLogger } from '@util/common';
-import { openReactPopup, type ReactPopupSession } from '@util/react/st-popup';
-import { extensionMenuItem } from '@util/st/ui/extension-menu/builder';
-import { teleportStyle } from '@util/tavern-helper/dom/styles';
+import { createLogger } from '@util/core/logger';
+import { openReactPopup, type ReactPopupSession } from '@util/ui/popup/react';
+import { extensionMenuItem } from '@util/ui/extension-menu/builder';
+import { teleportStyle } from '@util/tavern-helper/script/styles';
 import { createElement } from 'react';
 import { SCRIPT_DISPLAY_NAME, STYLE_TUNER_IDS } from './constants';
 import SettingsPanel from './SettingsPanel';

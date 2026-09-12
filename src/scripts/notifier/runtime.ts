@@ -1,4 +1,4 @@
-import { createLogger } from '@util/common';
+import { createLogger } from '@util/core/logger';
 import _ from 'lodash';
 import { notifierBus } from './bus';
 import { NOTIFIER_BUS_GLOBAL_KEY, SCRIPT_DISPLAY_NAME } from './constants';

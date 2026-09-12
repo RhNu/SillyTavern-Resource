@@ -1,5 +1,5 @@
-import { getHostWindow } from '@util/host';
-import { teleportStyle } from '@util/tavern-helper/dom/styles';
+import { getHostWindow } from '@util/st/dom/host';
+import { teleportStyle } from '@util/tavern-helper/script/styles';
 import './index.scss';
 import { attachSyncTracker } from './tracker';
 import { createSyncIndicatorView } from './view';

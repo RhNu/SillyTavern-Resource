@@ -1,6 +1,7 @@
-import { mountDraggableFloatingSurface, type FloatingPercentPosition } from '@util/floating';
-import { getHostDomContext } from '@util/host';
-import { createScriptSettingsSync, type ScriptSettingsSync } from '@util/script-settings';
+import type { FloatingPercentPosition } from '@util/ui/floating/position';
+import { mountDraggableFloatingSurface } from '@util/ui/floating/surface';
+import { getHostDomContext } from '@util/st/dom/host';
+import { createScriptSettingsSync, type ScriptSettingsSync } from '@util/tavern-helper/state/script-settings';
 import { z } from 'zod';
 import { createLogger } from '../app/logger';
 import type { NovelAiImageService } from '../app/service';

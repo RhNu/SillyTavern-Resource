@@ -1,38 +1,13 @@
-import { getHostDomContext } from '@util/host';
-import { createScriptIdDiv } from '@util/tavern-helper/dom/script-host';
-
-/**
- * 共享的浮动元素绝对位置。
- *
- * 适用范围：
- * - 用于挂载到宿主文档中的 `position: fixed` 浮层。
- *
- * 不适用范围：
- * - 不是用于任意布局计算的通用几何类型。
- */
-export type FloatingPosition = {
-  x: number;
-  y: number;
-};
-
-/**
- * 共享的百分比浮动位置，按视口边界进行持久化。
- *
- * 适用范围：
- * - 用于宿主挂载浮层的位置持久化。
- */
-export type FloatingPercentPosition = {
-  xPercent: number;
-  yPercent: number;
-};
-
-type FloatingMeasureOptions = {
-  win: Window;
-  element: HTMLElement;
-  padding?: number;
-  fallbackWidth?: number;
-  fallbackHeight?: number;
-};
+import {
+  clampFloatingPosition,
+  fromFloatingPercentPosition,
+  toFloatingPercentPosition,
+  type FloatingPosition,
+  type FloatingPercentPosition,
+  type FloatingViewport,
+} from './position';
+import { getHostDomContext } from '@util/st/dom/host';
+import { createScriptIdDiv } from '@util/tavern-helper/script/host';
 
 type FloatingContext = {
   doc: Document;
@@ -77,10 +52,6 @@ export type MountedDraggableFloatingSurface = {
   destroy: () => void;
 };
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(value, max));
-}
-
 function isFloatingPercentPosition(value: unknown): value is FloatingPercentPosition {
   return (
     Boolean(value) &&
@@ -106,73 +77,6 @@ function matchesDragHandle(target: HTMLElement | null, root: HTMLElement, dragHa
   return dragHandle === target || dragHandle.contains(target);
 }
 
-function getFloatingBounds(options: FloatingMeasureOptions) {
-  const { win, element, padding = 8, fallbackWidth = 320, fallbackHeight = 160 } = options;
-  const width = element.offsetWidth || Math.round(element.getBoundingClientRect().width) || fallbackWidth;
-  const height = element.offsetHeight || Math.round(element.getBoundingClientRect().height) || fallbackHeight;
-
-  const minX = padding;
-  const minY = padding;
-  const maxX = Math.max(minX, win.innerWidth - width - padding);
-  const maxY = Math.max(minY, win.innerHeight - height - padding);
-
-  return {
-    minX,
-    minY,
-    maxX,
-    maxY,
-    rangeX: Math.max(0, maxX - minX),
-    rangeY: Math.max(0, maxY - minY),
-  };
-}
-
-/**
- * 将浮层位置限制在视口内。
- *
- * 适用范围：
- * - 宿主文档中的固定定位浮层。
- */
-export function clampFloatingPosition(position: FloatingPosition, options: FloatingMeasureOptions): FloatingPosition {
-  const bounds = getFloatingBounds(options);
-  return {
-    x: clamp(position.x, bounds.minX, bounds.maxX),
-    y: clamp(position.y, bounds.minY, bounds.maxY),
-  };
-}
-
-/**
- * 将绝对浮动位置转换为可持久化的百分比位置。
- */
-export function toFloatingPercentPosition(
-  position: FloatingPosition,
-  options: FloatingMeasureOptions,
-): FloatingPercentPosition {
-  const bounds = getFloatingBounds(options);
-  const clampedPosition = clampFloatingPosition(position, options);
-
-  return {
-    xPercent: bounds.rangeX === 0 ? 100 : clamp(((clampedPosition.x - bounds.minX) / bounds.rangeX) * 100, 0, 100),
-    yPercent: bounds.rangeY === 0 ? 100 : clamp(((clampedPosition.y - bounds.minY) / bounds.rangeY) * 100, 0, 100),
-  };
-}
-
-/**
- * 根据已持久化的百分比位置恢复绝对浮动位置。
- */
-export function fromFloatingPercentPosition(
-  position: FloatingPercentPosition,
-  options: FloatingMeasureOptions,
-): FloatingPosition {
-  const bounds = getFloatingBounds(options);
-  return clampFloatingPosition(
-    {
-      x: bounds.minX + bounds.rangeX * (clamp(position.xPercent, 0, 100) / 100),
-      y: bounds.minY + bounds.rangeY * (clamp(position.yPercent, 0, 100) / 100),
-    },
-    options,
-  );
-}
-
 /**
  * 挂载一个带共享拖拽和持久化行为的宿主文档浮层。
  *
@@ -182,7 +86,7 @@ export function fromFloatingPercentPosition(
  *
  * 不适用范围：
  * - 不负责菜单对齐、业务状态或弹窗语义。
- * - 不替代 `tavern-helper/dom/script-host` 中用于隔离渲染的 `createScriptIdIframe()`。
+ * - 不替代 `tavern-helper/script/host` 中用于隔离渲染的 `createScriptIdIframe()`。
  */
 export function mountDraggableFloatingSurface(
   options: MountDraggableFloatingSurfaceOptions = {},
@@ -220,13 +124,14 @@ export function mountDraggableFloatingSurface(
   }
 
   const context: FloatingContext = { doc, win, root };
-  const measureOptions: FloatingMeasureOptions = {
-    win,
-    element: root,
+  // Measure on each operation: resizing and content changes alter the available travel range.
+  const measureViewport = (): FloatingViewport => ({
+    viewportWidth: win.innerWidth,
+    viewportHeight: win.innerHeight,
+    width: root.offsetWidth || Math.round(root.getBoundingClientRect().width) || (options.fallbackWidth ?? 320),
+    height: root.offsetHeight || Math.round(root.getBoundingClientRect().height) || (options.fallbackHeight ?? 160),
     padding: options.padding,
-    fallbackWidth: options.fallbackWidth,
-    fallbackHeight: options.fallbackHeight,
-  };
+  });
 
   let destroyed = false;
   let currentPosition: FloatingPosition = { x: 0, y: 0 };
@@ -245,18 +150,18 @@ export function mountDraggableFloatingSurface(
       return;
     }
 
-    const nextPercent = toFloatingPercentPosition(currentPosition, measureOptions);
+    const nextPercent = toFloatingPercentPosition(currentPosition, measureViewport());
     lastPercentPosition = nextPercent;
     options.savePosition?.(nextPercent, currentPosition, context);
   };
 
   const moveTo = (position: FloatingPosition, persist = false): FloatingPosition => {
-    currentPosition = clampFloatingPosition(position, measureOptions);
+    currentPosition = clampFloatingPosition(position, measureViewport());
     root.style.left = `${Math.round(currentPosition.x)}px`;
     root.style.top = `${Math.round(currentPosition.y)}px`;
 
     if (!lastPercentPosition) {
-      lastPercentPosition = toFloatingPercentPosition(currentPosition, measureOptions);
+      lastPercentPosition = toFloatingPercentPosition(currentPosition, measureViewport());
     }
 
     emitPosition(persist);
@@ -267,12 +172,12 @@ export function mountDraggableFloatingSurface(
     const loadedPosition = options.loadPosition?.(context);
     if (isFloatingPercentPosition(loadedPosition)) {
       lastPercentPosition = loadedPosition;
-      return fromFloatingPercentPosition(loadedPosition, measureOptions);
+      return fromFloatingPercentPosition(loadedPosition, measureViewport());
     }
 
     if (loadedPosition) {
-      const absolutePosition = clampFloatingPosition(loadedPosition, measureOptions);
-      lastPercentPosition = toFloatingPercentPosition(absolutePosition, measureOptions);
+      const absolutePosition = clampFloatingPosition(loadedPosition, measureViewport());
+      lastPercentPosition = toFloatingPercentPosition(absolutePosition, measureViewport());
       return absolutePosition;
     }
 
@@ -280,8 +185,8 @@ export function mountDraggableFloatingSurface(
       x: win.innerWidth - ((options.fallbackWidth ?? 320) + (options.padding ?? 8)),
       y: Math.max(options.padding ?? 8, Math.round(win.innerHeight * 0.2)),
     };
-    const absolutePosition = clampFloatingPosition(defaultPosition, measureOptions);
-    lastPercentPosition = toFloatingPercentPosition(absolutePosition, measureOptions);
+    const absolutePosition = clampFloatingPosition(defaultPosition, measureViewport());
+    lastPercentPosition = toFloatingPercentPosition(absolutePosition, measureViewport());
     return absolutePosition;
   };
 
@@ -353,7 +258,7 @@ export function mountDraggableFloatingSurface(
 
   const onResize = () => {
     const nextPosition = lastPercentPosition
-      ? fromFloatingPercentPosition(lastPercentPosition, measureOptions)
+      ? fromFloatingPercentPosition(lastPercentPosition, measureViewport())
       : currentPosition;
     moveTo(nextPosition, true);
   };
@@ -373,7 +278,7 @@ export function mountDraggableFloatingSurface(
     moveTo,
     recalculatePosition(persist = true) {
       const nextPosition = lastPercentPosition
-        ? fromFloatingPercentPosition(lastPercentPosition, measureOptions)
+        ? fromFloatingPercentPosition(lastPercentPosition, measureViewport())
         : currentPosition;
       return moveTo(nextPosition, persist);
     },

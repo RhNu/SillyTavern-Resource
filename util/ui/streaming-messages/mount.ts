@@ -1,32 +1,9 @@
-import { createScriptIdDiv, createScriptIdIframe } from '@util/tavern-helper/dom/script-host';
-import { teleportStyle } from '@util/tavern-helper/dom/styles';
-import { createContext, createElement, useContext, type ReactNode } from 'react';
+import { StreamingMessageProvider, type StreamingMessageContext } from './context';
+import { createScriptIdDiv, createScriptIdIframe } from '@util/tavern-helper/script/host';
+import { teleportStyle } from '@util/tavern-helper/script/styles';
+import { uuidv4 } from '@util/core/uuid';
+import { createElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { uuidv4 } from './common';
-
-/**
- * 通过 `mountStreamingMessages` 挂载的流式界面将会得到的响应式数据
- */
-export type StreamingMessageContext = {
-  prefix: string;
-  host_id: string;
-
-  message_id: number;
-  message: string;
-  during_streaming: boolean;
-};
-
-const streaming_message_context = createContext<StreamingMessageContext | null>(null);
-
-export function injectStreamingMessageContext(): Readonly<StreamingMessageContext> {
-  const context = useContext(streaming_message_context);
-  if (!context) {
-    throw new Error(`injectStreamingMessageContext must be used inside mountStreamingMessages provider.`);
-  }
-  return context;
-}
-
-export const useStreamingMessageContext = injectStreamingMessageContext;
 
 /**
  * 将组件作为流式楼层界面挂载到酒馆各个楼层, 替换掉酒馆原生的楼层正文显示.
@@ -147,7 +124,7 @@ export function mountStreamingMessages(
         if (!state.root) {
           return;
         }
-        state.root.render(createElement(streaming_message_context.Provider, { value: state.data }, react_node));
+        state.root.render(createElement(StreamingMessageProvider, { value: state.data }, react_node));
       },
       destroy: () => {
         const $th_streaming = $message_element.find('.TH-streaming');

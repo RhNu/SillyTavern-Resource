@@ -1,4 +1,4 @@
-import { useStreamingMessageContext } from '@util/streaming';
+import { useStreamingMessageContext } from '@util/ui/streaming-messages/context';
 import { useEffect, useMemo, useState } from 'react';
 import RoleplayOptions from '../前端界面示例/选择框';
 import Segment from './分段';

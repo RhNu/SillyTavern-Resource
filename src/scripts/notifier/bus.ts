@@ -1,5 +1,5 @@
-import { createLogger } from '@util/common';
-import { getHostWindow } from '@util/host';
+import { createLogger } from '@util/core/logger';
+import { getHostWindow } from '@util/st/dom/host';
 import { SCRIPT_DISPLAY_NAME } from './constants';
 import { sendSystemNotification } from './notification';
 import { useNotifierStore } from './store';

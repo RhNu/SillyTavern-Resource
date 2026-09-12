@@ -1,4 +1,4 @@
-import { getHostWindow } from '@util/host';
+import { getHostWindow } from '@util/st/dom/host';
 import type { TrackerHandle, TrackerListener, TrackerSnapshot, SyncVisualState } from './types';
 
 const TRACKER_KEY = '__TH_SYNC_INDICATOR_TRACKER__';

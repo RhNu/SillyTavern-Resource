@@ -1,4 +1,4 @@
-import { slashCommand, slashCommandArgumentTypes } from '@util/slash-command';
+import { slashCommand, slashCommandArgumentTypes } from '@util/st/slash-command';
 
 /**
  * Hides messages in the current chat from the specified start ID to the end ID.

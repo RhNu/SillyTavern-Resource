@@ -1,5 +1,5 @@
-import type { Logger } from '@util/common';
-import { slashCommand } from '@util/slash-command';
+import type { Logger } from '@util/core/logger';
+import { slashCommand } from '@util/st/slash-command';
 
 import { collectContextWorldbookNames } from './context';
 

@@ -1,5 +1,5 @@
-import { createLogger } from '@util/common';
-import { readVariablesRecord, updateVariablesPath } from '@util/variables';
+import { createLogger } from '@util/core/logger';
+import { readVariablesRecord, updateVariablesPath } from '@util/tavern-helper/state/variables';
 import { klona } from 'klona';
 import _ from 'lodash';
 import { create } from 'zustand';

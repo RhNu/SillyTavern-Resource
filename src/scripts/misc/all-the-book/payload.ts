@@ -1,4 +1,4 @@
-import type { Logger } from '@util/common';
+import type { Logger } from '@util/core/logger';
 
 import { MAX_TOKENS_PER_PROMPT } from './constants';
 import { getStringKeys, normalizeDisplayName } from './text';

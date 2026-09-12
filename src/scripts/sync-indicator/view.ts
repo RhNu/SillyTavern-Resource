@@ -1,4 +1,4 @@
-import { getHostJQuery } from '@util/host';
+import { getHostJQuery } from '@util/st/dom/host';
 import type { SyncIndicatorView, TrackerSnapshot } from './types';
 
 const HOST_SELECTOR = '#user-settings-button .drawer-toggle';
