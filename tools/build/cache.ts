@@ -76,9 +76,9 @@ export function fingerprint(project: Project): { inputHash: string; inputFiles: 
     addGlob(files, 'tsconfig.json');
   } else {
     addGlob(files, 'src/plugins/@types/**/*');
-    addGlob(files, 'tsconfig.plugins.json');
+    addGlob(files, 'src/plugins/tsconfig.json');
   }
-  for (const fixed of ['package.json', 'pnpm-lock.yaml']) addGlob(files, fixed);
+  for (const fixed of ['package.json', 'pnpm-lock.yaml', 'tsconfig.base.json']) addGlob(files, fixed);
 
   const inputFiles = [...files].sort();
   const hash = createHash('sha256');

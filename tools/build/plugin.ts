@@ -23,7 +23,7 @@ export async function buildPluginProject(project: Project, context: BuildContext
     target: 'node18',
     format: 'cjs',
     dts: false,
-    tsconfig: path.join(rootDir, 'tsconfig.plugins.json'),
+    tsconfig: path.join(rootDir, 'src', 'plugins', 'tsconfig.json'),
     clean: false,
     minify: context.isProduction,
     sourcemap: context.mode === 'development',
