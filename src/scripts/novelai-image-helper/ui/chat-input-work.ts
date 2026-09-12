@@ -25,6 +25,7 @@ export function mountChatInputWork(service: NovelAiImageService): { destroy: () 
     const isGeneration = focus.kind === 'generation';
     const options = {
       progress: workProgressPercent(focus),
+      indeterminate: isGeneration && (focus.status === 'queued' || focus.status === 'running'),
       state: toInputState(focus.status),
       onPause: isGeneration ? () => service.pauseQueue() : undefined,
       onResume: isGeneration ? () => service.resumeQueue() : undefined,

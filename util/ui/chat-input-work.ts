@@ -11,6 +11,8 @@ export type ChatInputWorkState = 'running' | 'paused' | 'cancelling';
 export type ChatInputWorkOptions = {
   /** 0 到 100；省略时显示不定进度。 */
   progress?: number;
+  /** 总进度已知但当前步骤无法量化时，让现有进度条保持活动提示。 */
+  indeterminate?: boolean;
   state?: ChatInputWorkState;
   onPause?: () => void | Promise<void>;
   onResume?: () => void | Promise<void>;
@@ -109,16 +111,19 @@ export function showChatInputWork(initialOptions: ChatInputWorkOptions = {}): Ch
     form.classList.toggle(ACTIVE_CLASS, enabled);
     form.classList.toggle(PAUSED_CLASS, enabled && options.state === 'paused');
     form.classList.toggle(CANCELLING_CLASS, enabled && options.state === 'cancelling');
-    form.classList.toggle(INDETERMINATE_CLASS, enabled && clampProgress(options.progress) === undefined);
+    const progress = clampProgress(options.progress);
+    const indeterminate = options.indeterminate || progress === undefined;
+    form.classList.toggle(INDETERMINATE_CLASS, enabled && indeterminate);
     pauseButton.dataset.utilChatInputWorkPausable = String(enabled && Boolean(options.onPause));
     continueButton.dataset.utilChatInputWorkPausable = String(enabled && Boolean(options.onResume));
     stopButton.dataset.utilChatInputWorkStoppable = String(enabled && Boolean(options.onStop));
     if (!enabled) return;
 
     form.setAttribute('aria-busy', 'true');
-    const progress = clampProgress(options.progress);
     textarea.style.setProperty('--progDone', '0');
-    textarea.style.setProperty('--prog', `${progress ?? 32}%`);
+    // 队列可能只知道“完成了几张”，单张图片执行期间会一直是 0%；保留最小宽度才能看见活动提示。
+    const keepVisible = indeterminate || options.state !== 'running';
+    textarea.style.setProperty('--prog', `${keepVisible ? Math.max(progress ?? 0, 12) : progress}%`);
   };
 
   const onButtonClick = (event: Event): void => {

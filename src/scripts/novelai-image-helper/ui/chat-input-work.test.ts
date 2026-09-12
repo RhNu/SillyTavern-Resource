@@ -41,7 +41,7 @@ const generation: WorkProgressInput = {
   status: 'running',
   title: '生图',
   detail: '第一张',
-  completed: 1,
+  completed: 0,
   total: 4,
   cancel: { label: '中断', run: vi.fn() },
 };
@@ -50,7 +50,7 @@ test('blocks the chat input while generation is active and wires queue controls'
   const { progress, service, view } = setup();
   progress.upsert(generation);
   expect(showChatInputWork).toHaveBeenCalledOnce();
-  expect(options.at(-1)).toMatchObject({ progress: 25, state: 'running' });
+  expect(options.at(-1)).toMatchObject({ progress: 0, indeterminate: true, state: 'running' });
   options.at(-1)?.onPause?.();
   options.at(-1)?.onStop?.();
   expect(service.pauseQueue).toHaveBeenCalledOnce();
@@ -58,7 +58,7 @@ test('blocks the chat input while generation is active and wires queue controls'
 
   progress.upsert({ ...generation, status: 'paused' });
   expect(sessions[0].update).toHaveBeenCalled();
-  expect(options.at(-1)).toMatchObject({ progress: 25, state: 'paused' });
+  expect(options.at(-1)).toMatchObject({ progress: 0, indeterminate: false, state: 'paused' });
   options.at(-1)?.onResume?.();
   expect(service.resumeQueue).toHaveBeenCalledOnce();
   view.destroy();
