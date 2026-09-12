@@ -325,10 +325,6 @@ declare namespace SillyTavern {
     cancelButton?: string | boolean;
     /** The number of rows for the input field */
     rows?: number;
-    /** Placeholder text for the main input field */
-    placeholder?: string;
-    /** Tooltip for the main input field or content area */
-    tooltip?: string;
     /** Whether to display the popup in wide mode (wide screen, 1/1 aspect ratio) */
     wide?: boolean;
     /** Whether to display the popup in wider mode (just wider, no height scaling) */
@@ -346,19 +342,17 @@ declare namespace SillyTavern {
     /** Animation speed for the popup (opening, closing, ...) */
     animation?: 'slow' | 'fast' | 'none';
     /** The default result of this popup when Enter is pressed. Can be changed from `POPUP_RESULT.AFFIRMATIVE`. */
-    defaultResult?: number | null;
+    defaultResult?: number;
     /** Custom buttons to add to the popup. If only strings are provided, the buttons will be added with default options, and their result will be in order from `2` onward. */
     customButtons?: CustomPopupButton[] | string[];
     /** Custom inputs to add to the popup. The display below the content and the input box, one by one. */
     customInputs?: CustomPopupInput[];
-    /** Whether Escape may close the popup normally */
-    allowEscapeClose?: boolean;
     /** Handler called before the popup closes, return `false` to cancel the close */
-    onClosing?: (popup: PopupInstance) => boolean | null | void | Promise<boolean | null | void>;
+    onClosing?: (popup: InstanceType<typeof SillyTavern.Popup>) => Promise<boolean | void>;
     /** Handler called after the popup closes, but before the DOM is cleaned up */
-    onClose?: (popup: PopupInstance) => void | Promise<void>;
+    onClose?: (popup: InstanceType<typeof SillyTavern.Popup>) => Promise<void>;
     /** Handler called after the popup opens */
-    onOpen?: (popup: PopupInstance) => void | Promise<void>;
+    onOpen?: (popup: InstanceType<typeof SillyTavern.Popup>) => Promise<void>;
     /** Aspect ratio for the crop popup */
     cropAspect?: number;
     /** Image URL to display in the crop popup */
@@ -368,14 +362,10 @@ declare namespace SillyTavern {
   type CustomPopupButton = {
     /** The text of the button */
     text: string;
-    /** Optional tooltip displayed when hovering over the button */
-    tooltip?: string;
     /** The result of the button - can also be a custom result value to make be able to find out that this button was clicked. If no result is specified, this button will **not** close the popup. */
-    result?: number | null;
+    result?: number;
     /** Optional custom CSS classes applied to the button */
     classes?: string[] | string;
-    /** Optional Font Awesome icon class */
-    icon?: string;
     /** Optional action to perform when the button is clicked */
     action?: () => void;
     /** Whether to append the button to the end of the popup - by default it will be prepended */
@@ -390,84 +380,9 @@ declare namespace SillyTavern {
     /** Optional tooltip icon displayed behind the label */
     tooltip?: string;
     /** The default state when opening the popup (false if not set) */
-    defaultState?: boolean | string;
+    defaultState?: boolean;
     /** The type of the input (default is checkbox) */
-    type?: 'checkbox' | 'text' | 'textarea' | 'number';
-    /** Rows for textarea inputs */
-    rows?: number;
-    /** Minimum value for number inputs */
-    min?: number;
-    /** Maximum value for number inputs */
-    max?: number;
-    /** Step value for number inputs */
-    step?: number;
-    /** Whether the input is disabled */
-    disabled?: boolean;
-  };
-
-  type PopupValue = string | number | boolean | null;
-
-  type PopupInstance = {
-    readonly type: number;
-    readonly id: string;
-    readonly dlg: HTMLDialogElement;
-    readonly body: HTMLDivElement;
-    readonly content: HTMLDivElement;
-    readonly mainInput: HTMLTextAreaElement;
-    readonly inputControls: HTMLDivElement;
-    readonly buttonControls: HTMLDivElement;
-    readonly okButton: HTMLDivElement;
-    readonly cancelButton: HTMLDivElement;
-    readonly closeButton: HTMLDivElement;
-    result?: number | null;
-    value?: PopupValue;
-    inputResults?: Map<string, string | boolean>;
-    show: () => Promise<PopupValue>;
-    complete: (result: number | null) => Promise<PopupValue | undefined>;
-    completeAffirmative: () => Promise<PopupValue | undefined>;
-    completeNegative: () => Promise<PopupValue | undefined>;
-    completeCancelled: () => Promise<PopupValue | undefined>;
-  };
-
-  type ActionLoaderToastMode = 'none' | 'static' | 'stoppable';
-
-  type ActionLoaderOptions = {
-    blocking?: boolean;
-    toastMode?: ActionLoaderToastMode;
-    slug?: string | null;
-    message?: string;
-    title?: string;
-    stopTooltip?: string;
-    overlayContent?: HTMLElement | string | null;
-    onStop?: (() => void | Promise<void>) | null;
-    onHide?: (() => void | Promise<void>) | null;
-  };
-
-  type ActionLoaderHandle = {
-    readonly id: string | undefined;
-    readonly slug: string | null;
-    readonly isActive: boolean;
-    readonly isBlocking: boolean;
-    stop: () => Promise<void>;
-    hide: () => Promise<void>;
-  };
-
-  type ActionLoaderApi = {
-    show: (options?: ActionLoaderOptions) => ActionLoaderHandle;
-    hide: (handle?: ActionLoaderHandle | null) => Promise<boolean>;
-    active: () => ActionLoaderHandle[];
-    get: (id: string) => ActionLoaderHandle | undefined;
-    isBlocking: () => boolean;
-    readonly ToastMode: {
-      readonly NONE: 'none';
-      readonly STATIC: 'static';
-      readonly STOPPABLE: 'stoppable';
-    };
-    readonly Handle: {
-      new (options?: ActionLoaderOptions): ActionLoaderHandle;
-      readonly EMPTY: ActionLoaderHandle;
-    };
-    createOverlay: () => HTMLDivElement;
+    type?: string;
   };
 }
 
@@ -647,11 +562,8 @@ declare const SillyTavern: {
     localize?: boolean,
   ) => Promise<string>;
   readonly registerDataBankScraper: (scraper: any) => Promise<void>;
-  readonly loader: SillyTavern.ActionLoaderApi;
-  /** @deprecated Use `loader.show()` instead. */
   readonly showLoader: () => void;
-  /** @deprecated Use `loader.hide()` instead. */
-  readonly hideLoader: () => Promise<void>;
+  readonly hideLoader: () => Promise<any>;
   readonly mainApi: any;
   /** extension_settings */
   readonly extensionSettings: Record<string, any>;
@@ -697,34 +609,14 @@ declare const SillyTavern: {
       type: number,
       inputValue?: string,
       popupOptions?: SillyTavern.PopupOptions,
-    ): SillyTavern.PopupInstance;
-    readonly show: {
-      input: (
-        header: string | null,
-        text?: string | null,
-        defaultValue?: string,
-        popupOptions?: SillyTavern.PopupOptions,
-      ) => Promise<string | null>;
-      confirm: (
-        header: string | null,
-        text?: string | null,
-        popupOptions?: SillyTavern.PopupOptions,
-      ) => Promise<number | null>;
-      text: (
-        header: string | null,
-        text?: string | null,
-        popupOptions?: SillyTavern.PopupOptions,
-      ) => Promise<number | null>;
-    };
-    readonly util: {
-      readonly popups: SillyTavern.PopupInstance[];
-      lastResult: {
-        value: SillyTavern.PopupValue;
-        result: number | null;
-        inputResults?: Map<string, string | boolean>;
-      } | null;
-      isPopupOpen: () => boolean;
-      getTopmostModalLayer: () => HTMLElement;
+    ): {
+      dlg: HTMLDialogElement;
+
+      show: () => Promise<void>;
+      complete: (result: number) => Promise<void>;
+      completeAffirmative: () => Promise<void>;
+      completeNegative: () => Promise<void>;
+      completeCancelled: () => Promise<void>;
     };
   };
   readonly POPUP_TYPE: {
@@ -737,7 +629,7 @@ declare const SillyTavern: {
   readonly POPUP_RESULT: {
     AFFIRMATIVE: number;
     NEGATIVE: number;
-    CANCELLED: null;
+    CANCELLED: number;
     CUSTOM1: number;
     CUSTOM2: number;
     CUSTOM3: number;
@@ -753,7 +645,7 @@ declare const SillyTavern: {
     type: number,
     inputValue?: string,
     popupOptions?: SillyTavern.PopupOptions,
-  ) => Promise<SillyTavern.PopupValue>;
+  ) => Promise<number | string | boolean | undefined>;
   /** oai_settings */
   readonly chatCompletionSettings: any;
   /** textgenerationwebui_settings */

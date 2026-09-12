@@ -1,8 +1,11 @@
-export type SillyTavernPopupApi = Pick<typeof SillyTavern, 'Popup' | 'POPUP_RESULT' | 'POPUP_TYPE'>;
+import type { SillyTavernPopupApi } from './native-types';
+
+type SillyTavernWithPopupApi = typeof SillyTavern & SillyTavernPopupApi;
 
 export function getSillyTavernPopupApi(): SillyTavernPopupApi {
-  if (!SillyTavern?.Popup || !SillyTavern.POPUP_RESULT || !SillyTavern.POPUP_TYPE) {
+  const api = SillyTavern as SillyTavernWithPopupApi;
+  if (!api?.Popup || !api.POPUP_RESULT || !api.POPUP_TYPE) {
     throw new Error('SillyTavern Popup API is unavailable.');
   }
-  return SillyTavern;
+  return api;
 }

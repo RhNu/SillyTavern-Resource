@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, expectTypeOf, test, vi } from 'vitest';
 import { popup } from './builder';
+import type { NativePopupInstance, NativePopupOptions, NativePopupValue } from './native-types';
 
 type FakeElement = {
   style: Record<string, string>;
@@ -24,7 +25,7 @@ function createFakeElement(): FakeElement {
   return element;
 }
 
-class FakePopup implements SillyTavern.PopupInstance {
+class FakePopup implements NativePopupInstance {
   readonly type: number;
   readonly id = 'popup-id';
   readonly dlg = createFakeElement() as unknown as HTMLDialogElement;
@@ -37,28 +38,28 @@ class FakePopup implements SillyTavern.PopupInstance {
   readonly cancelButton = createFakeElement() as unknown as HTMLDivElement;
   readonly closeButton = createFakeElement() as unknown as HTMLDivElement;
   result?: number | null;
-  value?: SillyTavern.PopupValue;
+  value?: NativePopupValue;
   inputResults?: Map<string, string | boolean>;
 
-  private resolver?: (value: SillyTavern.PopupValue) => void;
+  private resolver?: (value: NativePopupValue) => void;
 
   constructor(
     readonly popupContent: JQuery<HTMLElement> | string | Element,
     type: number,
     readonly inputValue = '',
-    readonly options: SillyTavern.PopupOptions = {},
+    readonly options: NativePopupOptions = {},
   ) {
     this.type = type;
   }
 
-  async show(): Promise<SillyTavern.PopupValue> {
+  async show(): Promise<NativePopupValue> {
     await this.options.onOpen?.(this);
     return await new Promise(resolve => {
       this.resolver = resolve;
     });
   }
 
-  async complete(result: number | null): Promise<SillyTavern.PopupValue | undefined> {
+  async complete(result: number | null): Promise<NativePopupValue | undefined> {
     this.result = result;
     this.value = result;
     if ((await this.options.onClosing?.(this)) === false) return undefined;
@@ -67,15 +68,15 @@ class FakePopup implements SillyTavern.PopupInstance {
     return this.value;
   }
 
-  completeAffirmative(): Promise<SillyTavern.PopupValue | undefined> {
+  completeAffirmative(): Promise<NativePopupValue | undefined> {
     return this.complete(1);
   }
 
-  completeNegative(): Promise<SillyTavern.PopupValue | undefined> {
+  completeNegative(): Promise<NativePopupValue | undefined> {
     return this.complete(0);
   }
 
-  completeCancelled(): Promise<SillyTavern.PopupValue | undefined> {
+  completeCancelled(): Promise<NativePopupValue | undefined> {
     return this.complete(null);
   }
 }

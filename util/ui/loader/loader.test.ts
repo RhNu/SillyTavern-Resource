@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, expectTypeOf, test, vi } from 'vitest';
 import { showLoader, withLoader } from './loader';
+import type { NativeLoaderHandle, NativeLoaderOptions } from './native-types';
 
-class FakeLoaderHandle implements SillyTavern.ActionLoaderHandle {
+class FakeLoaderHandle implements NativeLoaderHandle {
   readonly id = 'loader-1';
   readonly slug: string | null;
   readonly isBlocking: boolean;
@@ -17,7 +18,7 @@ class FakeLoaderHandle implements SillyTavern.ActionLoaderHandle {
     this.isActive = false;
   });
 
-  constructor(readonly options: SillyTavern.ActionLoaderOptions) {
+  constructor(readonly options: NativeLoaderOptions) {
     this.slug = options.slug ?? null;
     this.isBlocking = options.blocking ?? true;
   }
@@ -25,7 +26,7 @@ class FakeLoaderHandle implements SillyTavern.ActionLoaderHandle {
 
 function stubLoaderApi() {
   let handle: FakeLoaderHandle | undefined;
-  const show = vi.fn((options: SillyTavern.ActionLoaderOptions = {}) => {
+  const show = vi.fn((options: NativeLoaderOptions = {}) => {
     handle = new FakeLoaderHandle(options);
     return handle;
   });

@@ -1,4 +1,5 @@
 import type { Simplify } from 'type-fest';
+import type { NativePopupInstance, NativePopupOptions } from './native-types';
 
 export type PopupContent = string | Element | JQuery<HTMLElement>;
 export type PopupActionKey = string;
@@ -11,7 +12,7 @@ export type PopupOutcome<TFields extends PopupFieldValues, TAction extends Popup
 export type PopupLifecycleContext<TFields extends PopupFieldValues, TAction extends PopupActionKey> = {
   action: TAction | null;
   fields: TFields;
-  native: SillyTavern.PopupInstance;
+  native: NativePopupInstance;
 };
 
 export type PopupBeforeClose<TFields extends PopupFieldValues, TAction extends PopupActionKey> = (
@@ -30,12 +31,12 @@ export type PopupErrorCallback<TFields extends PopupFieldValues, TAction extends
 ) => void | Promise<void>;
 
 export type PopupPresentationOptions = Omit<
-  SillyTavern.PopupOptions,
+  NativePopupOptions,
   'customButtons' | 'customInputs' | 'onClosing' | 'onClose' | 'onOpen' | 'cropAspect' | 'cropImage'
 >;
 
 export type PopupSession<TFields extends PopupFieldValues, TAction extends PopupActionKey> = {
-  readonly native: SillyTavern.PopupInstance;
+  readonly native: NativePopupInstance;
   readonly closed: Promise<PopupOutcome<TFields, TAction>>;
   readonly isClosed: boolean;
   close(action: TAction): Promise<void>;

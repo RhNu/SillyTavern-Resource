@@ -1,4 +1,37 @@
 import type { Simplify } from 'type-fest';
+import type {
+  SlashCommand,
+  SlashCommandAbortController,
+  SlashCommandArgumentDefaultValue,
+  SlashCommandArgumentProps,
+  SlashCommandArgumentType,
+  SlashCommandArgumentValue,
+  SlashCommandDebugController,
+  SlashCommandNamedArgumentProps,
+  SlashCommandNamedArgumentValue,
+  SlashCommandNamedArguments,
+  SlashCommandParserFlags,
+  SlashCommandProps,
+  SlashCommandReturnValue,
+  SlashCommandScope,
+  SlashCommandUnnamedArguments,
+  ST,
+} from './slash-command-types';
+
+export type {
+  SlashCommand,
+  SlashCommandAbortController,
+  SlashCommandArgument,
+  SlashCommandArgumentProps,
+  SlashCommandArgumentValue,
+  SlashCommandDebugController,
+  SlashCommandNamedArgument,
+  SlashCommandNamedArgumentProps,
+  SlashCommandNamedArguments,
+  SlashCommandParserFlags,
+  SlashCommandProps,
+  SlashCommandScope,
+} from './slash-command-types';
 
 /** 与 SillyTavern `ARGUMENT_TYPE` 对应的小写参数类型表。 */
 export const slashCommandArgumentTypes = {

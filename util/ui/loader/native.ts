@@ -1,11 +1,15 @@
 import { getHostJQuery } from '../../st/dom/host';
+import type { NativeLoaderApi } from './native-types';
 import type { LoaderUpdate } from './types';
 
-export function getSillyTavernLoaderApi(): SillyTavern.ActionLoaderApi {
-  if (!SillyTavern?.loader?.show || !SillyTavern.loader.hide) {
+type SillyTavernWithLoaderApi = typeof SillyTavern & { readonly loader: NativeLoaderApi };
+
+export function getSillyTavernLoaderApi(): NativeLoaderApi {
+  const api = SillyTavern as SillyTavernWithLoaderApi;
+  if (!api?.loader?.show || !api.loader.hide) {
     throw new Error('SillyTavern action loader API is unavailable.');
   }
-  return SillyTavern.loader;
+  return api.loader;
 }
 
 /** 酒馆 1.18.0 没有文字更新接口；将对原生 toast DOM 的依赖集中在此适配层。 */

@@ -1,5 +1,6 @@
 import { getHostDocument } from '@util/st/dom/host';
 import { getSillyTavernPopupApi } from './native';
+import type { NativePopupButton, NativePopupInput, NativePopupInstance } from './native-types';
 import type {
   AddPopupField,
   PopupActionKey,
@@ -21,8 +22,8 @@ type ContentDefinition =
   | { kind: 'html'; value: string }
   | { kind: 'node'; value: Element | JQuery<HTMLElement> };
 
-type FieldDefinition = SillyTavern.CustomPopupInput & { valueType: 'boolean' | 'string' | 'number' };
-type ActionDefinition = { key: string; button: SillyTavern.CustomPopupButton };
+type FieldDefinition = NativePopupInput & { valueType: 'boolean' | 'string' | 'number' };
+type ActionDefinition = { key: string; button: NativePopupButton };
 
 function isJQueryContent(content: PopupContent): content is JQuery<HTMLElement> {
   return typeof content === 'object' && content !== null && 'jquery' in content;
@@ -59,7 +60,7 @@ export function createPopupContentElement(
 }
 
 function readFields<TFields extends PopupFieldValues>(
-  popup: SillyTavern.PopupInstance,
+  popup: NativePopupInstance,
   definitions: FieldDefinition[],
 ): TFields {
   const values = popup.inputResults ?? new Map<string, string | boolean>();
@@ -138,7 +139,7 @@ export class PopupBuilder<TFields extends PopupFieldValues = EmptyFields, TActio
 
   checkbox<const TName extends string>(
     name: TName,
-    options: Omit<SillyTavern.CustomPopupInput, 'id' | 'type' | 'defaultState'> & { defaultValue?: boolean },
+    options: Omit<NativePopupInput, 'id' | 'type' | 'defaultState'> & { defaultValue?: boolean },
   ): PopupBuilder<AddPopupField<TFields, TName, boolean>, TAction> {
     const { defaultValue, ...nativeOptions } = options;
     this.addField({ ...nativeOptions, id: name, type: 'checkbox', defaultState: defaultValue, valueType: 'boolean' });
@@ -147,7 +148,7 @@ export class PopupBuilder<TFields extends PopupFieldValues = EmptyFields, TActio
 
   textField<const TName extends string>(
     name: TName,
-    options: Omit<SillyTavern.CustomPopupInput, 'id' | 'type' | 'defaultState'> & { defaultValue?: string },
+    options: Omit<NativePopupInput, 'id' | 'type' | 'defaultState'> & { defaultValue?: string },
   ): PopupBuilder<AddPopupField<TFields, TName, string>, TAction> {
     const { defaultValue, ...nativeOptions } = options;
     this.addField({ ...nativeOptions, id: name, type: 'text', defaultState: defaultValue, valueType: 'string' });
@@ -156,7 +157,7 @@ export class PopupBuilder<TFields extends PopupFieldValues = EmptyFields, TActio
 
   textarea<const TName extends string>(
     name: TName,
-    options: Omit<SillyTavern.CustomPopupInput, 'id' | 'type' | 'defaultState'> & { defaultValue?: string },
+    options: Omit<NativePopupInput, 'id' | 'type' | 'defaultState'> & { defaultValue?: string },
   ): PopupBuilder<AddPopupField<TFields, TName, string>, TAction> {
     const { defaultValue, ...nativeOptions } = options;
     this.addField({ ...nativeOptions, id: name, type: 'textarea', defaultState: defaultValue, valueType: 'string' });
@@ -165,7 +166,7 @@ export class PopupBuilder<TFields extends PopupFieldValues = EmptyFields, TActio
 
   numberField<const TName extends string>(
     name: TName,
-    options: Omit<SillyTavern.CustomPopupInput, 'id' | 'type' | 'defaultState'> & { defaultValue?: number },
+    options: Omit<NativePopupInput, 'id' | 'type' | 'defaultState'> & { defaultValue?: number },
   ): PopupBuilder<AddPopupField<TFields, TName, number | null>, TAction> {
     const { defaultValue, ...nativeOptions } = options;
     this.addField({
@@ -180,7 +181,7 @@ export class PopupBuilder<TFields extends PopupFieldValues = EmptyFields, TActio
 
   action<const TKey extends string>(
     key: TKey,
-    options: Omit<SillyTavern.CustomPopupButton, 'text' | 'result' | 'action'> & { label: string; primary?: boolean },
+    options: Omit<NativePopupButton, 'text' | 'result' | 'action'> & { label: string; primary?: boolean },
   ): PopupBuilder<TFields, TAction | TKey> {
     if (this.actions.some(action => action.key === key)) throw new Error(`Popup action "${key}" is already defined.`);
     if (this.actions.length === 0) {
@@ -228,7 +229,7 @@ export class PopupBuilder<TFields extends PopupFieldValues = EmptyFields, TActio
       display: api.POPUP_TYPE.DISPLAY,
     }[this.kindValue];
     let latestContext: PopupLifecycleContext<TFields, TAction> | undefined;
-    const createContext = (native: SillyTavern.PopupInstance): PopupLifecycleContext<TFields, TAction> => ({
+    const createContext = (native: NativePopupInstance): PopupLifecycleContext<TFields, TAction> => ({
       action: getAction(native.result) ?? null,
       fields: readFields<TFields>(native, this.fields),
       native,

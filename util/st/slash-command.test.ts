@@ -1,6 +1,22 @@
 import { afterEach, describe, expect, expectTypeOf, test, vi } from 'vitest';
 
-import { slashCommand, slashCommandArgumentTypes, type SlashCommandCallbackContext } from './slash-command';
+import {
+  slashCommand,
+  slashCommandArgumentTypes,
+  type SlashCommand,
+  type SlashCommandAbortController,
+  type SlashCommandArgument,
+  type SlashCommandArgumentProps,
+  type SlashCommandArgumentValue,
+  type SlashCommandCallbackContext,
+  type SlashCommandDebugController,
+  type SlashCommandNamedArgument,
+  type SlashCommandNamedArgumentProps,
+  type SlashCommandNamedArguments,
+  type SlashCommandParserFlags,
+  type SlashCommandProps,
+  type SlashCommandScope,
+} from './slash-command';
 
 function stubSillyTavernSlashCommands() {
   const namedFromProps = vi.fn(
