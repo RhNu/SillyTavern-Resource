@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 const unitTestFiles = [
   'tools/**/*.test.ts',
   'util/**/*.test.ts',
+  'src/shared/**/*.test.ts',
   'src/plugins/**/*.test.ts',
   'src/scripts/**/*.test.ts',
 ];
@@ -11,6 +12,7 @@ const unitTestFiles = [
 export default defineConfig({
   resolve: {
     alias: {
+      '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),
       '@util': fileURLToPath(new URL('./util', import.meta.url)),
     },
   },

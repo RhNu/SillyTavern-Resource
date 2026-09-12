@@ -1,5 +1,5 @@
 import { renderStoryLayout, type StoryLayout } from '../anchors/story-layout';
-import type { LlmMessage } from '../../../../util/llm-requester/contract';
+import type { LlmMessage } from '@shared/llm-requester/contract';
 import { resolveActiveCharacters } from '../domain/binding';
 import { getCurrentBindingContext } from '../platform/tavern/binding-context';
 import type { Settings } from '../settings/schema';

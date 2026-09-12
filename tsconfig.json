@@ -7,6 +7,7 @@
     "outDir": "dist",
     "paths": {
       "@/*": ["./src/scripts/*"],
+      "@shared/*": ["./src/shared/*"],
       "@util/*": ["./util/*"],
       "@scripts/*": ["./src/scripts/*"]
     },
@@ -29,6 +30,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["@types", "examples/初始模板", "examples/示例", "src/scripts", "util", "*.d.ts"],
+  "include": ["@types", "examples/初始模板", "examples/示例", "src/scripts", "src/shared", "util", "*.d.ts"],
   "exclude": ["**/dist/**", "**/node_modules/**"]
 }

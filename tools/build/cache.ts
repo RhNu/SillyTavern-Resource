@@ -67,6 +67,7 @@ export function fingerprint(project: Project): { inputHash: string; inputFiles: 
   addGlob(files, `${toPosix(path.relative(rootDir, project.projectRoot))}/**/*`);
   addGlob(files, 'tools/build/**/*.ts');
   addGlob(files, 'tools/build.ts');
+  addGlob(files, 'src/shared/**/*');
   if (project.area === 'scripts') {
     addGlob(files, 'util/**/*');
     addGlob(files, '@types/**/*');

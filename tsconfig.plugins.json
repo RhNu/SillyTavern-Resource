@@ -5,6 +5,9 @@
     "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "paths": {
+      "@shared/*": ["./src/shared/*"]
+    },
     "allowImportingTsExtensions": true,
     "moduleDetection": "auto",
     "strict": true,

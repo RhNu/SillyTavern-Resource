@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { LlmCredential, LlmProvider } from '../../../../util/llm-requester/contract.js';
+import type { LlmCredential, LlmProvider } from '@shared/llm-requester/contract.js';
 import type { UserDirectoryList } from '../../@types/sillytavern-plugin.js';
 import { PROVIDERS, type ProviderDefinition } from '../providers.ts';
 

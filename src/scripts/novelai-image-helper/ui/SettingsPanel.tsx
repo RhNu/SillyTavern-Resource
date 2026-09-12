@@ -1,6 +1,6 @@
 import { HelpMarker } from '@util/ui/popup/HelpMarker';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { LlmCapabilities, LlmModel } from '../../../../util/llm-requester/contract';
+import type { LlmCapabilities, LlmModel } from '@shared/llm-requester/contract';
 import { createLogger, getErrorMessage, serializeError } from '../app/logger';
 import type { NovelAiImageService } from '../app/service';
 import { MODEL_IDS, SAMPLERS, SCHEDULES, type CharacterBindings, type Settings } from '../settings/schema';

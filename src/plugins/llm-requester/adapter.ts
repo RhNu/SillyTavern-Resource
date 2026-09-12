@@ -9,7 +9,7 @@ import {
   type ToolChoice,
   type ToolSet,
 } from 'ai';
-import type { ParsedLlmGenerateRequest } from '../../../util/llm-requester/contract.js';
+import type { ParsedLlmGenerateRequest } from '@shared/llm-requester/contract.js';
 
 export type GenerateContext = {
   providerId: string;

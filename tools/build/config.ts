@@ -4,6 +4,7 @@ export const rootDir = path.resolve(import.meta.dirname, '..', '..');
 export const srcDir = path.join(rootDir, 'src');
 export const scriptsSrcDir = path.join(srcDir, 'scripts');
 export const pluginsSrcDir = path.join(srcDir, 'plugins');
+export const sharedSrcDir = path.join(srcDir, 'shared');
 export const distDir = path.join(rootDir, 'dist');
 export const scriptsDistDir = path.join(distDir, 'scripts');
 export const pluginsDistDir = path.join(distDir, 'plugins');

@@ -20,9 +20,9 @@ URL 由后端注册表管理；只有 Custom 由调用方提供 Base URL，并�
 `id`、标签和 active 状态。后续请求携带凭证 ID，插件在服务端按 ID 读取对应值，因此同一种 Provider 下保存的多份密钥都可以独立选择。模型列表通过 OpenAI
 Node SDK 的 `models.list()` 获取，生成通过 Vercel AI SDK 的 `generateText()` 完成。
 
-请求协议的 Zod schema 和浏览器客户端位于 `util/llm-requester/`。消息数组允许最后一条消息为
-`assistant`，用于支持 OpenAI-compatible 服务提供的 assistant prefill。工具没有服务端
-`execute`，调用方负责处理返回的 tool call。
+请求协议的 Zod schema 和浏览器客户端位于 `src/shared/llm-requester/`，通过 `@shared/llm-requester/*`
+导入，且不作为独立项目构建。消息数组允许最后一条消息为 `assistant`，用于支持 OpenAI-compatible 服务提供的 assistant
+prefill。工具没有服务端 `execute`，调用方负责处理返回的 tool call。
 
 ## 部署
 

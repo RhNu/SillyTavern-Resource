@@ -27,6 +27,7 @@ export function isLocalOrAliasedRequest(request: string): boolean {
     request.startsWith('.') ||
     request.startsWith('/') ||
     request.startsWith('@/') ||
+    request.startsWith('@shared/') ||
     request.startsWith('@scripts/') ||
     request.startsWith('@util/') ||
     request.startsWith('http://') ||

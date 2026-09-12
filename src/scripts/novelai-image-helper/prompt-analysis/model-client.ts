@@ -3,7 +3,7 @@ import { PromptAnalysisResponseSchema, promptAnalysisJsonSchema, type PromptAnal
 import { createLogger } from '../app/logger';
 import type { Settings } from '../settings/schema';
 import { assemblePromptAnalysisMessages } from './template-assembler';
-import { LlmRequesterClient } from '../../../../util/llm-requester/client';
+import { LlmRequesterClient } from '@shared/llm-requester/client';
 
 const logger = createLogger('prompt-analysis/model-client');
 

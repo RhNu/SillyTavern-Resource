@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { LlmModel } from '../../../util/llm-requester/contract.js';
+import type { LlmModel } from '@shared/llm-requester/contract.js';
 import type { ResolvedConnection } from './platform/sillytavern-runtime.ts';
 
 export async function listOpenAiCompatibleModels(

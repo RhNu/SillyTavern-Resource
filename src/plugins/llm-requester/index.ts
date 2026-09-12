@@ -7,7 +7,7 @@ import {
   LlmModelsResponseSchema,
   type LlmConnection,
   type LlmProvider,
-} from '../../../util/llm-requester/contract.js';
+} from '@shared/llm-requester/contract.js';
 import { generateOpenAiCompatible } from './adapter.ts';
 import { describeError, LlmRequesterError, normalizeError, sendError, validationError } from './errors.ts';
 import { listOpenAiCompatibleModels } from './models.ts';

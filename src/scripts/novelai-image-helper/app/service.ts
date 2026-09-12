@@ -17,7 +17,7 @@ import { collectCleanedFragments } from '../prompt-analysis/context-cleaner';
 import { PromptModelClient } from '../prompt-analysis/model-client';
 import { NovelAiClient } from '../platform/imggen-novelai/client';
 import { SettingsStore } from '../settings/store';
-import { LlmRequesterClient } from '../../../../util/llm-requester/client';
+import { LlmRequesterClient } from '@shared/llm-requester/client';
 import { queueSnapshotToProgress, WorkProgressStore } from './work-progress';
 
 const logger = createLogger('app/service');
