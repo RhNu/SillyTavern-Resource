@@ -1,0 +1,31 @@
+button.th-help-marker {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.25em;
+  min-width: 1.25em;
+  height: 1.25em;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #d8d8d8) 72%, transparent);
+  cursor: pointer;
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+button.th-help-marker:hover,
+button.th-help-marker:focus-visible {
+  background: transparent;
+  color: var(--SmartThemeQuoteColor, var(--SmartThemeBodyColor, #d8d8d8));
+}
+
+button.th-help-marker:focus-visible {
+  outline: 2px solid var(--SmartThemeQuoteColor, var(--SmartThemeBodyColor, #d8d8d8));
+  outline-offset: 2px;
+}

@@ -1,4 +1,5 @@
 import { displayPopup } from './shortcuts';
+import './HelpMarker.css';
 
 export type HelpMarkerProps = {
   text: string;
