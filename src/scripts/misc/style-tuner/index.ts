@@ -1,7 +1,6 @@
 import { createLogger } from '@util/core/logger';
 import { SCRIPT_DISPLAY_NAME } from './constants';
 import { initializeStyleTunerLauncher } from './launcher';
-import { notify } from './notify';
 import { loadStyleTunerSettings } from './settings';
 import { applyStyleTuners, removeAllStyleTuners } from './styles';
 
@@ -19,7 +18,7 @@ function initialize(): void {
 
   const launcher = initializeStyleTunerLauncher();
 
-  notify('success', '已就绪，可在魔法棒菜单中调整样式。');
+  // notify('success', '已就绪，可在魔法棒菜单中调整样式。');
 
   const destroy = () => {
     launcher.destroy();
@@ -35,7 +34,7 @@ function initialize(): void {
     .off('pagehide.styletuner')
     .on('pagehide.styletuner', () => {
       logger.info('清理样式微调器。');
-      notify('info', '已卸载，注入的样式已清理。');
+      // notify('info', '已卸载，注入的样式已清理。');
       destroy();
     });
 }
